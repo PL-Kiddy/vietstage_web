@@ -42,9 +42,12 @@ const Navbar = () => {
 
         {/* Right side */}
         <div className="flex items-center gap-sm">
-          <button className="bg-primary text-on-primary px-lg py-sm rounded-lg font-label-md text-label-md hover:opacity-90 transition-opacity active:scale-95 hidden sm:block">
-            Đăng nhập Quản lý
-          </button>
+          <Link
+            to="/login"
+            className="bg-primary text-on-primary px-lg py-sm rounded-lg font-label-md text-label-md hover:opacity-90 transition-opacity active:scale-95 hidden sm:block"
+          >
+            Đăng nhập
+          </Link>
 
           {/* Mobile Menu Toggle */}
           <button
@@ -82,9 +85,13 @@ const Navbar = () => {
                   {link.label}
                 </a>
               ))}
-              <button className="bg-primary text-on-primary px-lg py-sm rounded-lg font-label-md text-label-md hover:opacity-90 transition-opacity w-full sm:hidden">
-                Đăng nhập Quản lý
-              </button>
+              <Link
+                to="/login"
+                className="bg-primary text-on-primary px-lg py-sm rounded-lg font-label-md text-label-md hover:opacity-90 transition-opacity w-full sm:hidden text-center"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Đăng nhập
+              </Link>
             </div>
           </motion.div>
         )}

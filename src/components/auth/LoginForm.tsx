@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { User, Lock, Eye, EyeOff, CheckCircle, XCircle, X } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { authenticateUser } from '../../data/mockUsers';
 
 interface ToastState {
   visible: boolean;
@@ -9,6 +10,7 @@ interface ToastState {
 }
 
 const LoginForm = () => {
+  const navigate = useNavigate();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -29,11 +31,28 @@ const LoginForm = () => {
   const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    // Simulate login logic
-    if (username.trim() && password.trim()) {
-      showToast('success', 'Đăng nhập thành công! Đang chuyển hướng...');
-    } else {
+    if (!username.trim() || !password.trim()) {
       showToast('error', 'Vui lòng nhập đầy đủ tên đăng nhập và mật khẩu.');
+      return;
+    }
+
+    const user = authenticateUser(username.trim(), password);
+
+    if (user) {
+      showToast(
+        'success',
+        `Đăng nhập thành công! Xin chào ${user.name}. Đang chuyển hướng...`
+      );
+      // Redirect based on role after toast displays
+      setTimeout(() => {
+        if (user.role === 'admin') {
+          navigate('/admin');
+        } else {
+          navigate('/instructor');
+        }
+      }, 1500);
+    } else {
+      showToast('error', 'Email hoặc mật khẩu không chính xác.');
     }
   };
 
