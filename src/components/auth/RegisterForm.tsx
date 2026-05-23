@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
-import { ChevronDown, CheckCircle, XCircle, X } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { ChevronDown, CheckCircle, XCircle, X, ArrowLeft } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { registerUser } from '../../data/mockUsers';
 
 interface ToastState {
   visible: boolean;
@@ -9,6 +10,7 @@ interface ToastState {
 }
 
 const RegisterForm = () => {
+  const navigate = useNavigate();
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -45,7 +47,22 @@ const RegisterForm = () => {
       return;
     }
 
-    showToast('success', 'Đăng ký thành công! Đang chuyển hướng...');
+    const success = registerUser({
+      email: email.trim(),
+      password,
+      role: 'instructor', // Default role for standard registration is instructor
+      name: fullName.trim(),
+    });
+
+    if (!success) {
+      showToast('error', 'Email này đã được đăng ký trước đó.');
+      return;
+    }
+
+    showToast('success', 'Đăng ký thành công! Đang chuyển hướng đến trang tổng quan...');
+    setTimeout(() => {
+      navigate('/instructor');
+    }, 1500);
   };
 
   return (
@@ -78,7 +95,16 @@ const RegisterForm = () => {
       </div>
 
       {/* Form Card */}
-      <div className="w-full max-w-md bg-white p-lg md:p-xl rounded-xl shadow-[0px_4px_20px_rgba(44,62,80,0.05)] border border-outline-variant/10">
+      <div className="w-full max-w-md bg-white p-lg md:p-xl rounded-xl shadow-[0px_4px_20px_rgba(44,62,80,0.05)] border border-outline-variant/10 relative">
+        {/* Back to Login Button */}
+        <Link
+          to="/login"
+          className="inline-flex items-center gap-xs text-on-surface-variant hover:text-primary font-label-md text-sm mb-lg transition-colors group"
+        >
+          <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+          Quay lại đăng nhập
+        </Link>
+
         {/* Header */}
         <header className="mb-xl">
           <h2 className="font-headline-lg text-headline-lg md:text-headline-lg-mobile text-on-surface mb-xs">

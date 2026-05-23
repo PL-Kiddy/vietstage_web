@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
-import { Mail, Send, ArrowLeft, ShieldCheck, CheckCircle, XCircle, X } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Mail, Send, ArrowLeft, ShieldCheck, CheckCircle, XCircle, X, Key, Lock, Eye, EyeOff } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { getMockUsers, resetUserPassword } from '../../data/mockUsers';
 
 interface ToastState {
   visible: boolean;
@@ -9,21 +10,29 @@ interface ToastState {
 }
 
 const ForgotPasswordForm = () => {
+  const navigate = useNavigate();
+  const [step, setStep] = useState<1 | 2 | 3>(1);
   const [email, setEmail] = useState('');
+  const [otpCode, setOtpCode] = useState('');
+  const [userEnteredOtp, setUserEnteredOtp] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+
   const [toast, setToast] = useState<ToastState>({
     visible: false,
     type: 'success',
     message: '',
   });
 
-  const showToast = (type: 'success' | 'error', message: string) => {
+  const showToast = (type: 'success' | 'error', message: string, duration = 3500) => {
     setToast({ visible: true, type, message });
     setTimeout(() => {
       setToast((prev) => ({ ...prev, visible: false }));
-    }, 3500);
+    }, duration);
   };
 
-  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
+  const handleSendOtp = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     if (!email.trim()) {
@@ -31,8 +40,61 @@ const ForgotPasswordForm = () => {
       return;
     }
 
-    // Simulate OTP send
-    showToast('success', 'Mã xác nhận đã được gửi đến email của bạn!');
+    // Verify if email exists in mock DB
+    const users = getMockUsers();
+    const userExists = users.some(
+      (u) => u.email.toLowerCase() === email.trim().toLowerCase()
+    );
+
+    if (!userExists) {
+      showToast('error', 'Email không tồn tại trong hệ thống. Vui lòng kiểm tra lại!');
+      return;
+    }
+
+    // Generate mock 6-digit OTP
+    const generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
+    setOtpCode(generatedOtp);
+    setStep(2);
+    
+    // Show toast with OTP so the user can use it
+    showToast('success', `Đã gửi mã xác nhận! Mã OTP của bạn là: ${generatedOtp}`, 8000);
+  };
+
+  const handleVerifyOtp = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+
+    if (userEnteredOtp.trim() !== otpCode) {
+      showToast('error', 'Mã OTP không chính xác. Vui lòng thử lại!');
+      return;
+    }
+
+    showToast('success', 'Xác minh OTP thành công! Vui lòng nhập mật khẩu mới.');
+    setStep(3);
+  };
+
+  const handleResetPassword = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+
+    if (!newPassword || !confirmPassword) {
+      showToast('error', 'Vui lòng điền đầy đủ thông tin mật khẩu.');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      showToast('error', 'Mật khẩu xác nhận không khớp.');
+      return;
+    }
+
+    const success = resetUserPassword(email, newPassword);
+    if (!success) {
+      showToast('error', 'Đã xảy ra lỗi khi cập nhật mật khẩu. Vui lòng thử lại!');
+      return;
+    }
+
+    showToast('success', 'Đặt lại mật khẩu thành công! Đang chuyển hướng...');
+    setTimeout(() => {
+      navigate('/login');
+    }, 2000);
   };
 
   return (
@@ -54,7 +116,7 @@ const ForgotPasswordForm = () => {
         ) : (
           <XCircle className="w-5 h-5 flex-shrink-0" />
         )}
-        <span className="font-label-md text-sm">{toast.message}</span>
+        <span className="font-label-md text-sm whitespace-pre-line">{toast.message}</span>
         <button
           onClick={() => setToast((prev) => ({ ...prev, visible: false }))}
           className="ml-2 hover:opacity-70 transition-opacity"
@@ -65,58 +127,181 @@ const ForgotPasswordForm = () => {
       </div>
 
       {/* Form Content */}
-      <div className="w-full max-w-[440px] flex flex-col">
-        {/* Mobile Branding */}
-        <div className="md:hidden flex items-center gap-sm mb-xl">
-          <span className="font-display-lg text-headline-md font-bold text-primary">
-            VietStage
-          </span>
-        </div>
+      <div className="w-full max-w-[440px] flex flex-col relative">
+        {/* Back to Login Button */}
+        <Link
+          to="/login"
+          className="inline-flex items-center gap-xs text-on-surface-variant hover:text-primary font-label-md text-sm mb-lg transition-colors group w-fit"
+        >
+          <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+          Quay lại đăng nhập
+        </Link>
 
         {/* Form Header */}
         <header className="mb-xl">
           <h1 className="font-headline-lg text-headline-lg text-primary mb-md">
-            Khôi phục mật khẩu
+            {step === 1 && 'Khôi phục mật khẩu'}
+            {step === 2 && 'Xác thực OTP'}
+            {step === 3 && 'Đặt lại mật khẩu'}
           </h1>
           <p className="font-body-md text-body-md text-on-surface-variant">
-            Vui lòng nhập Email đã đăng ký. Chúng tôi sẽ gửi mã xác nhận (OTP)
-            để bạn đặt lại mật khẩu.
+            {step === 1 && 'Vui lòng nhập Email đã đăng ký. Chúng tôi sẽ gửi mã xác nhận (OTP) để bạn đặt lại mật khẩu.'}
+            {step === 2 && `Mã OTP đã được gửi đến email ${email}. Vui lòng nhập mã để tiếp tục.`}
+            {step === 3 && 'Vui lòng thiết lập mật khẩu mới cho tài khoản của bạn.'}
           </p>
         </header>
 
-        {/* Recovery Form */}
-        <form className="space-y-lg" onSubmit={handleSubmit}>
-          {/* Email Input */}
-          <div className="space-y-xs">
-            <label
-              className="font-label-md text-label-md text-on-surface block"
-              htmlFor="recovery-email"
-            >
-              Địa chỉ Email
-            </label>
-            <div className="relative">
-              <Mail className="absolute left-md top-1/2 -translate-y-1/2 w-5 h-5 text-outline" />
-              <input
-                id="recovery-email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="example@vietstage.vn"
-                required
-                className="w-full pl-[48px] pr-md py-md bg-white border border-outline/20 rounded-lg font-body-md text-body-md focus:outline-none focus:border-secondary focus:ring-2 focus:ring-secondary/10 transition-all placeholder:text-on-surface-variant/40"
-              />
+        {/* Step 1: Send OTP Form */}
+        {step === 1 && (
+          <form className="space-y-lg" onSubmit={handleSendOtp}>
+            {/* Email Input */}
+            <div className="space-y-xs">
+              <label
+                className="font-label-md text-label-md text-on-surface block font-semibold"
+                htmlFor="recovery-email"
+              >
+                Địa chỉ Email
+              </label>
+              <div className="relative">
+                <Mail className="absolute left-md top-1/2 -translate-y-1/2 w-5 h-5 text-outline" />
+                <input
+                  id="recovery-email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="example@vietstage.vn"
+                  required
+                  className="w-full pl-[48px] pr-md py-md bg-white border border-outline/20 rounded-lg font-body-md text-body-md focus:outline-none focus:border-secondary focus:ring-2 focus:ring-secondary/10 transition-all placeholder:text-on-surface-variant/40"
+                />
+              </div>
             </div>
-          </div>
 
-          {/* Submit Button */}
-          <button
-            type="submit"
-            className="w-full py-md bg-primary-container text-white font-label-md text-body-md rounded-lg shadow-sm hover:opacity-90 active:scale-95 transition-all flex items-center justify-center gap-sm"
-          >
-            Gửi mã xác nhận
-            <Send className="w-5 h-5" />
-          </button>
-        </form>
+            {/* Submit Button */}
+            <button
+              type="submit"
+              className="w-full py-md bg-primary-container text-white font-label-md text-body-md rounded-lg shadow-sm hover:opacity-90 active:scale-95 transition-all flex items-center justify-center gap-sm"
+            >
+              Gửi mã xác nhận
+              <Send className="w-5 h-5" />
+            </button>
+          </form>
+        )}
+
+        {/* Step 2: Verify OTP Form */}
+        {step === 2 && (
+          <form className="space-y-lg" onSubmit={handleVerifyOtp}>
+            {/* OTP Input */}
+            <div className="space-y-xs">
+              <label
+                className="font-label-md text-label-md text-on-surface block font-semibold"
+                htmlFor="otp-code"
+              >
+                Mã OTP (6 chữ số)
+              </label>
+              <div className="relative">
+                <Key className="absolute left-md top-1/2 -translate-y-1/2 w-5 h-5 text-outline" />
+                <input
+                  id="otp-code"
+                  type="text"
+                  maxLength={6}
+                  value={userEnteredOtp}
+                  onChange={(e) => setUserEnteredOtp(e.target.value)}
+                  placeholder="Nhập mã OTP..."
+                  required
+                  className="w-full pl-[48px] pr-md py-md bg-white border border-outline/20 rounded-lg font-body-md text-body-md focus:outline-none focus:border-secondary focus:ring-2 focus:ring-secondary/10 transition-all placeholder:text-on-surface-variant/40 text-center tracking-widest font-mono text-lg"
+                />
+              </div>
+            </div>
+
+            {/* Verification Button */}
+            <button
+              type="submit"
+              className="w-full py-md bg-primary-container text-white font-label-md text-body-md rounded-lg shadow-sm hover:opacity-90 active:scale-95 transition-all flex items-center justify-center gap-sm"
+            >
+              Xác minh mã OTP
+            </button>
+
+            {/* Resend Helper */}
+            <p className="text-center text-label-sm text-on-surface-variant">
+              Không nhận được mã?{' '}
+              <button
+                type="button"
+                onClick={() => {
+                  const generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
+                  setOtpCode(generatedOtp);
+                  showToast('success', `Đã gửi lại mã! Mã OTP mới: ${generatedOtp}`, 8000);
+                }}
+                className="text-primary font-bold hover:underline"
+              >
+                Gửi lại mã
+              </button>
+            </p>
+          </form>
+        )}
+
+        {/* Step 3: Reset Password Form */}
+        {step === 3 && (
+          <form className="space-y-lg" onSubmit={handleResetPassword}>
+            {/* New Password Input */}
+            <div className="space-y-xs">
+              <label
+                className="font-label-md text-label-md text-on-surface block font-semibold"
+                htmlFor="new-password"
+              >
+                Mật khẩu mới
+              </label>
+              <div className="relative group">
+                <Lock className="absolute left-md top-1/2 -translate-y-1/2 w-5 h-5 text-on-surface-variant group-focus-within:text-secondary transition-colors" />
+                <input
+                  id="new-password"
+                  type={showPassword ? 'text' : 'password'}
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="••••••••"
+                  required
+                  className="w-full pl-[48px] pr-[48px] py-md bg-white border border-outline/20 rounded-lg font-body-md text-body-md focus:outline-none focus:border-secondary focus:ring-2 focus:ring-secondary/10 transition-all placeholder:text-on-surface-variant/40"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-md top-1/2 -translate-y-1/2 text-on-surface-variant hover:text-on-surface transition-colors"
+                >
+                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
+              </div>
+            </div>
+
+            {/* Confirm New Password Input */}
+            <div className="space-y-xs">
+              <label
+                className="font-label-md text-label-md text-on-surface block font-semibold"
+                htmlFor="confirm-password"
+              >
+                Xác nhận mật khẩu mới
+              </label>
+              <div className="relative">
+                <Lock className="absolute left-md top-1/2 -translate-y-1/2 w-5 h-5 text-outline" />
+                <input
+                  id="confirm-password"
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="••••••••"
+                  required
+                  className="w-full pl-[48px] pr-md py-md bg-white border border-outline/20 rounded-lg font-body-md text-body-md focus:outline-none focus:border-secondary focus:ring-2 focus:ring-secondary/10 transition-all placeholder:text-on-surface-variant/40"
+                />
+              </div>
+            </div>
+
+            {/* Reset Button */}
+            <button
+              type="submit"
+              className="w-full py-md bg-primary-container text-white font-label-md text-body-md rounded-lg shadow-sm hover:opacity-90 active:scale-95 transition-all flex items-center justify-center gap-sm"
+            >
+              Lưu mật khẩu mới
+            </button>
+          </form>
+        )}
 
         {/* Footer Navigation */}
         <footer className="mt-xl text-center">
