@@ -35,11 +35,10 @@ const Navbar = () => {
             <a
               key={link.label}
               href={link.href}
-              className={`font-body-md text-body-md transition-colors ${
-                link.active
+              className={`font-body-md text-body-md transition-colors ${link.active
                   ? 'text-primary dark:text-primary-fixed-dim border-b-2 border-primary dark:border-primary-fixed-dim pb-1'
                   : 'text-on-surface-variant dark:text-outline hover:text-primary dark:hover:text-primary-fixed-dim'
-              }`}
+                }`}
             >
               {link.label}
             </a>
@@ -81,11 +80,10 @@ const Navbar = () => {
                 <a
                   key={link.label}
                   href={link.href}
-                  className={`font-body-md text-body-md py-sm ${
-                    link.active
+                  className={`font-body-md text-body-md py-sm ${link.active
                       ? 'text-primary font-semibold'
                       : 'text-on-surface-variant hover:text-primary'
-                  }`}
+                    }`}
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   {link.label}

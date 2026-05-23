@@ -8,7 +8,9 @@ import {
   Music,
   ChevronLeft,
   ChevronRight,
+  Check,
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { mockAdminUsers, type AdminUser } from '../../data/mockAdminUsers';
 
 /* ── Role badge colours ───────────────────────────────────── */
@@ -25,6 +27,12 @@ const AdminUsers = () => {
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const perPage = 10;
+
+  // Add User Drawer State
+  const [isAddDrawerOpen, setIsAddDrawerOpen] = useState(false);
+  const [newUserName, setNewUserName] = useState('');
+  const [newUserRole, setNewUserRole] = useState<'Admin' | 'Giảng viên' | 'Người học'>('Người học');
+  const [newUserEmail, setNewUserEmail] = useState('');
 
   // Initialize from LocalStorage
   const [users, setUsers] = useState<AdminUser[]>(() => {
@@ -76,29 +84,51 @@ const AdminUsers = () => {
     }
   };
 
-  /* ── Create User ─────────────────────────────────────────── */
-  const handleAddUser = () => {
-    const name = prompt('Nhập họ và tên người dùng mới:');
-    if (!name || !name.trim()) return;
+  /* ── Create User Drawer Trigger ──────────────────────────── */
+  const handleAddUserClick = () => {
+    setNewUserName('');
+    setNewUserRole('Người học');
+    setNewUserEmail('');
+    setIsAddDrawerOpen(true);
+  };
 
-    const roleInput = prompt('Nhập vai trò (Admin / Giảng viên / Người học):', 'Người học');
-    if (!roleInput) return;
+  const handleNameChange = (val: string) => {
+    setNewUserName(val);
+    const noAccents = val
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[đĐ]/g, (char) => (char === 'đ' ? 'd' : 'D'));
+    const emailPrefix = noAccents.toLowerCase().replace(/\s+/g, '');
+    setNewUserEmail(emailPrefix ? `${emailPrefix}@vietstage.com` : '');
+  };
 
-    const role = roleInput.trim();
-    if (role !== 'Admin' && role !== 'Giảng viên' && role !== 'Người học') {
-      alert('Vai trò không hợp lệ! Vui lòng chỉ nhập: Admin, Giảng viên hoặc Người học.');
+  const submitAddUser = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newUserName.trim()) {
+      alert('Vui lòng nhập họ và tên');
+      return;
+    }
+    if (!newUserEmail.trim()) {
+      alert('Vui lòng nhập email');
       return;
     }
 
-    const email = `${name.toLowerCase().replace(/\s+/g, '')}@vietstage.com`;
+    const initials = newUserName
+      .trim()
+      .split(' ')
+      .map((n) => n[0])
+      .join('')
+      .substring(0, 2)
+      .toUpperCase();
+
     const newUser: AdminUser = {
       id: `VS-2024-${Math.floor(100 + Math.random() * 900)}`,
-      name: name.trim(),
-      email,
-      role,
+      name: newUserName.trim(),
+      email: newUserEmail.trim(),
+      role: newUserRole,
       registeredAt: new Date().toLocaleDateString('vi-VN'),
       status: 'active',
-      initials: name.trim().split(' ').map((n) => n[0]).join('').substring(0, 2).toUpperCase(),
+      initials: initials || 'VS',
       stats: { courses: 0, students: '0', rating: 0 },
       instruments: [],
       activities: [{ title: 'Đăng ký tài khoản mới trên hệ thống', time: 'Vừa xong' }],
@@ -106,6 +136,7 @@ const AdminUsers = () => {
 
     const updated = [newUser, ...users];
     saveUsers(updated);
+    setIsAddDrawerOpen(false);
     alert('Đã thêm thành viên mới thành công!');
   };
 
@@ -172,7 +203,7 @@ const AdminUsers = () => {
 
           {/* Add New */}
           <button
-            onClick={handleAddUser}
+            onClick={handleAddUserClick}
             className="bg-primary text-on-primary px-lg py-sm rounded-lg font-label-md hover:opacity-90 transition-all flex items-center gap-xs shadow-sm"
           >
             <UserPlus className="w-[18px] h-[18px]" />
@@ -486,6 +517,119 @@ const AdminUsers = () => {
           </div>
         </div>
       )}
+
+      {/* ── ADD USER DRAWER ─────────────────────────────────── */}
+      <AnimatePresence>
+        {isAddDrawerOpen && (
+          <>
+            {/* Backdrop Blur Overlay */}
+            <motion.div
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsAddDrawerOpen(false)}
+            />
+
+            {/* Slide-in Drawer */}
+            <motion.div
+              className="fixed top-0 right-0 h-full w-[100%] sm:w-[65%] md:w-[55%] lg:w-[45%] bg-[#fbf9f4] border-l border-outline-variant/15 shadow-2xl z-50 overflow-hidden flex flex-col"
+              initial={{ x: '100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 220 }}
+            >
+              {/* Drawer Header */}
+              <div className="px-xl py-lg border-b border-outline-variant/10 flex justify-between items-center bg-[#f5f3ee]/30">
+                <div>
+                  <h4 className="text-headline-md font-bold text-[#8b0000] font-sans">
+                    Thêm thành viên mới
+                  </h4>
+                  <p className="text-[12px] text-on-surface-variant mt-xs">
+                    Tạo tài khoản quản trị, giảng viên hoặc học viên mới.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setIsAddDrawerOpen(false)}
+                  className="p-md hover:bg-[#eae8e3]/80 rounded-full text-on-surface-variant hover:text-on-surface transition-colors"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              {/* Drawer Body */}
+              <form onSubmit={submitAddUser} className="flex-1 overflow-y-auto p-xl space-y-xl custom-scrollbar flex flex-col justify-between">
+                <div className="bg-white/95 backdrop-blur-md border border-outline-variant/10 rounded-2xl p-lg shadow-sm space-y-lg">
+                  {/* Name Input */}
+                  <div className="flex flex-col gap-xs">
+                    <label className="font-label-sm text-on-surface-variant font-semibold uppercase tracking-wider text-xs">
+                      Họ và tên
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={newUserName}
+                      onChange={(e) => handleNameChange(e.target.value)}
+                      className="w-full bg-[#fbf9f4] border border-outline-variant/30 rounded-xl p-md text-body-md focus:border-[#8b0000] focus:ring-1 focus:ring-[#8b0000] transition-all outline-none text-on-surface"
+                      placeholder="Nhập đầy đủ họ và tên..."
+                    />
+                  </div>
+
+                  {/* Email Input */}
+                  <div className="flex flex-col gap-xs">
+                    <label className="font-label-sm text-on-surface-variant font-semibold uppercase tracking-wider text-xs">
+                      Email đăng nhập
+                    </label>
+                    <input
+                      type="email"
+                      required
+                      value={newUserEmail}
+                      onChange={(e) => setNewUserEmail(e.target.value)}
+                      className="w-full bg-[#fbf9f4] border border-outline-variant/30 rounded-xl p-md text-body-md focus:border-[#8b0000] focus:ring-1 focus:ring-[#8b0000] transition-all outline-none text-on-surface"
+                      placeholder="Nhập email đăng nhập..."
+                    />
+                  </div>
+
+                  {/* Role Select */}
+                  <div className="flex flex-col gap-xs">
+                    <label className="font-label-sm text-on-surface-variant font-semibold uppercase tracking-wider text-xs">
+                      Vai trò chuyên môn
+                    </label>
+                    <select
+                      value={newUserRole}
+                      onChange={(e) => setNewUserRole(e.target.value as any)}
+                      className="w-full bg-[#fbf9f4] border border-outline-variant/30 rounded-xl p-md text-body-md focus:border-[#8b0000] focus:ring-1 focus:ring-[#8b0000] transition-all outline-none text-on-surface cursor-pointer font-medium"
+                    >
+                      <option value="Người học">Người học (Học viên)</option>
+                      <option value="Giảng viên">Giảng viên (Instructor)</option>
+                      <option value="Admin">Admin (Quản trị viên)</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Drawer Footer Actions */}
+                <div className="px-xl py-lg border-t border-outline-variant/10 bg-[#f5f3ee]/40 flex gap-md -mx-xl -mb-xl mt-xl">
+                  <button
+                    type="button"
+                    onClick={() => setIsAddDrawerOpen(false)}
+                    className="flex-1 flex items-center justify-center gap-sm bg-[#ba1a1a] text-white py-lg rounded-xl font-bold hover:bg-[#a61717] active:scale-[0.98] transition-all shadow-sm"
+                  >
+                    <X className="w-5 h-5" />
+                    Hủy
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 flex items-center justify-center gap-sm bg-[#1b5e20] text-white py-lg rounded-xl font-bold hover:bg-[#154618] active:scale-[0.98] transition-all shadow-sm"
+                  >
+                    <Check className="w-5 h-5" />
+                    Xác nhận
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </>
   );
 };

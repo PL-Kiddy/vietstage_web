@@ -2,10 +2,10 @@ import React, { useState } from 'react';
 import { User, Mail, Shield, Award, Edit, Save } from 'lucide-react';
 
 const InstructorProfile = () => {
-  const [name, setName] = useState('NSND Thanh Hải');
-  const [title, setTitle] = useState('Giảng viên cao cấp');
-  const [email, setEmail] = useState('instructor@fpt.edu.vn');
-  const [phone, setPhone] = useState('0987 654 321');
+  const [name, setName] = useState(() => localStorage.getItem('vietstage_instructor_name') || 'NSND Thanh Hải');
+  const [title, setTitle] = useState(() => localStorage.getItem('vietstage_instructor_title') || 'Giảng viên cao cấp');
+  const [email, setEmail] = useState(() => localStorage.getItem('vietstage_instructor_email') || 'instructor@fpt.edu.vn');
+  const [phone, setPhone] = useState(() => localStorage.getItem('vietstage_instructor_phone') || '0987 654 321');
   const [isEditing, setIsEditing] = useState(false);
 
   const [currentPassword, setCurrentPassword] = useState('');
@@ -23,6 +23,10 @@ const InstructorProfile = () => {
     } else {
       alert('Đã cập nhật hồ sơ giảng viên thành công!');
     }
+    localStorage.setItem('vietstage_instructor_name', name);
+    localStorage.setItem('vietstage_instructor_title', title);
+    localStorage.setItem('vietstage_instructor_email', email);
+    localStorage.setItem('vietstage_instructor_phone', phone);
     setIsEditing(false);
     setCurrentPassword('');
     setNewPassword('');

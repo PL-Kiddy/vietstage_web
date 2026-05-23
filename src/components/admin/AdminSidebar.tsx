@@ -4,8 +4,7 @@ import {
   Users,
   ClipboardCheck,
   Settings,
-  Plus,
-  LogOut,
+  Home,
 } from 'lucide-react';
 
 import logo from '../../assets/logongangtachnen.png';
@@ -64,16 +63,12 @@ const AdminSidebar = () => {
 
       {/* Bottom Actions */}
       <div className="px-md mt-auto pt-lg border-t border-on-primary/10">
-        <button className="w-full flex items-center justify-center gap-sm bg-on-primary-fixed text-on-primary py-md rounded-lg font-label-md text-label-md mb-lg hover:brightness-110 transition-all">
-          <Plus className="w-5 h-5" />
-          Báo cáo mới
-        </button>
         <button
-          onClick={handleLogout}
+          onClick={() => navigate('/')}
           className="w-full flex items-center gap-sm px-lg py-md text-on-primary/80 hover:text-on-primary hover:bg-on-primary-fixed-variant/50 transition-colors duration-200 rounded-lg"
         >
-          <LogOut className="w-5 h-5" />
-          <span className="text-body-md">Đăng xuất</span>
+          <Home className="w-5 h-5" />
+          <span className="text-body-md">Quay lại trang chủ</span>
         </button>
       </div>
     </aside>

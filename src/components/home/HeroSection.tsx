@@ -1,3 +1,4 @@
+import logoVuong from '../../assets/logovuongtachnen.png';
 import { Sparkles } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -7,14 +8,21 @@ const HeroSection = () => {
       <div className="max-w-[1280px] mx-auto grid md:grid-cols-2 gap-xl items-center">
         {/* Left Content */}
         <motion.div
-          className="z-10"
+          className="z-10 flex flex-col items-center text-center"
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.7, ease: 'easeOut' }}
         >
-          <h1 className="font-display-lg text-display-lg text-primary mb-md">
-            VietStage: Di sản nhạc cụ dân tộc trong tầm tay bạn
-          </h1>
+          <div className="mb-md flex flex-col items-center text-center">
+            <img
+              src={logoVuong}
+              alt="VietStage"
+              className="w-64 md:w-80 h-auto object-contain mb-md"
+            />
+            <h1 className="font-display-lg text-display-lg text-primary leading-tight">
+              Di sản nhạc cụ dân tộc trong tầm tay bạn
+            </h1>
+          </div>
           <p className="font-body-lg text-body-lg text-on-surface-variant mb-xl max-w-lg">
             Học tập tương tác với Nghệ sĩ ảo và công nghệ phân tích âm thanh AI ngay trên điện thoại di động.
           </p>
@@ -58,7 +66,7 @@ const HeroSection = () => {
           <div className="absolute w-[120%] h-[120%] bg-secondary-container opacity-10 rounded-full blur-3xl -z-0" />
 
           {/* Phone */}
-          <div className="relative z-10 w-full max-w-md bg-inverse-surface rounded-[40px] p-4 shadow-2xl transform rotate-6 hover:rotate-0 transition-transform duration-500">
+          <div className="relative z-10 w-full max-w-[280px] bg-inverse-surface rounded-[40px] p-4 shadow-2xl transform rotate-6 hover:rotate-0 transition-transform duration-500">
             <img
               alt="VietStage Mobile Experience"
               className="rounded-[32px] w-full aspect-[9/19] object-cover"
@@ -67,15 +75,15 @@ const HeroSection = () => {
 
             {/* Floating AI Badge */}
             <motion.div
-              className="absolute -bottom-6 -left-6 bg-white p-lg rounded-2xl shadow-xl flex items-center gap-md border border-outline-variant"
+              className="absolute -bottom-4 -left-6 bg-white py-sm px-md rounded-xl shadow-lg flex items-center gap-sm border border-outline-variant"
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.5, delay: 0.8 }}
             >
-              <Sparkles className="text-secondary" size={28} fill="currentColor" />
+              <Sparkles className="text-secondary" size={20} fill="currentColor" />
               <div>
-                <p className="font-label-md text-label-md font-bold text-on-surface">AI Hỗ trợ</p>
-                <p className="font-label-sm text-label-sm text-on-surface-variant">Phân tích nhịp độ thực</p>
+                <p className="font-label-sm text-label-sm font-bold text-on-surface">AI Hỗ trợ</p>
+                <p className="text-[10px] text-on-surface-variant font-medium leading-none">Phân tích nhịp độ thực</p>
               </div>
             </motion.div>
           </div>

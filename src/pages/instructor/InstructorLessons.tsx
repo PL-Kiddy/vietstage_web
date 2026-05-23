@@ -7,7 +7,9 @@ import {
   Music,
   FileText,
   X,
+  Check,
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface Lesson {
   id: string;
@@ -314,232 +316,250 @@ const InstructorLessons = () => {
         </div>
       </div>
 
-      {/* Modal Form Overlay - Centered on screen */}
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-md backdrop-blur-xs">
-          {/* Close backdrop click */}
-          <div className="absolute inset-0" onClick={handleCloseModal} />
+      {/* Drawer Form Overlay - Slide from right */}
+      <AnimatePresence>
+        {isModalOpen && (
+          <>
+            {/* Backdrop Blur Overlay */}
+            <motion.div
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={handleCloseModal}
+            />
 
-          {/* Form Content Card */}
-          <form
-            onSubmit={handleAddLesson}
-            className="relative bg-white rounded-2xl p-xl border border-outline-variant/10 shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto z-10 space-y-xl"
-          >
-            <div className="flex justify-between items-center border-b border-outline-variant/10 pb-md">
-              <h3 className="text-headline-md font-bold text-primary border-l-4 border-primary pl-md">
-                {editingLesson ? 'Chỉnh sửa bài giảng' : 'Thông tin bài giảng mới'}
-              </h3>
-              <button
-                type="button"
-                onClick={handleCloseModal}
-                className="p-1 hover:bg-[#f5f3ee] rounded-full transition-colors text-on-surface-variant"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-xl">
-              {/* Basic Fields */}
-              <div className="flex flex-col gap-sm">
-                <label className="font-label-md text-on-surface-variant font-semibold">
-                  Tên bài giảng
-                </label>
-                <input
-                  type="text"
-                  value={newTitle}
-                  onChange={(e) => setNewTitle(e.target.value)}
-                  placeholder="Nhập tên bài giảng..."
-                  className="w-full px-md py-md bg-[#fbf9f4] border border-[#ffe088]/30 rounded-lg focus:ring-2 focus:ring-primary/25 focus:border-primary outline-none transition-all text-on-surface"
-                />
-              </div>
-              <div className="flex flex-col gap-sm">
-                <label className="font-label-md text-on-surface-variant font-semibold">
-                  Chọn nhạc cụ
-                </label>
-                <select
-                  value={newInstrument}
-                  onChange={(e) => setNewInstrument(e.target.value)}
-                  className="w-full px-md py-md bg-[#fbf9f4] border border-[#ffe088]/30 rounded-lg focus:ring-2 focus:ring-primary/25 focus:border-primary outline-none transition-all text-on-surface cursor-pointer"
-                >
-                  <option>Đàn Nguyệt</option>
-                  <option>Đàn Tranh</option>
-                  <option>Đàn Bầu</option>
-                  <option>Đàn Tỳ Bà</option>
-                </select>
-              </div>
-              <div className="flex flex-col gap-sm">
-                <label className="font-label-md text-on-surface-variant font-semibold">
-                  Trạng thái
-                </label>
-                <select
-                  value={newStatus}
-                  onChange={(e) => setNewStatus(e.target.value as 'public' | 'draft')}
-                  className="w-full px-md py-md bg-[#fbf9f4] border border-[#ffe088]/30 rounded-lg focus:ring-2 focus:ring-primary/25 focus:border-primary outline-none transition-all text-on-surface cursor-pointer"
-                >
-                  <option value="public">Công khai</option>
-                  <option value="draft">Nháp</option>
-                </select>
-              </div>
-
-              {/* Curriculum Sắp xếp & Ngưỡng điểm */}
-              <div className="flex flex-col gap-sm">
-                <label className="font-label-md text-on-surface-variant font-semibold">
-                  Thứ tự bài học trong giáo trình
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  value={newOrderIndex}
-                  onChange={(e) => setNewOrderIndex(Number(e.target.value))}
-                  className="w-full px-md py-md bg-[#fbf9f4] border border-[#ffe088]/30 rounded-lg focus:ring-2 focus:ring-primary/25 focus:border-primary outline-none transition-all text-on-surface"
-                />
-              </div>
-
-              <div className="col-span-1 md:col-span-2 flex flex-col gap-sm">
-                <div className="flex justify-between items-center">
-                  <label className="font-label-md text-on-surface-variant font-semibold">
-                    Ngưỡng điểm AI tối thiểu đạt bài (Passing Score)
-                  </label>
-                  <span className="bg-secondary/15 text-secondary px-sm py-xs rounded font-label-md font-bold">
-                    {newPassingThreshold}%
-                  </span>
-                </div>
-                <input
-                  type="range"
-                  min="50"
-                  max="95"
-                  step="5"
-                  value={newPassingThreshold}
-                  onChange={(e) => setNewPassingThreshold(Number(e.target.value))}
-                  className="w-full h-2 bg-[#eae8e3] rounded-lg appearance-none cursor-pointer accent-primary mt-2"
-                />
-              </div>
-
-              {/* Technique Description Text Area */}
-              <div className="col-span-1 md:col-span-3 flex flex-col gap-sm">
-                <label className="font-label-md text-on-surface-variant font-semibold">
-                  Mô tả kỹ thuật biểu diễn (Technique Description)
-                </label>
-                <textarea
-                  value={newDescription}
-                  onChange={(e) => setNewDescription(e.target.value)}
-                  placeholder="Mô tả kỹ thuật rung dây, nhấn vuốt, gảy ngón..."
-                  className="w-full px-md py-md bg-[#fbf9f4] border border-[#ffe088]/30 rounded-lg focus:ring-2 focus:ring-primary/25 focus:border-primary outline-none transition-all text-on-surface h-24"
-                />
-              </div>
-
-              {/* Exercises Manager */}
-              <div className="col-span-1 md:col-span-3 border-t border-outline-variant/10 pt-lg space-y-md">
-                <h4 className="font-label-md text-primary font-bold">
-                  Cơ cấu bài tập thực hành (Exercises List)
-                </h4>
-                <div className="flex gap-sm">
-                  <input
-                    type="text"
-                    value={currentExerciseInput}
-                    onChange={(e) => setCurrentExerciseInput(e.target.value)}
-                    placeholder="Nhập tên bài tập nhỏ (ví dụ: Luyện phách nốt trơn, Chạy âm giai...)"
-                    className="flex-grow px-md py-md bg-[#fbf9f4] border border-[#ffe088]/30 rounded-lg focus:ring-2 focus:ring-primary/25 focus:border-primary outline-none transition-all text-on-surface"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (!currentExerciseInput.trim()) return;
-                      setNewExercises([...newExercises, currentExerciseInput.trim()]);
-                      setCurrentExerciseInput('');
-                    }}
-                    className="bg-[#ffe088] text-primary px-xl py-md rounded-lg font-label-md font-bold hover:opacity-90 active:scale-95 transition-all"
-                  >
-                    Thêm
-                  </button>
-                </div>
-
-                {newExercises.length === 0 ? (
-                  <p className="text-on-surface-variant font-body-sm text-[13px] italic">
-                    Chưa có bài tập nhỏ nào được thêm. Học viên sẽ thực hành toàn bộ bài giảng làm 1 bài tập chính.
+            {/* Slide-in Drawer */}
+            <motion.div
+              className="fixed top-0 right-0 h-full w-[100%] sm:w-[75%] md:w-[65%] lg:w-[50%] bg-[#fbf9f4] border-l border-outline-variant/15 shadow-2xl z-50 overflow-hidden flex flex-col"
+              initial={{ x: '100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 220 }}
+            >
+              {/* Drawer Header */}
+              <div className="px-xl py-lg border-b border-outline-variant/10 flex justify-between items-center bg-[#f5f3ee]/30">
+                <div>
+                  <h4 className="text-headline-md font-bold text-primary font-sans">
+                    {editingLesson ? 'Chỉnh sửa bài giảng' : 'Bài giảng mới'}
+                  </h4>
+                  <p className="text-[12px] text-on-surface-variant mt-xs">
+                    {editingLesson ? `Cập nhật cấu hình cho bài giảng: ${editingLesson.title}` : 'Thêm bài giảng mới vào giáo trình giảng dạy trực tuyến.'}
                   </p>
-                ) : (
-                  <ul className="space-y-sm bg-[#fbf9f4] p-md rounded-xl border border-outline-variant/10 max-h-40 overflow-y-auto custom-scrollbar">
-                    {newExercises.map((ex, idx) => (
-                      <li key={idx} className="flex justify-between items-center bg-white px-md py-sm rounded-lg border border-outline-variant/5 shadow-xs text-body-md text-on-surface">
-                        <span className="font-medium">{idx + 1}. {ex}</span>
-                        <button
-                          type="button"
-                          onClick={() => setNewExercises(newExercises.filter((_, i) => i !== idx))}
-                          className="text-error hover:scale-110 active:scale-95 transition-transform"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-
-              {/* Upload Section */}
-              <div className="col-span-1 md:col-span-3 grid grid-cols-1 md:grid-cols-2 gap-xl border-t border-outline-variant/10 pt-lg">
-                <div className="flex flex-col gap-sm">
-                  <label className="font-label-md text-on-surface-variant font-semibold">
-                    Tải lên Âm thanh (.wav)
-                  </label>
-                  <div className="border-2 border-dashed border-[#ffe088]/30 rounded-xl p-xl flex flex-col items-center justify-center bg-[#fbf9f4] hover:bg-[#ffe088]/10 transition-all cursor-pointer">
-                    <Music className="w-12 h-12 text-primary mb-sm" />
-                    <span className="font-label-md text-primary font-bold">
-                      Thả file âm thanh mẫu
-                    </span>
-                    <span className="text-label-sm text-on-surface-variant mt-xs text-center text-[12px]">
-                      Định dạng hỗ trợ: .wav, .mp3
-                    </span>
-                  </div>
                 </div>
-                <div className="flex flex-col gap-sm">
-                  <label className="font-label-md text-on-surface-variant font-semibold">
-                    Tải lên Sheet nhạc (.png/.pdf)
-                  </label>
-                  <div className="border-2 border-dashed border-[#ffe088]/30 rounded-xl p-xl flex flex-col items-center justify-center bg-[#fbf9f4] hover:bg-[#ffe088]/10 transition-all cursor-pointer">
-                    <FileText className="w-12 h-12 text-primary mb-sm" />
-                    <span className="font-label-md text-primary font-bold">
-                      Thả bản ký âm mẫu
-                    </span>
-                    <span className="text-label-sm text-on-surface-variant mt-xs text-center text-[12px]">
-                      Định dạng hỗ trợ: .pdf, .png, .jpg
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-md border-t border-outline-variant/10 pt-md">
-              <button
-                type="button"
-                onClick={handleCloseModal}
-                className="px-xl py-md border border-outline rounded-lg text-on-surface-variant font-label-md hover:bg-[#f5f3ee] transition-all"
-              >
-                Hủy
-              </button>
-              {editingLesson && (
                 <button
                   type="button"
-                  onClick={() => {
-                    handleDelete(editingLesson.id);
-                    handleCloseModal();
-                  }}
-                  className="bg-error hover:bg-error/95 text-white px-xl py-md rounded-lg font-label-md transition-all shadow-md active:scale-95 flex items-center gap-sm"
+                  onClick={handleCloseModal}
+                  className="p-md hover:bg-[#eae8e3]/80 rounded-full text-on-surface-variant hover:text-on-surface transition-colors"
                 >
-                  <Trash2 className="w-4 h-4 text-white" />
-                  <span className="text-white">Xóa bài giảng</span>
+                  <X className="w-6 h-6" />
                 </button>
-              )}
-              <button
-                type="submit"
-                className="bg-primary text-on-primary px-xl py-md rounded-lg font-label-md hover:bg-primary/95 transition-all shadow-md active:scale-95"
-              >
-                {editingLesson ? 'Lưu thay đổi' : 'Lưu bài học'}
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
+              </div>
+
+              {/* Drawer Body */}
+              <form onSubmit={handleAddLesson} className="flex-1 overflow-y-auto p-xl space-y-xl custom-scrollbar flex flex-col justify-between">
+                <div className="bg-white/95 backdrop-blur-md border border-outline-variant/10 rounded-2xl p-lg shadow-sm space-y-lg">
+                  {/* Title & Instrument & Status */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-md">
+                    <div className="flex flex-col gap-xs">
+                      <label className="font-label-sm text-on-surface-variant font-semibold uppercase tracking-wider text-xs">
+                        Tên bài giảng
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={newTitle}
+                        onChange={(e) => setNewTitle(e.target.value)}
+                        placeholder="Nhập tên bài giảng..."
+                        className="w-full bg-[#fbf9f4] border border-outline-variant/30 rounded-xl p-md text-body-md focus:border-primary focus:ring-1 focus:ring-primary transition-all outline-none text-on-surface"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-xs">
+                      <label className="font-label-sm text-on-surface-variant font-semibold uppercase tracking-wider text-xs">
+                        Nhạc cụ giảng dạy
+                      </label>
+                      <select
+                        value={newInstrument}
+                        onChange={(e) => setNewInstrument(e.target.value)}
+                        className="w-full bg-[#fbf9f4] border border-outline-variant/30 rounded-xl p-md text-body-md focus:border-primary focus:ring-1 focus:ring-primary transition-all outline-none text-on-surface cursor-pointer"
+                      >
+                        <option>Đàn Nguyệt</option>
+                        <option>Đàn Tranh</option>
+                        <option>Đàn Bầu</option>
+                        <option>Đàn Tỳ Bà</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-md">
+                    <div className="flex flex-col gap-xs">
+                      <label className="font-label-sm text-on-surface-variant font-semibold uppercase tracking-wider text-xs">
+                        Thứ tự trong giáo trình
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={newOrderIndex}
+                        onChange={(e) => setNewOrderIndex(Number(e.target.value))}
+                        className="w-full bg-[#fbf9f4] border border-outline-variant/30 rounded-xl p-md text-body-md focus:border-primary focus:ring-1 focus:ring-primary transition-all outline-none text-on-surface"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-xs">
+                      <label className="font-label-sm text-on-surface-variant font-semibold uppercase tracking-wider text-xs">
+                        Trạng thái hiển thị
+                      </label>
+                      <select
+                        value={newStatus}
+                        onChange={(e) => setNewStatus(e.target.value as any)}
+                        className="w-full bg-[#fbf9f4] border border-outline-variant/30 rounded-xl p-md text-body-md focus:border-primary focus:ring-1 focus:ring-primary transition-all outline-none text-on-surface cursor-pointer"
+                      >
+                        <option value="public">Công khai (Public)</option>
+                        <option value="draft">Bản nháp (Draft)</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Score range */}
+                  <div className="flex flex-col gap-xs border-t border-outline-variant/10 pt-md">
+                    <div className="flex justify-between items-center">
+                      <label className="font-label-sm text-on-surface-variant font-semibold uppercase tracking-wider text-xs">
+                        Điểm AI tối thiểu để đạt
+                      </label>
+                      <span className="bg-primary/15 text-primary px-sm py-xs rounded font-bold text-sm">
+                        {newPassingThreshold}%
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min="50"
+                      max="95"
+                      step="5"
+                      value={newPassingThreshold}
+                      onChange={(e) => setNewPassingThreshold(Number(e.target.value))}
+                      className="w-full h-2 bg-[#eae8e3] rounded-lg appearance-none cursor-pointer accent-primary mt-2"
+                    />
+                  </div>
+
+                  {/* Description */}
+                  <div className="flex flex-col gap-xs border-t border-outline-variant/10 pt-md">
+                    <label className="font-label-sm text-on-surface-variant font-semibold uppercase tracking-wider text-xs">
+                      Mô tả kỹ thuật biểu diễn
+                    </label>
+                    <textarea
+                      value={newDescription}
+                      onChange={(e) => setNewDescription(e.target.value)}
+                      placeholder="Mô tả kỹ thuật rung dây, nhấn vuốt, gảy ngón..."
+                      className="w-full bg-[#fbf9f4] border border-outline-variant/30 rounded-xl p-md text-body-md focus:border-primary focus:ring-1 focus:ring-primary transition-all outline-none text-on-surface h-24"
+                    />
+                  </div>
+
+                  {/* Exercises Manager */}
+                  <div className="border-t border-outline-variant/10 pt-md space-y-sm">
+                    <label className="font-label-sm text-on-surface-variant font-semibold uppercase tracking-wider text-xs block">
+                      Bài tập thực hành lòng bản
+                    </label>
+                    <div className="flex gap-sm">
+                      <input
+                        type="text"
+                        value={currentExerciseInput}
+                        onChange={(e) => setCurrentExerciseInput(e.target.value)}
+                        placeholder="Nhập tên bài tập nhỏ..."
+                        className="flex-grow bg-[#fbf9f4] border border-outline-variant/30 rounded-xl p-md text-body-md focus:border-primary focus:ring-1 focus:ring-primary transition-all outline-none text-on-surface"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!currentExerciseInput.trim()) return;
+                          setNewExercises([...newExercises, currentExerciseInput.trim()]);
+                          setCurrentExerciseInput('');
+                        }}
+                        className="bg-[#ffe088] text-primary px-xl py-md rounded-xl font-bold hover:opacity-90 active:scale-95 transition-all shadow-sm"
+                      >
+                        Thêm
+                      </button>
+                    </div>
+
+                    {newExercises.length === 0 ? (
+                      <p className="text-on-surface-variant text-[12px] italic">
+                        Chưa có bài tập nhỏ nào được thêm. Học viên sẽ thực hành toàn bộ bài giảng làm 1 bài tập chính.
+                      </p>
+                    ) : (
+                      <ul className="space-y-sm bg-[#fbf9f4] p-md rounded-xl border border-outline-variant/10 max-h-40 overflow-y-auto custom-scrollbar">
+                        {newExercises.map((ex, idx) => (
+                          <li key={idx} className="flex justify-between items-center bg-white px-md py-sm rounded-lg border border-outline-variant/5 shadow-xs text-body-md text-on-surface">
+                            <span className="font-medium">{idx + 1}. {ex}</span>
+                            <button
+                              type="button"
+                              onClick={() => setNewExercises(newExercises.filter((_, i) => i !== idx))}
+                              className="text-error hover:scale-110 active:scale-95 transition-transform"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+
+                  {/* Upload Section */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-md border-t border-outline-variant/10 pt-md">
+                    <div className="flex flex-col gap-xs">
+                      <label className="font-label-sm text-on-surface-variant font-semibold uppercase tracking-wider text-xs">
+                        Âm thanh (.wav/.mp3)
+                      </label>
+                      <div className="border border-dashed border-outline-variant/40 rounded-xl p-md flex flex-col items-center justify-center bg-[#fbf9f4] hover:bg-[#ffe088]/10 transition-all cursor-pointer">
+                        <Music className="w-8 h-8 text-primary mb-xs" />
+                        <span className="font-label-sm text-primary font-bold text-xs">Tải lên file âm thanh</span>
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-xs">
+                      <label className="font-label-sm text-on-surface-variant font-semibold uppercase tracking-wider text-xs">
+                        Ký âm / Sheet nhạc
+                      </label>
+                      <div className="border border-dashed border-outline-variant/40 rounded-xl p-md flex flex-col items-center justify-center bg-[#fbf9f4] hover:bg-[#ffe088]/10 transition-all cursor-pointer">
+                        <FileText className="w-8 h-8 text-primary mb-xs" />
+                        <span className="font-label-sm text-primary font-bold text-xs">Tải lên bản ký âm</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Drawer Footer Actions */}
+                <div className="px-xl py-lg border-t border-outline-variant/10 bg-[#f5f3ee]/40 flex gap-md -mx-xl -mb-xl mt-xl">
+                  <button
+                    type="button"
+                    onClick={handleCloseModal}
+                    className="flex-1 flex items-center justify-center gap-sm bg-[#ba1a1a] text-white py-lg rounded-xl font-bold hover:bg-[#a61717] active:scale-[0.98] transition-all shadow-sm"
+                  >
+                    <X className="w-5 h-5" />
+                    Hủy
+                  </button>
+                  {editingLesson && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleDelete(editingLesson.id);
+                        handleCloseModal();
+                      }}
+                      className="flex-1 flex items-center justify-center gap-sm bg-black/60 text-white py-lg rounded-xl font-bold hover:bg-black/70 active:scale-[0.98] transition-all shadow-sm"
+                    >
+                      <Trash2 className="w-5 h-5 text-white" />
+                      Xóa
+                    </button>
+                  )}
+                  <button
+                    type="submit"
+                    className="flex-1 flex items-center justify-center gap-sm bg-[#1b5e20] text-white py-lg rounded-xl font-bold hover:bg-[#154618] active:scale-[0.98] transition-all shadow-sm"
+                  >
+                    <Check className="w-5 h-5" />
+                    Lưu
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
