@@ -8,6 +8,8 @@ import {
   LogOut,
 } from 'lucide-react';
 
+import logo from '../../assets/logongangtachnen.png';
+
 const navItems = [
   { icon: LayoutDashboard, label: 'Tổng quan', href: '/admin' },
   { icon: Users, label: 'Quản lý người dùng', href: '/admin/users' },
@@ -26,10 +28,14 @@ const AdminSidebar = () => {
   return (
     <aside className="h-screen w-64 fixed left-0 top-0 bg-primary-container text-on-primary border-r border-on-secondary-fixed-variant flex flex-col py-10 z-20">
       {/* Branding */}
-      <div className="px-lg mb-16">
-        <h1 className="font-headline-md text-headline-md font-bold text-on-primary tracking-tight">
-          VietStage
-        </h1>
+      <div className="px-lg mb-12">
+        <Link to="/" className="block">
+          <img
+            src={logo}
+            alt="VietStage Logo"
+            className="w-full h-auto max-h-16 object-contain hover:opacity-85 transition-opacity"
+          />
+        </Link>
         <p className="text-[11px] opacity-80 uppercase tracking-widest mt-xs font-medium">
           Hệ thống Quản trị
         </p>

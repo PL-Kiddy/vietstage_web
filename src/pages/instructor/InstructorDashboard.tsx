@@ -3,11 +3,6 @@ import {
   Users,
   BookOpen,
   AlertTriangle,
-  Star,
-  MessageSquare,
-  Upload,
-  CheckCircle,
-  Eye,
   Plus,
 } from 'lucide-react';
 
@@ -24,7 +19,7 @@ const stats = [
   {
     icon: BookOpen,
     iconBg: 'bg-secondary/10 text-secondary',
-    label: 'Bài giảng đang mở',
+    label: 'Tổng bài giảng',
     value: '12',
   },
   {
@@ -33,12 +28,6 @@ const stats = [
     label: 'Bài tập chờ nhận xét',
     value: '08',
     highlightBorder: true,
-  },
-  {
-    icon: Star,
-    iconBg: 'bg-secondary/10 text-secondary',
-    label: 'Độ chính xác TB',
-    value: '8.5',
   },
 ];
 
@@ -74,28 +63,6 @@ const activities = [
   },
 ];
 
-/* ── Tasks reminders ──────────────────────────────────────── */
-const reminders = [
-  {
-    icon: MessageSquare,
-    iconBg: 'bg-secondary/10 text-secondary',
-    title: 'Phản hồi thắc mắc',
-    desc: 'Học viên Nguyễn Kim Anh hỏi về kỹ thuật rung ngón đàn tranh.',
-  },
-  {
-    icon: Upload,
-    iconBg: 'bg-primary/5 text-primary',
-    title: 'Cập nhật giáo án',
-    desc: 'Bài giảng tuần sau "Hơi và Nhịp trong Ca Trù" chưa hoàn thiện.',
-  },
-  {
-    icon: CheckCircle,
-    iconBg: 'bg-green-50 text-green-700',
-    title: 'Hoàn tất đánh giá',
-    desc: 'Bạn đã chấm xong 15 bài thực hành đàn Bầu sáng nay.',
-  },
-];
-
 /* ════════════════════════════════════════════════════════════ */
 
 const InstructorDashboard = () => {
@@ -112,7 +79,7 @@ const InstructorDashboard = () => {
       </header>
 
       {/* Bento Stats Widgets */}
-      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-gutter mb-xl">
+      <section className="grid grid-cols-1 sm:grid-cols-3 gap-gutter mb-xl">
         {stats.map((s, idx) => (
           <div
             key={idx}
@@ -142,98 +109,67 @@ const InstructorDashboard = () => {
         ))}
       </section>
 
-      {/* Dashboard Grid Content */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-gutter">
-        {/* Weekly Trend Chart */}
-        <section className="lg:col-span-2 bg-white p-xl rounded-xl shadow-sm border border-outline-variant/5">
-          <div className="flex justify-between items-center mb-xl">
-            <h3 className="text-headline-md font-bold text-primary">
-              Xu hướng học tập trong tuần
-            </h3>
-            <select className="bg-surface-container border-none text-label-md font-label-md rounded-lg focus:ring-secondary py-1 px-3 outline-none cursor-pointer">
-              <option>7 ngày qua</option>
-              <option>30 ngày qua</option>
-            </select>
-          </div>
-
-          <div className="relative h-[300px] w-full mt-lg">
-            {/* SVG Chart */}
-            <svg className="w-full h-full" viewBox="0 0 800 300">
-              {/* Grid Lines */}
-              <line stroke="#e4e2dd" strokeDasharray="4" x1="0" x2="800" y1="50" y2="50" />
-              <line stroke="#e4e2dd" strokeDasharray="4" x1="0" x2="800" y1="150" x2="800" y2="150" />
-              <line stroke="#e4e2dd" strokeDasharray="4" x1="0" x2="800" y1="250" y2="250" />
-
-              {/* Main Line */}
-              <path
-                d="M0,220 C100,200 150,260 250,180 S400,100 500,140 S650,40 800,80"
-                fill="none"
-                stroke="#610000"
-                strokeLinecap="round"
-                strokeWidth="4"
-              />
-
-              {/* Area fill */}
-              <path
-                d="M0,220 C100,200 150,260 250,180 S400,100 500,140 S650,40 800,80 V300 H0 Z"
-                fill="url(#grad1)"
-                opacity="0.1"
-              />
-
-              <defs>
-                <linearGradient id="grad1" x1="0%" x2="0%" y1="0%" y2="100%">
-                  <stop offset="0%" style={{ stopColor: '#610000', stopOpacity: 1 }} />
-                  <stop offset="100%" style={{ stopColor: '#610000', stopOpacity: 0 }} />
-                </linearGradient>
-              </defs>
-
-              {/* Data dots */}
-              <circle cx="250" cy="180" fill="#610000" r="6" stroke="white" strokeWidth="2" />
-              <circle cx="500" cy="140" fill="#610000" r="6" stroke="white" strokeWidth="2" />
-              <circle cx="800" cy="80" fill="#610000" r="6" stroke="white" strokeWidth="2" />
-            </svg>
-
-            {/* X-Axis Labels */}
-            <div className="flex justify-between mt-md px-2 font-label-sm text-[12px] text-on-surface-variant">
-              <span>Thứ 2</span>
-              <span>Thứ 3</span>
-              <span>Thứ 4</span>
-              <span>Thứ 5</span>
-              <span>Thứ 6</span>
-              <span>Thứ 7</span>
-              <span>Chủ Nhật</span>
-            </div>
-          </div>
-        </section>
-
-        {/* Task Reminders Column */}
-        <section className="bg-white p-xl rounded-xl shadow-sm border border-outline-variant/5">
-          <h3 className="text-headline-md font-bold text-primary mb-xl">
-            Lời nhắc công việc
+      {/* Weekly Trend Chart */}
+      <section className="bg-white p-xl rounded-xl shadow-sm border border-outline-variant/5 mb-xl">
+        <div className="flex justify-between items-center mb-xl">
+          <h3 className="text-headline-md font-bold text-primary">
+            Xu hướng học tập trong tuần
           </h3>
-          <div className="flex flex-col gap-lg">
-            {reminders.map((rem, idx) => (
-              <div key={idx} className="flex gap-md">
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${rem.iconBg}`}>
-                  <rem.icon className="w-5 h-5" />
-                </div>
-                <div>
-                  <p className="font-label-md text-label-md font-bold text-on-surface">
-                    {rem.title}
-                  </p>
-                  <p className="text-body-md text-on-surface-variant text-[14px]">
-                    {rem.desc}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
+          <select className="bg-surface-container border-none text-label-md font-label-md rounded-lg focus:ring-secondary py-1 px-3 outline-none cursor-pointer">
+            <option>7 ngày qua</option>
+            <option>30 ngày qua</option>
+          </select>
+        </div>
 
-          <button className="w-full mt-xl py-md border-2 border-primary text-primary font-label-md text-label-md rounded-lg hover:bg-primary/5 transition-colors">
-            Xem tất cả thông báo
-          </button>
-        </section>
-      </div>
+        <div className="relative h-[300px] w-full mt-lg">
+          {/* SVG Chart */}
+          <svg className="w-full h-full" viewBox="0 0 800 300">
+            {/* Grid Lines */}
+            <line stroke="#e4e2dd" strokeDasharray="4" x1="0" x2="800" y1="50" y2="50" />
+            <line stroke="#e4e2dd" strokeDasharray="4" x1="0" x2="800" y1="150" x2="800" y2="150" />
+            <line stroke="#e4e2dd" strokeDasharray="4" x1="0" x2="800" y1="250" y2="250" />
+
+            {/* Main Line */}
+            <path
+              d="M0,220 C100,200 150,260 250,180 S400,100 500,140 S650,40 800,80"
+              fill="none"
+              stroke="#610000"
+              strokeLinecap="round"
+              strokeWidth="4"
+            />
+
+            {/* Area fill */}
+            <path
+              d="M0,220 C100,200 150,260 250,180 S400,100 500,140 S650,40 800,80 V300 H0 Z"
+              fill="url(#grad1)"
+              opacity="0.1"
+            />
+
+            <defs>
+              <linearGradient id="grad1" x1="0%" x2="0%" y1="0%" y2="100%">
+                <stop offset="0%" style={{ stopColor: '#610000', stopOpacity: 1 }} />
+                <stop offset="100%" style={{ stopColor: '#610000', stopOpacity: 0 }} />
+              </linearGradient>
+            </defs>
+
+            {/* Data dots */}
+            <circle cx="250" cy="180" fill="#610000" r="6" stroke="white" strokeWidth="2" />
+            <circle cx="500" cy="140" fill="#610000" r="6" stroke="white" strokeWidth="2" />
+            <circle cx="800" cy="80" fill="#610000" r="6" stroke="white" strokeWidth="2" />
+          </svg>
+
+          {/* X-Axis Labels */}
+          <div className="flex justify-between mt-md px-2 font-label-sm text-[12px] text-on-surface-variant">
+            <span>Thứ 2</span>
+            <span>Thứ 3</span>
+            <span>Thứ 4</span>
+            <span>Thứ 5</span>
+            <span>Thứ 6</span>
+            <span>Thứ 7</span>
+            <span>Chủ Nhật</span>
+          </div>
+        </div>
+      </section>
 
       {/* Latest Activities Table */}
       <section className="mt-xl bg-white rounded-xl shadow-sm border border-outline-variant/5 overflow-hidden">

@@ -1,4 +1,4 @@
-import { Smartphone, Download, QrCode, Sparkles } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 const HeroSection = () => {
@@ -19,7 +19,8 @@ const HeroSection = () => {
             Học tập tương tác với Nghệ sĩ ảo và công nghệ phân tích âm thanh AI ngay trên điện thoại di động.
           </p>
 
-          {/* CTA Buttons */}
+          {/* CTA Buttons - Tạm thời ẩn */}
+          {/*
           <div className="flex flex-wrap gap-md">
             <button className="bg-primary-container text-white px-xl py-md rounded-xl flex items-center gap-sm shadow-lg hover:shadow-xl transition-shadow active:scale-95">
               <Smartphone size={20} />
@@ -30,8 +31,10 @@ const HeroSection = () => {
               <span className="font-label-md text-label-md">Tải cho iOS</span>
             </button>
           </div>
+          */}
 
-          {/* QR Code Box */}
+          {/* QR Code Box - Tạm thời ẩn */}
+          {/*
           <div className="mt-xl flex items-center gap-md p-md bg-white rounded-xl border border-outline-variant w-fit">
             <div className="w-24 h-24 bg-surface-container-highest rounded-lg flex items-center justify-center border-2 border-dashed border-outline">
               <QrCode className="text-outline" size={32} />
@@ -41,6 +44,7 @@ const HeroSection = () => {
               <p className="font-label-sm text-label-sm text-on-surface-variant">Khám phá ngay kho tàng âm nhạc</p>
             </div>
           </div>
+          */}
         </motion.div>
 
         {/* Right - Phone Mockup */}

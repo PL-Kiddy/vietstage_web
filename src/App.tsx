@@ -10,6 +10,7 @@ import AdminDashboard from './pages/admin/AdminDashboard';
 import AdminUsers from './pages/admin/AdminUsers';
 import AdminReview from './pages/admin/AdminReview';
 import AdminSettings from './pages/admin/AdminSettings';
+import AdminProfile from './pages/admin/AdminProfile';
 import InstructorLayout from './components/instructor/InstructorLayout';
 import InstructorDashboard from './pages/instructor/InstructorDashboard';
 import InstructorLessons from './pages/instructor/InstructorLessons';
@@ -37,6 +38,7 @@ function App() {
             <Route path="users" element={<AdminUsers />} />
             <Route path="review" element={<AdminReview />} />
             <Route path="settings" element={<AdminSettings />} />
+            <Route path="profile" element={<AdminProfile />} />
           </Route>
 
           {/* Instructor Routes */}

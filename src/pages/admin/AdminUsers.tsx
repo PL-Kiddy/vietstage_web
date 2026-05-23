@@ -26,11 +26,29 @@ const AdminUsers = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const perPage = 10;
 
+  // Initialize from LocalStorage
+  const [users, setUsers] = useState<AdminUser[]>(() => {
+    const saved = localStorage.getItem('vietstage_admin_users');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error('Error parsing admin users from localStorage:', e);
+      }
+    }
+    return mockAdminUsers;
+  });
+
+  const saveUsers = (updatedUsers: AdminUser[]) => {
+    setUsers(updatedUsers);
+    localStorage.setItem('vietstage_admin_users', JSON.stringify(updatedUsers));
+  };
+
   /* ── Filter ──────────────────────────────────────────────── */
   const filtered = useMemo(() => {
-    if (roleFilter === 'Tất cả') return mockAdminUsers;
-    return mockAdminUsers.filter((u) => u.role === roleFilter);
-  }, [roleFilter]);
+    if (roleFilter === 'Tất cả') return users;
+    return users.filter((u) => u.role === roleFilter);
+  }, [roleFilter, users]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / perPage));
   const pageUsers = filtered.slice(
@@ -40,9 +58,81 @@ const AdminUsers = () => {
 
   /* ── Toggle lock (mock) ──────────────────────────────────── */
   const toggleLock = (user: AdminUser) => {
-    user.status = user.status === 'active' ? 'locked' : 'active';
-    // Force re-render
-    setRoleFilter((v) => v);
+    const updated = users.map((u) =>
+      u.id === user.id ? { ...u, status: u.status === 'active' ? ('locked' as const) : ('active' as const) } : u
+    );
+    saveUsers(updated);
+    
+    // Update selected user sidebar detail if matching
+    if (selectedUser && selectedUser.id === user.id) {
+      setSelectedUser((prev) =>
+        prev
+          ? {
+              ...prev,
+              status: prev.status === 'active' ? 'locked' : 'active',
+            }
+          : null
+      );
+    }
+  };
+
+  /* ── Create User ─────────────────────────────────────────── */
+  const handleAddUser = () => {
+    const name = prompt('Nhập họ và tên người dùng mới:');
+    if (!name || !name.trim()) return;
+
+    const roleInput = prompt('Nhập vai trò (Admin / Giảng viên / Người học):', 'Người học');
+    if (!roleInput) return;
+
+    const role = roleInput.trim();
+    if (role !== 'Admin' && role !== 'Giảng viên' && role !== 'Người học') {
+      alert('Vai trò không hợp lệ! Vui lòng chỉ nhập: Admin, Giảng viên hoặc Người học.');
+      return;
+    }
+
+    const email = `${name.toLowerCase().replace(/\s+/g, '')}@vietstage.com`;
+    const newUser: AdminUser = {
+      id: `VS-2024-${Math.floor(100 + Math.random() * 900)}`,
+      name: name.trim(),
+      email,
+      role,
+      registeredAt: new Date().toLocaleDateString('vi-VN'),
+      status: 'active',
+      initials: name.trim().split(' ').map((n) => n[0]).join('').substring(0, 2).toUpperCase(),
+      stats: { courses: 0, students: '0', rating: 0 },
+      instruments: [],
+      activities: [{ title: 'Đăng ký tài khoản mới trên hệ thống', time: 'Vừa xong' }],
+    };
+
+    const updated = [newUser, ...users];
+    saveUsers(updated);
+    alert('Đã thêm thành viên mới thành công!');
+  };
+
+  /* ── Upgrade Role ────────────────────────────────────────── */
+  const handleUpgradeRole = (user: AdminUser) => {
+    const currentRole = user.role;
+    let nextRole: 'Admin' | 'Giảng viên' | 'Người học' = 'Giảng viên';
+
+    if (currentRole === 'Người học') nextRole = 'Giảng viên';
+    else if (currentRole === 'Giảng viên') nextRole = 'Admin';
+    else nextRole = 'Người học';
+
+    if (confirm(`Bạn có muốn đổi vai trò của ${user.name} từ [${currentRole}] sang [${nextRole}] không?`)) {
+      const updated = users.map((u) => (u.id === user.id ? { ...u, role: nextRole } : u));
+      saveUsers(updated);
+      setSelectedUser((prev) => (prev ? { ...prev, role: nextRole } : null));
+    }
+  };
+
+  /* ── Edit Profile Name ───────────────────────────────────── */
+  const handleEditProfile = (user: AdminUser) => {
+    const newName = prompt('Nhập họ và tên mới:', user.name);
+    if (!newName || !newName.trim()) return;
+
+    const updated = users.map((u) => (u.id === user.id ? { ...u, name: newName.trim() } : u));
+    saveUsers(updated);
+    setSelectedUser((prev) => (prev ? { ...prev, name: newName.trim() } : null));
   };
 
   return (
@@ -52,7 +142,7 @@ const AdminUsers = () => {
         <div>
           <h2
             className="text-headline-lg font-bold text-primary mb-xs"
-            style={{ fontFamily: "'Libre Caslon Text', serif" }}
+            style={{ fontFamily: "'Montserrat', sans-serif" }}
           >
             Quản lý người dùng
           </h2>
@@ -81,7 +171,10 @@ const AdminUsers = () => {
           </div>
 
           {/* Add New */}
-          <button className="bg-primary text-on-primary px-lg py-sm rounded-lg font-label-md hover:opacity-90 transition-all flex items-center gap-xs shadow-sm">
+          <button
+            onClick={handleAddUser}
+            className="bg-primary text-on-primary px-lg py-sm rounded-lg font-label-md hover:opacity-90 transition-all flex items-center gap-xs shadow-sm"
+          >
             <UserPlus className="w-[18px] h-[18px]" />
             Thêm mới
           </button>
@@ -166,9 +259,12 @@ const AdminUsers = () => {
                 {/* Actions */}
                 <td className="px-lg py-md text-right space-x-sm">
                   <button
-                    title="Cấp quyền"
+                    title="Đổi vai trò nhanh"
                     className="text-[#735c00] hover:scale-105 transition-transform"
-                    onClick={(e) => e.stopPropagation()}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleUpgradeRole(user);
+                    }}
                   >
                     <ShieldCheck className="w-5 h-5 inline" />
                   </button>
@@ -227,7 +323,7 @@ const AdminUsers = () => {
           ))}
           <button
             disabled={currentPage >= totalPages}
-            onClick={() => setCurrentPage((p) => p + 1)}
+            onClick={() => setCurrentPage((p) => p - 1)}
             className="p-2 border border-outline-variant rounded hover:bg-[#e3efff] transition-colors disabled:opacity-40"
           >
             <ChevronRight className="w-4 h-4" />
@@ -256,7 +352,7 @@ const AdminUsers = () => {
                 <div>
                   <h3
                     className="text-headline-md font-bold text-primary"
-                    style={{ fontFamily: "'Libre Caslon Text', serif" }}
+                    style={{ fontFamily: "'Montserrat', sans-serif" }}
                   >
                     {selectedUser.name}
                   </h3>
@@ -366,14 +462,25 @@ const AdminUsers = () => {
 
             {/* Modal Actions */}
             <div className="p-lg border-t border-[#d1e4fb] bg-[#edf4ff] flex gap-md justify-end">
-              <button className="px-lg py-sm border border-primary text-primary font-label-md rounded-lg hover:bg-primary/5 transition-colors">
+              <button
+                onClick={() => handleEditProfile(selectedUser)}
+                className="px-lg py-sm border border-primary text-primary font-label-md rounded-lg hover:bg-primary/5 transition-colors"
+              >
                 Sửa hồ sơ
               </button>
-              <button className="px-lg py-sm bg-[#cca730] text-[#574500] font-label-md rounded-lg hover:opacity-90 transition-opacity">
-                Cấp quyền chuyên sâu
+              <button
+                onClick={() => handleUpgradeRole(selectedUser)}
+                className="px-lg py-sm bg-[#cca730] text-[#574500] font-label-md rounded-lg hover:opacity-90 transition-opacity"
+              >
+                Cấp quyền / Vai trò
               </button>
-              <button className="px-lg py-sm bg-error text-on-primary font-label-md rounded-lg hover:opacity-90 transition-opacity">
-                Khóa tài khoản
+              <button
+                onClick={() => toggleLock(selectedUser)}
+                className={`px-lg py-sm font-label-md rounded-lg hover:opacity-90 transition-opacity text-white ${
+                  selectedUser.status === 'active' ? 'bg-error' : 'bg-[#5e5e5b]'
+                }`}
+              >
+                {selectedUser.status === 'active' ? 'Khóa tài khoản' : 'Mở khóa'}
               </button>
             </div>
           </div>

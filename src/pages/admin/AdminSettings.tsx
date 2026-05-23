@@ -12,13 +12,26 @@ import {
 } from 'lucide-react';
 
 const AdminSettings = () => {
-  const [pitchDetection, setPitchDetection] = useState<number>(85);
-  const [rhythmTolerance, setRhythmTolerance] = useState<number>(120);
-  const [autoOptimize, setAutoOptimize] = useState<boolean>(true);
-  const [sessionTime, setSessionTime] = useState<string>('30');
-  const [apiKey, setApiKey] = useState<string>(
-    'vs_live_4920_kdn92_admin_stage_secret_key_6a9b8c7d'
-  );
+  const [pitchDetection, setPitchDetection] = useState<number>(() => {
+    const saved = localStorage.getItem('vietstage_setting_pitch');
+    return saved ? Number(saved) : 85;
+  });
+  const [rhythmTolerance, setRhythmTolerance] = useState<number>(() => {
+    const saved = localStorage.getItem('vietstage_setting_rhythm');
+    return saved ? Number(saved) : 120;
+  });
+  const [autoOptimize, setAutoOptimize] = useState<boolean>(() => {
+    const saved = localStorage.getItem('vietstage_setting_optimize');
+    return saved ? saved === 'true' : true;
+  });
+  const [sessionTime, setSessionTime] = useState<string>(() => {
+    const saved = localStorage.getItem('vietstage_setting_session');
+    return saved ? saved : '30';
+  });
+  const [apiKey, setApiKey] = useState<string>(() => {
+    const saved = localStorage.getItem('vietstage_setting_apikey');
+    return saved ? saved : 'vs_live_4920_kdn92_admin_stage_secret_key_6a9b8c7d';
+  });
 
   const handleCopyKey = () => {
     navigator.clipboard.writeText(apiKey);
@@ -31,7 +44,12 @@ const AdminSettings = () => {
   };
 
   const handleSaveChanges = () => {
-    alert('Đã lưu mọi thay đổi thiết lập hệ thống!');
+    localStorage.setItem('vietstage_setting_pitch', String(pitchDetection));
+    localStorage.setItem('vietstage_setting_rhythm', String(rhythmTolerance));
+    localStorage.setItem('vietstage_setting_optimize', String(autoOptimize));
+    localStorage.setItem('vietstage_setting_session', sessionTime);
+    localStorage.setItem('vietstage_setting_apikey', apiKey);
+    alert('Đã lưu mọi thay đổi thiết lập hệ thống vào bộ nhớ cục bộ (localStorage)!');
   };
 
   return (
@@ -44,7 +62,7 @@ const AdminSettings = () => {
           </span>
           <h3
             className="text-headline-lg font-bold text-primary mt-xs"
-            style={{ fontFamily: "'Libre Caslon Text', serif" }}
+            style={{ fontFamily: "'Montserrat', sans-serif" }}
           >
             Cấu hình Hệ thống
           </h3>
@@ -65,7 +83,7 @@ const AdminSettings = () => {
             <BrainCircuit className="w-6 h-6 text-primary" />
             <h4
               className="text-headline-md font-bold text-on-surface"
-              style={{ fontFamily: "'Libre Caslon Text', serif" }}
+              style={{ fontFamily: "'Montserrat', sans-serif" }}
             >
               Thông số AI &amp; Latency
             </h4>
@@ -150,7 +168,7 @@ const AdminSettings = () => {
             <CloudLightning className="w-6 h-6 text-primary" />
             <h4
               className="text-headline-md font-bold text-on-surface"
-              style={{ fontFamily: "'Libre Caslon Text', serif" }}
+              style={{ fontFamily: "'Montserrat', sans-serif" }}
             >
               Quản lý lưu trữ Cloud
             </h4>
@@ -221,7 +239,7 @@ const AdminSettings = () => {
             <ShieldAlert className="w-6 h-6 text-primary" />
             <h4
               className="text-headline-md font-bold text-on-surface"
-              style={{ fontFamily: "'Libre Caslon Text', serif" }}
+              style={{ fontFamily: "'Montserrat', sans-serif" }}
             >
               Bảo mật &amp; API Key
             </h4>

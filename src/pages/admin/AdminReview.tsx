@@ -46,10 +46,27 @@ const mockReviewItems: ReviewItem[] = [
 ];
 
 const AdminReview = () => {
-  const [items, setItems] = useState<ReviewItem[]>(mockReviewItems);
+  // Initialize from LocalStorage
+  const [items, setItems] = useState<ReviewItem[]>(() => {
+    const saved = localStorage.getItem('vietstage_review_items');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error('Error parsing review items from localStorage:', e);
+      }
+    }
+    return mockReviewItems;
+  });
+
   const [activeIndex, setActiveIndex] = useState<number>(0);
   const [feedback, setFeedback] = useState<string>('');
   const [isPreviewZoomed, setIsPreviewZoomed] = useState<boolean>(false);
+
+  const saveItems = (updatedItems: ReviewItem[]) => {
+    setItems(updatedItems);
+    localStorage.setItem('vietstage_review_items', JSON.stringify(updatedItems));
+  };
 
   const currentItem = items[activeIndex];
 
@@ -57,7 +74,7 @@ const AdminReview = () => {
     if (!currentItem) return;
     alert(`Đã phê duyệt bài học: ${currentItem.title}`);
     const nextItems = items.filter((_, idx) => idx !== activeIndex);
-    setItems(nextItems);
+    saveItems(nextItems);
     setActiveIndex(0);
     setFeedback('');
   };
@@ -70,7 +87,7 @@ const AdminReview = () => {
     }
     alert(`Đã từ chối bài học: ${currentItem.title} với lý do: ${feedback}`);
     const nextItems = items.filter((_, idx) => idx !== activeIndex);
-    setItems(nextItems);
+    saveItems(nextItems);
     setActiveIndex(0);
     setFeedback('');
   };
@@ -107,7 +124,7 @@ const AdminReview = () => {
           </span>
           <h3
             className="text-headline-lg font-bold text-primary mt-xs"
-            style={{ fontFamily: "'Libre Caslon Text', serif" }}
+            style={{ fontFamily: "'Montserrat', sans-serif" }}
           >
             Hàng đợi kiểm duyệt
           </h3>
@@ -120,10 +137,16 @@ const AdminReview = () => {
 
       {/* Grid Layout: Table & Preview */}
       {items.length === 0 ? (
-        <div className="bg-white rounded-xl border border-[#d1e4fb]/50 p-xxl text-center shadow-sm">
+        <div className="bg-white rounded-xl border border-[#d1e4fb]/50 p-xxl text-center shadow-sm flex flex-col items-center justify-center gap-md">
           <p className="text-body-md text-secondary">
             Hàng đợi trống. Không có tài liệu nào đang chờ kiểm duyệt!
           </p>
+          <button
+            onClick={() => saveItems(mockReviewItems)}
+            className="bg-primary text-on-primary px-lg py-md rounded-lg font-label-md hover:bg-primary/95 transition-all shadow-sm"
+          >
+            Khôi phục danh sách mẫu để thử nghiệm
+          </button>
         </div>
       ) : (
         <div className="grid grid-cols-12 gap-lg items-start">
@@ -196,7 +219,7 @@ const AdminReview = () => {
               <div className="bg-white rounded-xl border border-[#d1e4fb]/50 p-lg shadow-sm">
                 <h4
                   className="text-headline-md font-bold text-primary mb-md"
-                  style={{ fontFamily: "'Libre Caslon Text', serif" }}
+                  style={{ fontFamily: "'Montserrat', sans-serif" }}
                 >
                   Trình xem trước
                 </h4>

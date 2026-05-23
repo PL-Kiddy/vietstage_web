@@ -1,4 +1,4 @@
-import { Users, GraduationCap, Music, Database, Gauge } from 'lucide-react';
+import { Users, GraduationCap, Music } from 'lucide-react';
 
 /* ── Stat Widgets ─────────────────────────────────────────── */
 const stats = [
@@ -31,31 +31,10 @@ const stats = [
     badge: 'Mới',
     badgeClass: 'text-primary-container bg-primary/10',
   },
-  {
-    icon: Database,
-    iconBg: 'bg-[#091d2e]/5 text-[#091d2e]',
-    label: 'Bộ nhớ đã dùng',
-    value: '64.5 GB',
-    sub: 'Tổng giới hạn: 100 GB',
-    progress: 64.5,
-    progressColor: 'bg-[#091d2e]',
-  },
 ];
 
 /* ── Chart bars (mockup) ──────────────────────────────────── */
 const chartBars = [40, 55, 45, 70, 85, 60, 95];
-
-/* ── System resources ─────────────────────────────────────── */
-const resources = [
-  { label: 'CPU Usage', value: 24, color: 'bg-primary', textColor: 'text-primary' },
-  { label: 'RAM Usage', value: 58, color: 'bg-[#cca730]', textColor: 'text-[#cca730]' },
-];
-
-const cloudServices = [
-  { name: 'Database Cluster', status: 'ONLINE' },
-  { name: 'Media Storage', status: 'ONLINE' },
-  { name: 'AI Analysis Service', status: 'ONLINE' },
-];
 
 /* ── Activity feed ────────────────────────────────────────── */
 const activities = [
@@ -104,7 +83,7 @@ const AdminDashboard = () => {
     <>
       {/* Page Heading */}
       <div className="mb-10">
-        <h2 className="text-headline-lg font-bold text-primary" style={{ fontFamily: "'Libre Caslon Text', serif" }}>
+        <h2 className="text-headline-lg font-bold text-primary" style={{ fontFamily: "'Montserrat', sans-serif" }}>
           Tổng quan Quản trị
         </h2>
         <p className="text-body-md text-[#5e5e5b]">
@@ -113,7 +92,7 @@ const AdminDashboard = () => {
       </div>
 
       {/* ── Stat Widgets ─────────────────────────────────────── */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-lg mb-10">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-lg mb-10">
         {stats.map((s, i) => (
           <div
             key={i}
@@ -145,92 +124,110 @@ const AdminDashboard = () => {
         ))}
       </div>
 
-      {/* ── Growth Chart + System Performance ────────────────── */}
+      {/* ── Growth & Retention Charts ────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-lg">
         {/* Growth Chart */}
-        <div className="lg:col-span-2 bg-white p-lg rounded-xl border border-[#d1e4fb]/50 shadow-sm">
-          <div className="flex justify-between items-center mb-10">
-            <h4 className="text-headline-md font-bold text-on-surface" style={{ fontFamily: "'Libre Caslon Text', serif" }}>
-              Tăng trưởng người dùng
-            </h4>
-            <div className="flex gap-sm">
-              <button className="px-md py-sm bg-[#e3efff] text-label-md rounded-lg hover:bg-[#d1e4fb] transition-colors">
-                7 ngày
-              </button>
-              <button className="px-md py-sm bg-primary text-on-primary text-label-md rounded-lg">
-                Tháng này
-              </button>
+        <div className="lg:col-span-2 bg-white p-lg rounded-xl border border-[#d1e4fb]/50 shadow-sm flex flex-col justify-between">
+          <div>
+            <div className="flex justify-between items-center mb-10">
+              <h4 className="text-headline-md font-bold text-on-surface" style={{ fontFamily: "'Montserrat', sans-serif" }}>
+                Tăng trưởng người dùng
+              </h4>
+              <div className="flex gap-sm">
+                <button className="px-md py-sm bg-[#e3efff] text-label-md rounded-lg hover:bg-[#d1e4fb] transition-colors">
+                  7 ngày
+                </button>
+                <button className="px-md py-sm bg-primary text-on-primary text-label-md rounded-lg">
+                  Tháng này
+                </button>
+              </div>
             </div>
-          </div>
-          {/* Bar Chart */}
-          <div className="relative h-64 w-full flex items-end gap-1">
-            <div className="absolute inset-0 flex flex-col justify-between pointer-events-none">
-              {[...Array(5)].map((_, i) => (
-                <div key={i} className="border-b border-[#d1e4fb] w-full h-px" />
+            {/* Bar Chart */}
+            <div className="relative h-56 w-full flex items-end gap-1 mt-6">
+              <div className="absolute inset-0 flex flex-col justify-between pointer-events-none">
+                {[...Array(5)].map((_, i) => (
+                  <div key={i} className="border-b border-[#d1e4fb] w-full h-px" />
+                ))}
+              </div>
+              {chartBars.map((h, i) => (
+                <div
+                  key={i}
+                  className="flex-1 bg-primary/10 border-t-2 border-primary rounded-t-sm transition-all hover:bg-primary/20"
+                  style={{ height: `${h}%` }}
+                />
               ))}
             </div>
-            {chartBars.map((h, i) => (
-              <div
-                key={i}
-                className="flex-1 bg-primary/10 border-t-2 border-primary rounded-t-sm transition-all hover:bg-primary/20"
-                style={{ height: `${h}%` }}
-              />
-            ))}
           </div>
-          <div className="flex justify-between mt-md px-xs text-[12px] text-[#5e5e5b] uppercase tracking-widest">
+          <div className="flex justify-between mt-md px-xs text-[12px] text-[#5e5e5b] uppercase tracking-widest border-t border-outline-variant/10 pt-sm">
             <span>Tuần 1</span><span>Tuần 2</span><span>Tuần 3</span><span>Tuần 4</span>
           </div>
         </div>
 
-        {/* System Performance */}
-        <div className="bg-white p-lg rounded-xl border border-[#d1e4fb]/50 shadow-sm flex flex-col">
-          <h4 className="text-headline-md font-bold text-on-surface mb-lg" style={{ fontFamily: "'Libre Caslon Text', serif" }}>
-            Hiệu suất Hệ thống
-          </h4>
-          <div className="space-y-lg flex-1">
-            {resources.map((r) => (
-              <div key={r.label}>
-                <div className="flex justify-between text-label-md mb-xs">
-                  <span>{r.label}</span>
-                  <span className={`${r.textColor} font-bold`}>{r.value}%</span>
-                </div>
-                <div className="h-2 bg-[#e3efff] rounded-full overflow-hidden">
-                  <div className={`${r.color} h-full rounded-full`} style={{ width: `${r.value}%` }} />
-                </div>
-              </div>
-            ))}
+        {/* Retention & Sessions Metrics */}
+        <div className="bg-white p-lg rounded-xl border border-[#d1e4fb]/50 shadow-sm flex flex-col justify-between">
+          <div>
+            <h4 className="text-headline-md font-bold text-on-surface mb-2" style={{ fontFamily: "'Montserrat', sans-serif" }}>
+              Phiên học &amp; Giữ chân
+            </h4>
+            <p className="text-body-sm text-[#5e5e5b] mb-6">
+              Phân tích thói quen hoạt động và tần suất quay lại của người học.
+            </p>
+          </div>
 
-            {/* AI Latency */}
-            <div className="p-md bg-[#edf4ff] rounded-lg border border-[#e3efff]">
-              <p className="text-[12px] text-[#5e5e5b] uppercase tracking-tighter">
-                AI Processing Latency
-              </p>
-              <div className="flex items-center gap-sm mt-xs">
-                <Gauge className="w-5 h-5 text-primary" />
-                <span className="text-headline-md font-bold text-on-surface">120ms</span>
-                <span className="text-[12px] text-primary bg-primary/10 px-xs py-[2px] rounded">
-                  Stable
-                </span>
+          <div className="space-y-md">
+            {/* Session Duration */}
+            <div className="bg-[#edf4ff] p-md rounded-lg border border-outline-variant/10">
+              <div className="flex justify-between items-center mb-1">
+                <span className="font-label-sm text-primary font-bold text-[13px]">Thời lượng phiên trung bình</span>
+                <span className="text-[11px] text-emerald-700 bg-emerald-100 px-sm py-[2px] rounded-full font-bold">+2.4m</span>
+              </div>
+              <div className="flex items-baseline gap-xs">
+                <span className="text-headline-md font-bold text-primary">34.5m</span>
+                <span className="text-body-sm text-[#5e5e5b] font-medium">/ 30m mục tiêu</span>
+              </div>
+              {/* Progress bar */}
+              <div className="w-full bg-white h-1.5 rounded-full overflow-hidden mt-md">
+                <div className="bg-primary h-full rounded-full" style={{ width: '100%' }} />
               </div>
             </div>
 
-            {/* Cloud Services */}
+            {/* Retention Rates (D1, D7, D30) */}
             <div className="space-y-sm">
-              <p className="text-label-md font-bold mb-xs">Trạng thái Dịch vụ Cloud</p>
-              {cloudServices.map((svc, i) => (
-                <div
-                  key={i}
-                  className={`flex justify-between items-center py-xs ${
-                    i < cloudServices.length - 1 ? 'border-b border-[#e3efff]' : ''
-                  }`}
-                >
-                  <span className="text-body-md text-[#5e5e5b]">{svc.name}</span>
-                  <span className="flex items-center gap-xs text-[12px] text-green-600 font-bold">
-                    <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-                    {svc.status}
-                  </span>
+              <h5 className="font-label-sm text-on-surface font-bold uppercase tracking-wider text-[11px]">
+                Tỷ lệ quay lại (Retention Rate)
+              </h5>
+              <div className="space-y-sm">
+                {/* D1 */}
+                <div className="space-y-xs">
+                  <div className="flex justify-between text-[12px]">
+                    <span className="font-medium text-on-surface-variant">Ngày 1 (D1)</span>
+                    <span className="font-bold text-primary">82.5%</span>
+                  </div>
+                  <div className="w-full bg-[#edf4ff] h-1.5 rounded-full overflow-hidden">
+                    <div className="bg-primary h-full rounded-full" style={{ width: '82.5%' }} />
+                  </div>
                 </div>
-              ))}
+                {/* D7 */}
+                <div className="space-y-xs">
+                  <div className="flex justify-between text-[12px]">
+                    <span className="font-medium text-on-surface-variant">Ngày 7 (D7)</span>
+                    <span className="font-bold text-[#735c00]">68.2%</span>
+                  </div>
+                  <div className="w-full bg-[#edf4ff] h-1.5 rounded-full overflow-hidden">
+                    <div className="bg-[#cca730] h-full rounded-full" style={{ width: '68.2%' }} />
+                  </div>
+                </div>
+                {/* D30 */}
+                <div className="space-y-xs">
+                  <div className="flex justify-between text-[12px]">
+                    <span className="font-medium text-on-surface-variant">Ngày 30 (D30)</span>
+                    <span className="font-bold text-error">45.1%</span>
+                  </div>
+                  <div className="w-full bg-[#edf4ff] h-1.5 rounded-full overflow-hidden">
+                    <div className="bg-error h-full rounded-full" style={{ width: '45.1%' }} />
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -240,7 +237,7 @@ const AdminDashboard = () => {
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-lg mt-10">
         {/* Activity Feed */}
         <div className="lg:col-span-3 bg-white p-lg rounded-xl border border-[#d1e4fb]/50 shadow-sm">
-          <h4 className="text-headline-md font-bold text-on-surface mb-lg" style={{ fontFamily: "'Libre Caslon Text', serif" }}>
+          <h4 className="text-headline-md font-bold text-on-surface mb-lg" style={{ fontFamily: "'Montserrat', sans-serif" }}>
             Hoạt động gần đây
           </h4>
           <div className="space-y-md">
@@ -271,7 +268,7 @@ const AdminDashboard = () => {
           />
           <div className="absolute inset-0 bg-gradient-to-t from-primary/80 to-transparent" />
           <div className="relative p-lg text-on-primary">
-            <h5 className="text-headline-md font-bold" style={{ fontFamily: "'Libre Caslon Text', serif" }}>
+            <h5 className="text-headline-md font-bold" style={{ fontFamily: "'Montserrat', sans-serif" }}>
               Bảo tồn Âm nhạc
             </h5>
             <p className="text-body-md opacity-90 mt-xs">

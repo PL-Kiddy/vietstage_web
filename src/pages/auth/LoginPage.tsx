@@ -1,3 +1,5 @@
+import { Link } from 'react-router-dom';
+import { ArrowLeft } from 'lucide-react';
 import LoginForm from '../../components/auth/LoginForm';
 
 const LoginPage = () => {
@@ -21,6 +23,15 @@ const LoginPage = () => {
 
       {/* Right Section: Login Form */}
       <section className="flex-1 flex flex-col justify-center items-center px-margin-mobile md:px-margin-desktop bg-surface-bright relative min-h-screen">
+        {/* Back to Home Button */}
+        <Link
+          to="/"
+          className="absolute top-6 left-6 flex items-center gap-2 text-on-surface-variant hover:text-primary font-semibold transition-colors z-20 group"
+        >
+          <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
+          <span>Quay về trang chủ</span>
+        </Link>
+
         {/* Mobile Brand Header */}
         <div className="md:hidden absolute top-xl text-center">
           <h1 className="font-display-lg text-headline-lg-mobile text-primary font-bold">

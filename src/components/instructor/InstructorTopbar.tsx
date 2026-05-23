@@ -1,7 +1,11 @@
-import React from 'react';
-import { Search, Bell, Settings } from 'lucide-react';
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Search, Bell } from 'lucide-react';
 
 const InstructorTopbar = () => {
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const navigate = useNavigate();
+
   return (
     <header className="flex justify-between items-center h-16 px-margin-desktop md:ml-72 w-[calc(100%-18rem)] fixed top-0 bg-surface border-b border-outline-variant/10 shadow-sm z-40">
       <div className="flex items-center gap-lg w-full max-w-xl">
@@ -19,12 +23,46 @@ const InstructorTopbar = () => {
           <Bell className="w-5 h-5" />
           <span className="absolute top-2 right-2 w-2 h-2 bg-error rounded-full" />
         </button>
-        <button className="p-2 text-on-surface-variant hover:bg-surface-container-high rounded-full transition-colors">
-          <Settings className="w-5 h-5" />
-        </button>
         <div className="w-px h-6 bg-outline-variant/30 mx-2" />
-        <div className="w-8 h-8 rounded-full bg-secondary-container flex items-center justify-center font-bold text-primary text-xs">
-          TH
+        
+        {/* User Profile Dropdown */}
+        <div className="relative">
+          <div
+            onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+            className="w-8 h-8 rounded-full bg-secondary-container flex items-center justify-center font-bold text-primary text-xs cursor-pointer hover:opacity-85 transition-opacity"
+          >
+            TH
+          </div>
+
+          {isDropdownOpen && (
+            <>
+              {/* Backdrop */}
+              <div
+                className="fixed inset-0 z-10"
+                onClick={() => setIsDropdownOpen(false)}
+              />
+              <div className="absolute right-0 mt-2 w-48 bg-white border border-[#d1e4fb] rounded-xl shadow-lg py-1 z-20">
+                <button
+                  onClick={() => {
+                    setIsDropdownOpen(false);
+                    navigate('/instructor/profile');
+                  }}
+                  className="w-full text-left px-4 py-2 hover:bg-[#edf4ff] text-[14px] text-on-surface transition-colors"
+                >
+                  Profile
+                </button>
+                <button
+                  onClick={() => {
+                    setIsDropdownOpen(false);
+                    navigate('/login');
+                  }}
+                  className="w-full text-left px-4 py-2 hover:bg-[#edf4ff] text-[14px] text-error transition-colors border-t border-[#d1e4fb]/40"
+                >
+                  Đăng xuất
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </header>
