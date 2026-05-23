@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { Menu, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
+import logoNgang from '../../assets/logongangtachnen.png';
+
 const navLinks = [
   { label: 'Giới thiệu', href: '#', active: true },
   { label: 'Nhạc cụ', href: '#instruments' },
@@ -18,9 +20,13 @@ const Navbar = () => {
         {/* Logo */}
         <Link
           to="/"
-          className="font-headline-md text-headline-md font-bold text-primary dark:text-primary-fixed-dim"
+          className="flex items-center"
         >
-          VietStage
+          <img
+            src={logoNgang}
+            alt="VietStage"
+            className="h-9 md:h-11 w-auto object-contain"
+          />
         </Link>
 
         {/* Desktop Nav Links */}
