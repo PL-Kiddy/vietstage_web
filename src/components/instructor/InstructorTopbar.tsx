@@ -54,11 +54,11 @@ const InstructorTopbar = () => {
                 <button
                   onClick={() => {
                     setIsDropdownOpen(false);
-                    navigate('/');
+                    navigate('/login');
                   }}
-                  className="w-full text-left px-4 py-2 hover:bg-[#edf4ff] text-[14px] text-primary font-medium transition-colors border-t border-[#d1e4fb]/40"
+                  className="w-full text-left px-4 py-2 hover:bg-[#edf4ff] text-[14px] text-error transition-colors border-t border-[#d1e4fb]/40"
                 >
-                  Quay lại trang chủ
+                  Đăng xuất
                 </button>
               </div>
             </>
