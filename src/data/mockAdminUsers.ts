@@ -24,7 +24,7 @@ export const mockAdminUsers: AdminUser[] = [
     initials: 'NL',
     specialty: 'Giảng viên Đàn Bầu',
     stats: { courses: 12, students: '450+', rating: 4.9 },
-    instruments: ['Đàn Bầu', 'Đàn Tranh', 'Đàn Tỳ Bà', 'Sáo Trúc'],
+    instruments: ['Đàn Bầu', 'Đàn Tranh', 'Trống', 'Sáo Trúc'],
     activities: [
       {
         title: 'Đăng tải bài giảng mới: Kỹ thuật rung Đàn Bầu',
@@ -63,7 +63,7 @@ export const mockAdminUsers: AdminUser[] = [
     status: 'active',
     initials: 'PH',
     stats: { courses: 5, students: '0', rating: 0 },
-    instruments: ['Sáo Trúc', 'Đàn Nguyệt'],
+    instruments: ['Sáo Trúc', 'Trống'],
     activities: [
       { title: 'Hoàn thành bài kiểm tra Module 2', time: '18/04/2024' },
       { title: 'Nộp bài tập thực hành Sáo Trúc', time: '15/04/2024' },
@@ -94,7 +94,7 @@ export const mockAdminUsers: AdminUser[] = [
     initials: 'VH',
     specialty: 'Giảng viên Đàn Tranh',
     stats: { courses: 8, students: '320+', rating: 4.7 },
-    instruments: ['Đàn Tranh', 'Đàn Nhị'],
+    instruments: ['Đàn Tranh', 'Trống'],
     activities: [
       { title: 'Tải lên video hướng dẫn Đàn Tranh nâng cao', time: 'Hôm nay, 10:30' },
       { title: 'Trả lời 12 câu hỏi từ học viên', time: 'Hôm qua, 16:45' },

@@ -39,15 +39,24 @@ const LoginForm = () => {
     const user = authenticateUser(username.trim(), password);
 
     if (user) {
+      // If user is a learner, block login and show message
+      if (user.role === 'learner') {
+        showToast('error', 'Tài khoản học viên vui lòng đăng nhập trên ứng dụng di động VietStage.');
+        return;
+      }
+
       showToast(
         'success',
         `Đăng nhập thành công! Xin chào ${user.name}. Đang chuyển hướng...`
       );
+      // Persist the user session in sessionStorage
+      sessionStorage.setItem('vietstage_current_user', JSON.stringify(user));
+      
       // Redirect based on role after toast displays
       setTimeout(() => {
         if (user.role === 'admin') {
           navigate('/admin');
-        } else {
+        } else if (user.role === 'instructor') {
           navigate('/instructor');
         }
       }, 1500);

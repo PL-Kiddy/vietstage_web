@@ -50,7 +50,7 @@ const RegisterForm = () => {
     const success = registerUser({
       email: email.trim(),
       password,
-      role: 'instructor', // Default role for standard registration is instructor
+      role: 'learner', // Default role for standard registration is learner
       name: fullName.trim(),
     });
 
@@ -59,10 +59,10 @@ const RegisterForm = () => {
       return;
     }
 
-    showToast('success', 'Đăng ký thành công! Đang chuyển hướng đến trang tổng quan...');
+    showToast('success', 'Đăng ký thành công! Vui lòng sử dụng ứng dụng VietStage di động để đăng nhập.');
     setTimeout(() => {
-      navigate('/instructor');
-    }, 1500);
+      navigate('/login');
+    }, 3000);
   };
 
   return (
@@ -108,10 +108,10 @@ const RegisterForm = () => {
         {/* Header */}
         <header className="mb-xl">
           <h2 className="font-headline-lg text-headline-lg md:text-headline-lg-mobile text-on-surface mb-xs">
-            Tạo tài khoản Giảng viên
+            Tạo tài khoản Học viên
           </h2>
           <p className="font-body-md text-body-md text-on-surface-variant">
-            Bắt đầu hành trình giảng dạy của bạn ngay hôm nay.
+            Bắt đầu hành trình học tập nhạc cụ dân tộc của bạn ngay hôm nay.
           </p>
         </header>
 
@@ -159,10 +159,10 @@ const RegisterForm = () => {
             </div>
           </div>
 
-          {/* Specialization Dropdown */}
+          {/* Preferred Instrument Dropdown */}
           <div className="space-y-xs">
             <label className="font-label-md text-label-md text-on-surface-variant ml-1">
-              Chuyên môn
+              Nhạc cụ quan tâm
             </label>
             <div className="relative">
               <select
@@ -170,13 +170,11 @@ const RegisterForm = () => {
                 onChange={(e) => setSpecialization(e.target.value)}
                 className="w-full appearance-none px-md py-sm border border-outline-variant/30 rounded-lg font-body-md text-body-md text-on-surface bg-surface-container-lowest focus:border-secondary focus:ring-2 focus:ring-secondary/10 outline-none transition-all"
               >
-                <option value="">Chọn chuyên môn của bạn</option>
-                <option value="dan_tranh">Đàn Tranh</option>
+                <option value="">Chọn nhạc cụ bạn quan tâm</option>
                 <option value="dan_bau">Đàn Bầu</option>
+                <option value="dan_tranh">Đàn Tranh</option>
                 <option value="sao_truc">Sáo Trúc</option>
-                <option value="dan_nguyet">Đàn Nguyệt</option>
-                <option value="dan_ty_ba">Đàn Tỳ Bà</option>
-                <option value="dan_nhi">Đàn Nhị</option>
+                <option value="trong">Trống</option>
               </select>
               <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none w-5 h-5 text-on-surface-variant" />
             </div>

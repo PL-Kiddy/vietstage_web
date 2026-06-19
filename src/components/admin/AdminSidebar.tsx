@@ -12,7 +12,7 @@ import logo from '../../assets/logongangtachnen.png';
 const navItems = [
   { icon: LayoutDashboard, label: 'Tổng quan', href: '/admin' },
   { icon: Users, label: 'Quản lý người dùng', href: '/admin/users' },
-  { icon: ClipboardCheck, label: 'Kiểm duyệt nội dung', href: '/admin/review' },
+  { icon: ClipboardCheck, label: 'Kiểm duyệt học liệu', href: '/admin/review' },
   { icon: Settings, label: 'Cấu hình hệ thống', href: '/admin/settings' },
 ];
 

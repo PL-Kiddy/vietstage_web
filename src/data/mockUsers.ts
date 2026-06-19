@@ -1,7 +1,7 @@
 export interface MockUser {
   email: string;
   password: string;
-  role: 'admin' | 'instructor';
+  role: 'admin' | 'instructor' | 'learner';
   name: string;
 }
 

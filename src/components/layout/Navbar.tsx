@@ -5,11 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 import logoNgang from '../../assets/logongangtachnen.png';
 
-const navLinks = [
-  { label: 'Giới thiệu', href: '#', active: true },
-  { label: 'Nhạc cụ', href: '#instruments' },
-  { label: 'Hướng dẫn', href: '#' },
-];
+const navLinks: { label: string; href: string; active?: boolean }[] = [];
 
 const Navbar = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);

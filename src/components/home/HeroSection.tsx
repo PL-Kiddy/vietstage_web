@@ -19,13 +19,10 @@ const HeroSection = () => {
               alt="VietStage"
               className="w-64 md:w-80 h-auto object-contain mb-md"
             />
-            <h1 className="font-display-lg text-display-lg text-primary leading-tight">
-              Di sản nhạc cụ dân tộc trong tầm tay bạn
-            </h1>
           </div>
-          <p className="font-body-lg text-body-lg text-on-surface-variant mb-xl max-w-lg">
+          <h1 className="font-headline-lg text-headline-lg text-primary mb-xl max-w-2xl leading-tight">
             Học tập tương tác với Nghệ sĩ ảo và công nghệ phân tích âm thanh AI ngay trên điện thoại di động.
-          </p>
+          </h1>
 
           {/* CTA Buttons - Tạm thời ẩn */}
           {/*

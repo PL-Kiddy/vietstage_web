@@ -5,6 +5,7 @@ import RegisterPage from './pages/auth/RegisterPage';
 import ForgotPasswordPage from './pages/auth/ForgotPasswordPage';
 import LoadingScreen from './components/common/LoadingScreen';
 import useLoading from './hooks/useLoading';
+import ProtectedRoute from './components/common/ProtectedRoute';
 import AdminLayout from './components/admin/AdminLayout';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import AdminUsers from './pages/admin/AdminUsers';
@@ -33,21 +34,25 @@ function App() {
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
 
           {/* Admin Routes */}
-          <Route path="/admin" element={<AdminLayout />}>
-            <Route index element={<AdminDashboard />} />
-            <Route path="users" element={<AdminUsers />} />
-            <Route path="review" element={<AdminReview />} />
-            <Route path="settings" element={<AdminSettings />} />
-            <Route path="profile" element={<AdminProfile />} />
+          <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
+            <Route path="/admin" element={<AdminLayout />}>
+              <Route index element={<AdminDashboard />} />
+              <Route path="users" element={<AdminUsers />} />
+              <Route path="review" element={<AdminReview />} />
+              <Route path="settings" element={<AdminSettings />} />
+              <Route path="profile" element={<AdminProfile />} />
+            </Route>
           </Route>
 
           {/* Instructor Routes */}
-          <Route path="/instructor" element={<InstructorLayout />}>
-            <Route index element={<InstructorDashboard />} />
-            <Route path="lessons" element={<InstructorLessons />} />
-            <Route path="students" element={<InstructorStudents />} />
-            <Route path="media" element={<InstructorMedia />} />
-            <Route path="profile" element={<InstructorProfile />} />
+          <Route element={<ProtectedRoute allowedRoles={['instructor']} />}>
+            <Route path="/instructor" element={<InstructorLayout />}>
+              <Route index element={<InstructorDashboard />} />
+              <Route path="lessons" element={<InstructorLessons />} />
+              <Route path="students" element={<InstructorStudents />} />
+              <Route path="media" element={<InstructorMedia />} />
+              <Route path="profile" element={<InstructorProfile />} />
+            </Route>
           </Route>
         </Routes>
       </BrowserRouter>

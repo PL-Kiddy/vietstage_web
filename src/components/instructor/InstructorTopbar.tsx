@@ -54,6 +54,7 @@ const InstructorTopbar = () => {
                 <button
                   onClick={() => {
                     setIsDropdownOpen(false);
+                    sessionStorage.removeItem('vietstage_current_user');
                     navigate('/login');
                   }}
                   className="w-full text-left px-4 py-2 hover:bg-[#edf4ff] text-[14px] text-error transition-colors border-t border-[#d1e4fb]/40"
