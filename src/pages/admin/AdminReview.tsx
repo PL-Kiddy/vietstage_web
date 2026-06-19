@@ -10,6 +10,7 @@ import {
   ChevronLeft,
   ChevronRight,
   RotateCcw,
+  AlertTriangle,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -161,6 +162,7 @@ const AdminReview = () => {
   const [feedbackError, setFeedbackError] = useState<string>('');
   const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
   const [isPreviewZoomed, setIsPreviewZoomed] = useState<boolean>(false);
+  const [revokeModalItem, setRevokeModalItem] = useState<ReviewItem | null>(null);
 
   // Audio Player State
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
@@ -287,30 +289,28 @@ const AdminReview = () => {
   };
 
   const handleRevoke = (item: ReviewItem) => {
-    if (window.confirm('Học liệu này đang ở trạng thái Đã duyệt và có thể đang được học viên sử dụng. Thu hồi sẽ ẩn nó khỏi ứng dụng học viên ngay lập tức. Bạn có chắc chắn muốn tiếp tục?')) {
-      const updated = items.map((u) =>
-        u.id === item.id
-          ? {
-              ...u,
-              status: 'pending' as const,
-              feedback: undefined,
-              approvedBy: undefined,
-              approvedAt: undefined
-            }
-          : u
-      );
-      saveItems(updated);
-      setSelectedItem({
-        ...item,
-        status: 'pending',
-        feedback: undefined,
-        approvedBy: undefined,
-        approvedAt: undefined
-      });
-      setFeedback('');
-      setFeedbackError('');
-      alert(`Đã thu hồi phê duyệt học liệu "${item.title}".`);
-    }
+    const updated = items.map((u) =>
+      u.id === item.id
+        ? {
+            ...u,
+            status: 'pending' as const,
+            feedback: undefined,
+            approvedBy: undefined,
+            approvedAt: undefined
+          }
+        : u
+    );
+    saveItems(updated);
+    setSelectedItem({
+      ...item,
+      status: 'pending',
+      feedback: undefined,
+      approvedBy: undefined,
+      approvedAt: undefined
+    });
+    setFeedback('');
+    setFeedbackError('');
+    alert(`Đã thu hồi phê duyệt học liệu "${item.title}".`);
   };
 
   // Get instrument color tag style
@@ -930,7 +930,7 @@ const AdminReview = () => {
                     </button>
                     {selectedItem.status === 'approved' ? (
                       <button
-                        onClick={() => handleRevoke(selectedItem)}
+                        onClick={() => setRevokeModalItem(selectedItem)}
                         className="flex-1 flex items-center justify-center gap-sm bg-[#c62828] text-white py-lg rounded-xl font-bold hover:bg-[#b71c1c] active:scale-[0.98] transition-all shadow-sm"
                       >
                         <RotateCcw className="w-5 h-5" />
@@ -952,6 +952,45 @@ const AdminReview = () => {
           </>
         )}
       </AnimatePresence>
+
+      {/* ── REVOCATION CONFIRMATION MODAL ─────────────────────── */}
+      {revokeModalItem && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-xl max-w-md w-full p-xl shadow-2xl border border-outline-variant/30 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-start gap-md mb-md">
+              <div className="p-md rounded-full flex-shrink-0 bg-[#c62828]/10 text-[#c62828]">
+                <AlertTriangle className="w-6 h-6" />
+              </div>
+              <div>
+                <h4 className="text-headline-md font-bold text-on-surface text-lg">
+                  Xác nhận thu hồi phê duyệt
+                </h4>
+                <p className="text-body-md text-on-surface-variant mt-sm text-sm leading-relaxed">
+                  Học liệu này đang ở trạng thái <strong>Đã duyệt</strong> và có thể đang được học viên sử dụng. Thu hồi sẽ ẩn nó khỏi ứng dụng học viên ngay lập tức. Bạn có chắc chắn muốn tiếp tục?
+                </p>
+              </div>
+            </div>
+            <div className="flex justify-end gap-md mt-lg">
+              <button
+                onClick={() => setRevokeModalItem(null)}
+                className="bg-white hover:bg-[#edf4ff] text-[#5e5e5b] border border-[#d1e4fb] font-semibold px-lg py-md rounded-lg transition-colors text-sm"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={() => {
+                  const targetItem = revokeModalItem;
+                  setRevokeModalItem(null);
+                  handleRevoke(targetItem);
+                }}
+                className="text-white bg-[#c62828] hover:bg-[#b71c1c] font-semibold px-lg py-md rounded-lg transition-colors text-sm"
+              >
+                Xác nhận thu hồi
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
