@@ -1,10 +1,18 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, Bell } from 'lucide-react';
+import { authApi } from '../../api/services';
+import { clearAuthSession, getAuthSession } from '../../api/authStorage';
 
 const InstructorTopbar = () => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const navigate = useNavigate();
+  const initials = (getAuthSession()?.name ?? 'Giảng viên')
+    .split(/\s+/)
+    .map((part) => part[0])
+    .join('')
+    .slice(-2)
+    .toUpperCase();
 
   return (
     <header className="flex justify-between items-center h-16 px-margin-desktop md:ml-72 w-[calc(100%-18rem)] fixed top-0 bg-surface border-b border-outline-variant/10 shadow-sm z-40">
@@ -31,7 +39,7 @@ const InstructorTopbar = () => {
             onClick={() => setIsDropdownOpen(!isDropdownOpen)}
             className="w-8 h-8 rounded-full bg-secondary-container flex items-center justify-center font-bold text-primary text-xs cursor-pointer hover:opacity-85 transition-opacity"
           >
-            TH
+            {initials}
           </div>
 
           {isDropdownOpen && (
@@ -52,10 +60,14 @@ const InstructorTopbar = () => {
                   Profile
                 </button>
                 <button
-                  onClick={() => {
+                  onClick={async () => {
                     setIsDropdownOpen(false);
-                    sessionStorage.removeItem('vietstage_current_user');
-                    navigate('/login');
+                    try {
+                      await authApi.logout();
+                    } finally {
+                      clearAuthSession();
+                      navigate('/login');
+                    }
                   }}
                   className="w-full text-left px-4 py-2 hover:bg-[#edf4ff] text-[14px] text-error transition-colors border-t border-[#d1e4fb]/40"
                 >

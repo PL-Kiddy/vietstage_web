@@ -1,4 +1,3 @@
-import React from 'react';
 import {
   Users,
   BookOpen,
@@ -126,7 +125,7 @@ const InstructorDashboard = () => {
           <svg className="w-full h-full" viewBox="0 0 800 300">
             {/* Grid Lines */}
             <line stroke="#e4e2dd" strokeDasharray="4" x1="0" x2="800" y1="50" y2="50" />
-            <line stroke="#e4e2dd" strokeDasharray="4" x1="0" x2="800" y1="150" x2="800" y2="150" />
+            <line stroke="#e4e2dd" strokeDasharray="4" x1="0" x2="800" y1="150" y2="150" />
             <line stroke="#e4e2dd" strokeDasharray="4" x1="0" x2="800" y1="250" y2="250" />
 
             {/* Main Line */}

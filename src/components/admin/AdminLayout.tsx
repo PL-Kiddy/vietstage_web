@@ -7,7 +7,7 @@ const AdminLayout = () => {
     <div className="min-h-screen" style={{ backgroundColor: '#f7f9ff' }}>
       <AdminSidebar />
       <main className="ml-64 min-h-screen relative pb-16">
-        <AdminTopbar userName="Quản trị viên" userRole="Administrator" />
+        <AdminTopbar />
 
         {/* Page Content (rendered by child routes) */}
         <section className="mt-16 p-lg">

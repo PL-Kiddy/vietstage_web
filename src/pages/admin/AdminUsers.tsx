@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useCallback, type FormEvent } from 'react';
 import {
   UserPlus,
   Lock,
@@ -17,10 +17,12 @@ import {
   Mail,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { mockAdminUsers, type AdminUser } from '../../data/mockAdminUsers';
+import { masterDataApi, usersApi } from '../../api/services';
+import type { AdminUser as ApiAdminUser, Instrument } from '../../api/types';
 
 // Extended type to support 'pending' status
-export interface ExtendedAdminUser extends Omit<AdminUser, 'status'> {
+export interface ExtendedAdminUser extends Omit<ApiAdminUser, 'id' | 'status'> {
+  id: string;
   status: 'active' | 'locked' | 'pending';
 }
 
@@ -85,24 +87,35 @@ const AdminUsers = () => {
   // Action Menu state
   const [openActionMenuUserId, setOpenActionMenuUserId] = useState<string | null>(null);
 
-  // Initialize from LocalStorage
-  const [users, setUsers] = useState<ExtendedAdminUser[]>(() => {
-    const saved = localStorage.getItem('vietstage_admin_users');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        console.error('Error parsing admin users from localStorage:', e);
-      }
-    }
-    // Cast initial mock data
-    return mockAdminUsers as ExtendedAdminUser[];
-  });
+  const [users, setUsers] = useState<ExtendedAdminUser[]>([]);
+  const [instruments, setInstruments] = useState<Instrument[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const saveUsers = (updatedUsers: ExtendedAdminUser[]) => {
-    setUsers(updatedUsers);
-    localStorage.setItem('vietstage_admin_users', JSON.stringify(updatedUsers));
-  };
+  const loadUsers = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const data = await usersApi.list();
+      setUsers(data.map((user) => ({ ...user, id: String(user.id) })));
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Không thể tải danh sách người dùng.');
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void usersApi.list()
+      .then((data) => setUsers(data.map((user) => ({ ...user, id: String(user.id) }))))
+      .catch((error: unknown) => {
+        alert(error instanceof Error ? error.message : 'Không thể tải danh sách người dùng.');
+      })
+      .finally(() => setIsLoading(false));
+    void masterDataApi.instruments().then(setInstruments).catch(() => setInstruments([]));
+  }, []);
+
+  const instrumentOptions = instruments.length > 0
+    ? instruments.map((instrument) => instrument.name)
+    : INSTRUMENT_OPTIONS;
 
   /* ── Filter ──────────────────────────────────────────────── */
   const filtered = useMemo(() => {
@@ -151,31 +164,24 @@ const AdminUsers = () => {
     setConfirmModalData({ type, user });
   };
 
-  const handleConfirmAction = () => {
+  const handleConfirmAction = async () => {
     if (!confirmModalData) return;
     const { type, user } = confirmModalData;
 
-    if (type === 'lock' || type === 'unlock') {
-      const updated = users.map((u) =>
-        u.id === user.id ? { ...u, status: type === 'lock' ? ('locked' as const) : ('active' as const) } : u
-      );
-      saveUsers(updated);
-      if (selectedUser && selectedUser.id === user.id) {
-        setSelectedUser({ ...selectedUser, status: type === 'lock' ? 'locked' : 'active' });
+    try {
+      if (type === 'lock' || type === 'unlock' || type === 'activate') {
+        const status = type === 'lock' ? 'locked' : 'active';
+        await usersApi.updateStatus(Number(user.id), status);
+        await loadUsers();
+        setSelectedUser((current) => current?.id === user.id ? { ...current, status } : current);
+      } else {
+        alert('Luồng đặt lại mật khẩu quản trị sẽ sử dụng API quên mật khẩu.');
       }
-    } else if (type === 'reset_password') {
-      alert(`Đã gửi liên kết và đặt lại mật khẩu tạm thời cho ${user.email} thành "123456".`);
-    } else if (type === 'activate') {
-      const updated = users.map((u) =>
-        u.id === user.id ? { ...u, status: 'active' as const } : u
-      );
-      saveUsers(updated);
-      if (selectedUser && selectedUser.id === user.id) {
-        setSelectedUser({ ...selectedUser, status: 'active' });
-      }
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Không thể cập nhật trạng thái tài khoản.');
+    } finally {
+      setConfirmModalData(null);
     }
-
-    setConfirmModalData(null);
   };
 
   const handleAddUserClick = () => {
@@ -198,36 +204,36 @@ const AdminUsers = () => {
     setNewUserEmail(emailPrefix ? `${emailPrefix}@vietstage.com` : '');
   };
 
-  const submitAddUser = (e: React.FormEvent) => {
+  const submitAddUser = async (e: FormEvent) => {
     e.preventDefault();
     if (!isAddFormValid) return;
 
-    const initials = newUserName
-      .trim()
-      .split(' ')
-      .map((n) => n[0])
-      .join('')
-      .substring(0, 2)
-      .toUpperCase();
+    const generatedPassword = authMethod === 'password'
+      ? newPassword
+      : `Vs@${crypto.randomUUID().replaceAll('-', '').slice(0, 10)}`;
+    const instrumentId = instruments.find((instrument) => instrument.name === newInstrument)?.id;
 
-    const newUser: ExtendedAdminUser = {
-      id: `VS-2026-${Math.floor(100 + Math.random() * 900)}`,
-      name: newUserName.trim(),
-      email: newUserEmail.trim(),
-      role: newUserRole,
-      specialty: newUserRole === 'Giảng viên' ? `Giảng viên ${newInstrument}` : 'Quản trị viên',
-      registeredAt: new Date().toLocaleDateString('vi-VN'),
-      status: authMethod === 'invite' ? 'pending' : 'active',
-      initials: initials || 'VS',
-      stats: { courses: 0, students: '0', rating: 0 },
-      instruments: newUserRole === 'Giảng viên' ? [newInstrument] : [],
-      activities: [{ title: `Tài khoản được tạo bởi Admin (${authMethod === 'invite' ? 'Chờ kích hoạt' : 'Kích hoạt ngay'})`, time: 'Vừa xong' }],
-    };
-
-    const updated = [newUser, ...users];
-    saveUsers(updated);
-    setIsAddDrawerOpen(false);
-    alert('Đã tạo tài khoản thành viên mới thành công!');
+    try {
+      if (newUserRole === 'Giảng viên') {
+        await usersApi.createInstructor({
+          email: newUserEmail.trim(),
+          password: generatedPassword,
+          fullName: newUserName.trim(),
+          instrumentIds: instrumentId ? [instrumentId] : [],
+        });
+      } else {
+        await usersApi.createAdmin({
+          email: newUserEmail.trim(),
+          password: generatedPassword,
+          fullName: newUserName.trim(),
+        });
+      }
+      await loadUsers();
+      setIsAddDrawerOpen(false);
+      alert(`Đã tạo tài khoản. Mật khẩu tạm thời: ${generatedPassword}`);
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Không thể tạo tài khoản.');
+    }
   };
 
   const handleEditUserClick = (user: ExtendedAdminUser) => {
@@ -240,51 +246,31 @@ const AdminUsers = () => {
     if (user.instruments && user.instruments.length > 0) {
       defaultInst = user.instruments[0];
     } else if (user.specialty) {
-      const found = INSTRUMENT_OPTIONS.find(inst => user.specialty?.includes(inst));
+      const found = instrumentOptions.find(inst => user.specialty?.includes(inst));
       if (found) defaultInst = found;
     }
     setEditInstrument(defaultInst);
     setIsEditDrawerOpen(true);
   };
 
-  const submitEditUser = (e: React.FormEvent) => {
+  const submitEditUser = async (e: FormEvent) => {
     e.preventDefault();
     if (!isEditFormValid || !editingUser) return;
 
-    const initials = editName
-      .trim()
-      .split(' ')
-      .map((n) => n[0])
-      .join('')
-      .substring(0, 2)
-      .toUpperCase();
-
-    const updated = users.map((u) => {
-      if (u.id === editingUser.id) {
-        let updatedSpecialty = u.specialty;
-        let updatedInstruments = u.instruments;
-
-        if (u.role === 'Giảng viên') {
-          updatedSpecialty = `Giảng viên ${editInstrument}`;
-          updatedInstruments = [editInstrument];
-        }
-
-        return {
-          ...u,
-          name: editName.trim(),
-          email: editEmail.trim(),
-          specialty: updatedSpecialty,
-          instruments: updatedInstruments,
-          initials: initials || u.initials,
-        };
-      }
-      return u;
-    });
-
-    saveUsers(updated);
-    setIsEditDrawerOpen(false);
-    setSelectedUser(null);
-    alert('Đã cập nhật thông tin thành viên thành công!');
+    const instrumentId = instruments.find((instrument) => instrument.name === editInstrument)?.id;
+    try {
+      await usersApi.update(Number(editingUser.id), {
+        fullName: editName.trim(),
+        email: editEmail.trim(),
+        instrumentIds: editingUser.role === 'Giảng viên' && instrumentId ? [instrumentId] : [],
+      });
+      await loadUsers();
+      setIsEditDrawerOpen(false);
+      setSelectedUser(null);
+      alert('Đã cập nhật thông tin thành viên thành công!');
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Không thể cập nhật thành viên.');
+    }
   };
 
   return (
@@ -370,7 +356,13 @@ const AdminUsers = () => {
             </thead>
 
             <tbody className="divide-y divide-[#d1e4fb]/50">
-              {pageUsers.length === 0 ? (
+              {isLoading ? (
+                <tr>
+                  <td colSpan={5} className="text-center py-xl text-body-md text-[#5e5e5b]">
+                    Đang tải danh sách người dùng...
+                  </td>
+                </tr>
+              ) : pageUsers.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="text-center py-xl text-body-md text-[#5e5e5b]">
                     Không tìm thấy thành viên phù hợp.
@@ -858,7 +850,7 @@ const AdminUsers = () => {
                     </label>
                     <select
                       value={newUserRole}
-                      onChange={(e) => setNewUserRole(e.target.value as any)}
+                      onChange={(e) => setNewUserRole(e.target.value as 'Admin' | 'Giảng viên')}
                       className="w-full bg-[#fbf9f4] border border-outline-variant/30 rounded-xl p-md text-body-md focus:border-[#8b0000] focus:ring-1 focus:ring-[#8b0000] transition-all outline-none text-on-surface cursor-pointer font-medium"
                     >
                       <option value="Giảng viên">Giảng viên (Instructor)</option>
@@ -877,7 +869,7 @@ const AdminUsers = () => {
                         onChange={(e) => setNewInstrument(e.target.value)}
                         className="w-full bg-[#fbf9f4] border border-outline-variant/30 rounded-xl p-md text-body-md focus:border-[#8b0000] focus:ring-1 focus:ring-[#8b0000] transition-all outline-none text-on-surface cursor-pointer font-medium"
                       >
-                        {INSTRUMENT_OPTIONS.map((inst) => (
+                        {instrumentOptions.map((inst) => (
                           <option key={inst} value={inst}>{inst}</option>
                         ))}
                       </select>
@@ -1088,7 +1080,7 @@ const AdminUsers = () => {
                         onChange={(e) => setEditInstrument(e.target.value)}
                         className="w-full bg-[#fbf9f4] border border-outline-variant/30 rounded-xl p-md text-body-md focus:border-[#8b0000] focus:ring-1 focus:ring-[#8b0000] transition-all outline-none text-on-surface cursor-pointer font-medium"
                       >
-                        {INSTRUMENT_OPTIONS.map((inst) => (
+                        {instrumentOptions.map((inst) => (
                           <option key={inst} value={inst}>{inst}</option>
                         ))}
                       </select>

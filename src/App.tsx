@@ -11,6 +11,7 @@ import AdminDashboard from './pages/admin/AdminDashboard';
 import AdminUsers from './pages/admin/AdminUsers';
 import AdminReview from './pages/admin/AdminReview';
 import AdminSettings from './pages/admin/AdminSettings';
+import AdminMasterData from './pages/admin/AdminMasterData';
 import AdminProfile from './pages/admin/AdminProfile';
 import InstructorLayout from './components/instructor/InstructorLayout';
 import InstructorDashboard from './pages/instructor/InstructorDashboard';
@@ -40,6 +41,7 @@ function App() {
               <Route path="users" element={<AdminUsers />} />
               <Route path="review" element={<AdminReview />} />
               <Route path="settings" element={<AdminSettings />} />
+              <Route path="master-data" element={<AdminMasterData />} />
               <Route path="profile" element={<AdminProfile />} />
             </Route>
           </Route>

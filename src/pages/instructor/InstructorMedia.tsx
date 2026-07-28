@@ -7,7 +7,6 @@ import {
   FileAudio,
   FileVideo,
   FileImage,
-  MoreVertical,
   Download,
   Trash2,
   Play,
@@ -603,7 +602,7 @@ const InstructorMedia = () => {
                     </label>
                     <select
                       value={newFolderType}
-                      onChange={(e) => setNewFolderType(e.target.value as any)}
+                      onChange={(e) => setNewFolderType(e.target.value as 'audio' | 'video' | 'image' | 'other')}
                       className="w-full bg-[#fbf9f4] border border-outline-variant/30 rounded-xl p-md text-body-md focus:border-primary focus:ring-1 focus:ring-primary transition-all outline-none text-on-surface cursor-pointer"
                     >
                       <option value="audio">Âm thanh mẫu (.wav, .mp3)</option>

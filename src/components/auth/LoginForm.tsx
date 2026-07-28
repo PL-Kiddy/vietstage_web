@@ -1,7 +1,8 @@
 import { useState, type FormEvent } from 'react';
 import { User, Lock, Eye, EyeOff, CheckCircle, XCircle, X } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
-import { authenticateUser } from '../../data/mockUsers';
+import { authApi } from '../../api/services';
+import { clearAuthSession, saveAuthSession } from '../../api/authStorage';
 
 interface ToastState {
   visible: boolean;
@@ -28,7 +29,7 @@ const LoginForm = () => {
     }, 3500);
   };
 
-  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     if (!username.trim() || !password.trim()) {
@@ -36,32 +37,22 @@ const LoginForm = () => {
       return;
     }
 
-    const user = authenticateUser(username.trim(), password);
+    try {
+      const response = await authApi.login(username.trim(), password);
+      const user = saveAuthSession(response, username.trim(), rememberMe);
 
-    if (user) {
-      // If user is a learner, block login and show message
       if (user.role === 'learner') {
+        clearAuthSession();
         showToast('error', 'Tài khoản học viên vui lòng đăng nhập trên ứng dụng di động VietStage.');
         return;
       }
 
-      showToast(
-        'success',
-        `Đăng nhập thành công! Xin chào ${user.name}. Đang chuyển hướng...`
-      );
-      // Persist the user session in sessionStorage
-      sessionStorage.setItem('vietstage_current_user', JSON.stringify(user));
-      
-      // Redirect based on role after toast displays
+      showToast('success', `Đăng nhập thành công! Xin chào ${user.name}. Đang chuyển hướng...`);
       setTimeout(() => {
-        if (user.role === 'admin') {
-          navigate('/admin');
-        } else if (user.role === 'instructor') {
-          navigate('/instructor');
-        }
-      }, 1500);
-    } else {
-      showToast('error', 'Email hoặc mật khẩu không chính xác.');
+        navigate(user.role === 'admin' ? '/admin' : '/instructor');
+      }, 1000);
+    } catch (error) {
+      showToast('error', error instanceof Error ? error.message : 'Không thể đăng nhập.');
     }
   };
 

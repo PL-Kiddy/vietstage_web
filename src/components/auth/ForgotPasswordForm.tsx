@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { Mail, Send, ArrowLeft, ShieldCheck, CheckCircle, XCircle, X, Key, Lock, Eye, EyeOff } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
-import { getMockUsers, resetUserPassword } from '../../data/mockUsers';
+import { authApi } from '../../api/services';
 
 interface ToastState {
   visible: boolean;
@@ -32,7 +32,7 @@ const ForgotPasswordForm = () => {
     }, duration);
   };
 
-  const handleSendOtp = (e: FormEvent<HTMLFormElement>) => {
+  const handleSendOtp = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     if (!email.trim()) {
@@ -40,24 +40,14 @@ const ForgotPasswordForm = () => {
       return;
     }
 
-    // Verify if email exists in mock DB
-    const users = getMockUsers();
-    const userExists = users.some(
-      (u) => u.email.toLowerCase() === email.trim().toLowerCase()
-    );
-
-    if (!userExists) {
-      showToast('error', 'Email không tồn tại trong hệ thống. Vui lòng kiểm tra lại!');
-      return;
+    try {
+      const verificationCode = await authApi.forgotPassword(email.trim());
+      setOtpCode(verificationCode);
+      setStep(2);
+      showToast('success', `Đã tạo mã xác nhận. Mã OTP: ${verificationCode}`, 8000);
+    } catch (error) {
+      showToast('error', error instanceof Error ? error.message : 'Không thể gửi mã xác nhận.');
     }
-
-    // Generate mock 6-digit OTP
-    const generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
-    setOtpCode(generatedOtp);
-    setStep(2);
-    
-    // Show toast with OTP so the user can use it
-    showToast('success', `Đã gửi mã xác nhận! Mã OTP của bạn là: ${generatedOtp}`, 8000);
   };
 
   const handleVerifyOtp = (e: FormEvent<HTMLFormElement>) => {
@@ -72,7 +62,7 @@ const ForgotPasswordForm = () => {
     setStep(3);
   };
 
-  const handleResetPassword = (e: FormEvent<HTMLFormElement>) => {
+  const handleResetPassword = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     if (!newPassword || !confirmPassword) {
@@ -85,16 +75,13 @@ const ForgotPasswordForm = () => {
       return;
     }
 
-    const success = resetUserPassword(email, newPassword);
-    if (!success) {
-      showToast('error', 'Đã xảy ra lỗi khi cập nhật mật khẩu. Vui lòng thử lại!');
-      return;
+    try {
+      await authApi.resetPassword(email.trim(), userEnteredOtp.trim(), newPassword);
+      showToast('success', 'Đặt lại mật khẩu thành công! Đang chuyển hướng...');
+      setTimeout(() => navigate('/login'), 1500);
+    } catch (error) {
+      showToast('error', error instanceof Error ? error.message : 'Không thể cập nhật mật khẩu.');
     }
-
-    showToast('success', 'Đặt lại mật khẩu thành công! Đang chuyển hướng...');
-    setTimeout(() => {
-      navigate('/login');
-    }, 2000);
   };
 
   return (
@@ -226,10 +213,14 @@ const ForgotPasswordForm = () => {
               Không nhận được mã?{' '}
               <button
                 type="button"
-                onClick={() => {
-                  const generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
-                  setOtpCode(generatedOtp);
-                  showToast('success', `Đã gửi lại mã! Mã OTP mới: ${generatedOtp}`, 8000);
+                onClick={async () => {
+                  try {
+                    const verificationCode = await authApi.forgotPassword(email.trim());
+                    setOtpCode(verificationCode);
+                    showToast('success', `Đã gửi lại mã! Mã OTP mới: ${verificationCode}`, 8000);
+                  } catch (error) {
+                    showToast('error', error instanceof Error ? error.message : 'Không thể gửi lại mã.');
+                  }
                 }}
                 className="text-primary font-bold hover:underline"
               >

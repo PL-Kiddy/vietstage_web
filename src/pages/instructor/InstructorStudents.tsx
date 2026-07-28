@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Volume2, Send, Save, Activity, TrendingUp, History } from 'lucide-react';
+import { useState } from 'react';
+import { Volume2, Send, Save, History } from 'lucide-react';
 
 interface Attempt {
   id: string;
@@ -154,15 +154,6 @@ const InstructorStudents = () => {
   const student = students[selectedIdx] || students[0];
   const attempt = student.attempts[activeAttemptIdx] || student.attempts[0];
 
-  // Sync feedback textarea when selected student or attempt changes
-  useEffect(() => {
-    if (attempt) {
-      setFeedbackText(attempt.feedbackText || '');
-    } else {
-      setFeedbackText('');
-    }
-  }, [selectedIdx, activeAttemptIdx, attempt]);
-
   const saveStudents = (updatedStudents: Student[]) => {
     setStudents(updatedStudents);
     localStorage.setItem('vietstage_instructor_students', JSON.stringify(updatedStudents));
@@ -209,6 +200,7 @@ const InstructorStudents = () => {
   const handleStudentChange = (idx: number) => {
     setSelectedIdx(idx);
     setActiveAttemptIdx(0);
+    setFeedbackText(students[idx]?.attempts[0]?.feedbackText || '');
   };
 
   // Safe coordinates helper for radar chart polygon
@@ -372,7 +364,10 @@ const InstructorStudents = () => {
                 return (
                   <div
                     key={att.id}
-                    onClick={() => setActiveAttemptIdx(aIdx)}
+                    onClick={() => {
+                      setActiveAttemptIdx(aIdx);
+                      setFeedbackText(student.attempts[aIdx]?.feedbackText || '');
+                    }}
                     className={`p-md rounded-lg border cursor-pointer transition-all flex justify-between items-center ${
                       isActive
                         ? 'bg-primary/5 border-primary/20 shadow-xs'

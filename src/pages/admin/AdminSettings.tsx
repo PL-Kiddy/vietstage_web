@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
   BrainCircuit,
   CloudLightning,
@@ -56,7 +56,7 @@ const AdminSettings = () => {
     return saved ? saved : '15/06/2026 10:24';
   });
 
-  const [apiKeyLastUsed, setApiKeyLastUsed] = useState<string>(() => {
+  const [apiKeyLastUsed] = useState<string>(() => {
     const saved = localStorage.getItem('vietstage_setting_apikey_used');
     return saved ? saved : '18/06/2026 15:45';
   });
@@ -77,7 +77,10 @@ const AdminSettings = () => {
     }
   };
 
-  const updateCurrentConfig = (key: 'pitch' | 'rhythm' | 'optimize', value: any) => {
+  const updateCurrentConfig = (
+    key: 'pitch' | 'rhythm' | 'optimize',
+    value: number | boolean,
+  ) => {
     setInstrumentSettings((prev) => {
       const next = {
         ...prev,

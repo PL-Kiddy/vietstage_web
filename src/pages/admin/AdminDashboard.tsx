@@ -1,284 +1,99 @@
-import { Users, GraduationCap, Music } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { BookOpenCheck, GraduationCap, RefreshCw, Users, WalletCards } from 'lucide-react';
+import { dashboardApi, type DashboardStats } from '../../api/management';
 
-/* ── Stat Widgets ─────────────────────────────────────────── */
-const stats = [
-  {
-    icon: Users,
-    iconBg: 'bg-primary/5 text-primary',
-    label: 'Tổng người dùng',
-    value: '1,842',
-    sub: '/ 2,000 mục tiêu',
-    badge: '+12%',
-    badgeClass: 'text-[#cca730] bg-[#735c00]/10',
-    progress: 92.1,
-    progressColor: 'bg-primary',
-  },
-  {
-    icon: GraduationCap,
-    iconBg: 'bg-[#5e5e5b]/5 text-[#5e5e5b]',
-    label: 'Giảng viên hoạt động',
-    value: '48',
-    sub: 'Đang trực tuyến: 12',
-    badge: 'Hot',
-    badgeClass: 'text-on-error-container bg-error-container',
-  },
-  {
-    icon: Music,
-    iconBg: 'bg-[#735c00]/5 text-[#735c00]',
-    label: 'Bài giảng đã duyệt',
-    value: '1,250',
-    sub: 'Chờ duyệt: 14 bản ghi',
-    badge: 'Mới',
-    badgeClass: 'text-primary-container bg-primary/10',
-  },
-];
-
-/* ── Chart bars (mockup) ──────────────────────────────────── */
-const chartBars = [40, 55, 45, 70, 85, 60, 95];
-
-/* ── Activity feed ────────────────────────────────────────── */
-const activities = [
-  {
-    dot: 'bg-primary',
-    text: (
-      <>
-        <span className="font-bold">Giảng viên Trần Nam</span> vừa tải lên bài giảng
-        mới: &quot;Kỹ thuật gảy đàn Bầu cơ bản&quot;.
-      </>
-    ),
-    time: '5 phút trước',
-    tag: 'Chờ duyệt',
-    tagClass: 'text-primary',
-  },
-  {
-    dot: 'bg-[#cca730]',
-    text: (
-      <>
-        <span className="font-bold">Hệ thống</span> đã tự động sao lưu dữ liệu thành
-        công.
-      </>
-    ),
-    time: '42 phút trước',
-    tag: 'Thành công',
-    tagClass: 'text-on-secondary-fixed-variant',
-  },
-  {
-    dot: 'bg-[#091d2e]',
-    text: (
-      <>
-        <span className="font-bold">Người dùng Nguyễn An</span> vừa đăng ký tài khoản
-        Premium qua MoMo.
-      </>
-    ),
-    time: '1 giờ trước',
-    tag: 'Thanh toán',
-    tagClass: 'text-on-primary-fixed-variant',
-  },
-];
-
-/* ════════════════════════════════════════════════════════════ */
+const numberFormat = new Intl.NumberFormat('vi-VN');
+const moneyFormat = new Intl.NumberFormat('vi-VN', {
+  style: 'currency',
+  currency: 'VND',
+  maximumFractionDigits: 0,
+});
 
 const AdminDashboard = () => {
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  const loadDashboard = () => {
+    setLoading(true);
+    setError('');
+    void dashboardApi.get()
+      .then(setStats)
+      .catch((reason: unknown) => {
+        setError(reason instanceof Error ? reason.message : 'Không thể tải tổng quan.');
+      })
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    void dashboardApi.get()
+      .then(setStats)
+      .catch((reason: unknown) => {
+        setError(reason instanceof Error ? reason.message : 'Không thể tải tổng quan.');
+      })
+      .finally(() => setLoading(false));
+  }, []);
+
+  const maxUsers = useMemo(
+    () => Math.max(1, ...(stats?.chartData.map((point) => point.users) ?? [])),
+    [stats],
+  );
+
+  if (loading) return <div className="p-xl text-center">Đang tải tổng quan...</div>;
+
+  const cards = [
+    { label: 'Tổng người dùng', value: numberFormat.format(stats?.totalUsers ?? 0), icon: Users },
+    { label: 'Giảng viên hoạt động', value: numberFormat.format(stats?.activeInstructors ?? 0), icon: GraduationCap },
+    { label: 'Tổng bài giảng', value: numberFormat.format(stats?.totalLessons ?? 0), icon: BookOpenCheck },
+    { label: 'Tổng doanh thu', value: moneyFormat.format(stats?.totalRevenue ?? 0), icon: WalletCards },
+  ];
+
   return (
-    <>
-      {/* Page Heading */}
-      <div className="mb-10">
-        <h2 className="text-headline-lg font-bold text-primary" style={{ fontFamily: "'Montserrat', sans-serif" }}>
-          Tổng quan Quản trị
-        </h2>
-        <p className="text-body-md text-[#5e5e5b]">
-          Chào mừng trở lại, đây là trạng thái hiện tại của VietStage.
-        </p>
+    <div className="space-y-xl">
+      <div className="flex items-end justify-between gap-md">
+        <div>
+          <h2 className="text-headline-lg font-bold text-primary">Tổng quan Quản trị</h2>
+          <p className="text-on-surface-variant">Dữ liệu thống kê trực tiếp từ hệ thống VietStage.</p>
+        </div>
+        <button onClick={loadDashboard} className="flex items-center gap-sm border border-primary text-primary px-md py-sm rounded-lg">
+          <RefreshCw className="w-4 h-4" /> Làm mới
+        </button>
       </div>
 
-      {/* ── Stat Widgets ─────────────────────────────────────── */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-lg mb-10">
-        {stats.map((s, i) => (
-          <div
-            key={i}
-            className="bg-white p-lg rounded-xl border border-[#d1e4fb]/50 shadow-sm hover:shadow-md transition-shadow"
-          >
-            <div className="flex justify-between items-start mb-md">
-              <div className={`p-sm rounded-lg ${s.iconBg}`}>
-                <s.icon className="w-5 h-5" />
-              </div>
-              {s.badge && (
-                <span className={`text-[12px] font-semibold px-sm py-[2px] rounded-full ${s.badgeClass}`}>
-                  {s.badge}
-                </span>
-              )}
-            </div>
-            <p className="text-[#5e5e5b] font-label-md text-label-md uppercase">
-              {s.label}
-            </p>
-            <div className="flex items-baseline gap-xs mt-xs">
-              <h3 className="text-headline-md font-bold text-on-surface">{s.value}</h3>
-              {s.sub && <span className="text-[12px] text-[#5e5e5b]">{s.sub}</span>}
-            </div>
-            {s.progress !== undefined && (
-              <div className="w-full bg-[#e3efff] h-1 rounded-full mt-md overflow-hidden">
-                <div className={`${s.progressColor} h-full rounded-full`} style={{ width: `${s.progress}%` }} />
-              </div>
-            )}
+      {error && <div className="rounded-lg bg-error-container text-on-error-container p-md">{error}</div>}
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-lg">
+        {cards.map((card) => (
+          <div key={card.label} className="bg-white rounded-xl border border-outline-variant/20 shadow-sm p-lg">
+            <card.icon className="w-6 h-6 text-primary mb-md" />
+            <p className="uppercase tracking-wider text-xs text-on-surface-variant font-semibold">{card.label}</p>
+            <p className="text-headline-md font-bold text-on-surface mt-xs">{card.value}</p>
           </div>
         ))}
       </div>
 
-      {/* ── Growth & Retention Charts ────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-lg">
-        {/* Growth Chart */}
-        <div className="lg:col-span-2 bg-white p-lg rounded-xl border border-[#d1e4fb]/50 shadow-sm flex flex-col justify-between">
-          <div>
-            <div className="flex justify-between items-center mb-10">
-              <h4 className="text-headline-md font-bold text-on-surface" style={{ fontFamily: "'Montserrat', sans-serif" }}>
-                Tăng trưởng người dùng
-              </h4>
-              <div className="flex gap-sm">
-                <button className="px-md py-sm bg-[#e3efff] text-label-md rounded-lg hover:bg-[#d1e4fb] transition-colors">
-                  7 ngày
-                </button>
-                <button className="px-md py-sm bg-primary text-on-primary text-label-md rounded-lg">
-                  Tháng này
-                </button>
-              </div>
-            </div>
-            {/* Bar Chart */}
-            <div className="relative h-56 w-full flex items-end gap-1 mt-6">
-              <div className="absolute inset-0 flex flex-col justify-between pointer-events-none">
-                {[...Array(5)].map((_, i) => (
-                  <div key={i} className="border-b border-[#d1e4fb] w-full h-px" />
-                ))}
-              </div>
-              {chartBars.map((h, i) => (
+      <section className="bg-white rounded-xl border border-outline-variant/20 shadow-sm p-lg">
+        <h3 className="text-headline-md font-bold text-on-surface">Tăng trưởng người dùng</h3>
+        <p className="text-sm text-on-surface-variant mb-lg">Số người dùng theo kỳ báo cáo từ backend.</p>
+        {stats?.chartData.length ? (
+          <div className="h-72 flex items-end gap-md border-b border-outline-variant/30 px-md">
+            {stats.chartData.map((point) => (
+              <div key={point.name} className="flex-1 h-full flex flex-col justify-end items-center gap-sm">
+                <span className="text-xs font-semibold">{numberFormat.format(point.users)}</span>
                 <div
-                  key={i}
-                  className="flex-1 bg-primary/10 border-t-2 border-primary rounded-t-sm transition-all hover:bg-primary/20"
-                  style={{ height: `${h}%` }}
+                  className="w-full max-w-16 bg-primary/80 rounded-t-md hover:bg-primary transition-colors"
+                  style={{ height: `${Math.max(4, (point.users / maxUsers) * 80)}%` }}
+                  title={`${point.name}: ${numberFormat.format(point.users)} người dùng`}
                 />
-              ))}
-            </div>
-          </div>
-          <div className="flex justify-between mt-md px-xs text-[12px] text-[#5e5e5b] uppercase tracking-widest border-t border-outline-variant/10 pt-sm">
-            <span>Tuần 1</span><span>Tuần 2</span><span>Tuần 3</span><span>Tuần 4</span>
-          </div>
-        </div>
-
-        {/* Retention & Sessions Metrics */}
-        <div className="bg-white p-lg rounded-xl border border-[#d1e4fb]/50 shadow-sm flex flex-col justify-between">
-          <div>
-            <h4 className="text-headline-md font-bold text-on-surface mb-2" style={{ fontFamily: "'Montserrat', sans-serif" }}>
-              Phiên học &amp; Giữ chân
-            </h4>
-            <p className="text-body-sm text-[#5e5e5b] mb-6">
-              Phân tích thói quen hoạt động và tần suất quay lại của người học.
-            </p>
-          </div>
-
-          <div className="space-y-md">
-            {/* Session Duration */}
-            <div className="bg-[#edf4ff] p-md rounded-lg border border-outline-variant/10">
-              <div className="flex justify-between items-center mb-1">
-                <span className="font-label-sm text-primary font-bold text-[13px]">Thời lượng phiên trung bình</span>
-                <span className="text-[11px] text-emerald-700 bg-emerald-100 px-sm py-[2px] rounded-full font-bold">+2.4m</span>
-              </div>
-              <div className="flex items-baseline gap-xs">
-                <span className="text-headline-md font-bold text-primary">34.5m</span>
-                <span className="text-body-sm text-[#5e5e5b] font-medium">/ 30m mục tiêu</span>
-              </div>
-              {/* Progress bar */}
-              <div className="w-full bg-white h-1.5 rounded-full overflow-hidden mt-md">
-                <div className="bg-primary h-full rounded-full" style={{ width: '100%' }} />
-              </div>
-            </div>
-
-            {/* Retention Rates (D1, D7, D30) */}
-            <div className="space-y-sm">
-              <h5 className="font-label-sm text-on-surface font-bold uppercase tracking-wider text-[11px]">
-                Tỷ lệ quay lại (Retention Rate)
-              </h5>
-              <div className="space-y-sm">
-                {/* D1 */}
-                <div className="space-y-xs">
-                  <div className="flex justify-between text-[12px]">
-                    <span className="font-medium text-on-surface-variant">Ngày 1 (D1)</span>
-                    <span className="font-bold text-primary">82.5%</span>
-                  </div>
-                  <div className="w-full bg-[#edf4ff] h-1.5 rounded-full overflow-hidden">
-                    <div className="bg-primary h-full rounded-full" style={{ width: '82.5%' }} />
-                  </div>
-                </div>
-                {/* D7 */}
-                <div className="space-y-xs">
-                  <div className="flex justify-between text-[12px]">
-                    <span className="font-medium text-on-surface-variant">Ngày 7 (D7)</span>
-                    <span className="font-bold text-[#735c00]">68.2%</span>
-                  </div>
-                  <div className="w-full bg-[#edf4ff] h-1.5 rounded-full overflow-hidden">
-                    <div className="bg-[#cca730] h-full rounded-full" style={{ width: '68.2%' }} />
-                  </div>
-                </div>
-                {/* D30 */}
-                <div className="space-y-xs">
-                  <div className="flex justify-between text-[12px]">
-                    <span className="font-medium text-on-surface-variant">Ngày 30 (D30)</span>
-                    <span className="font-bold text-error">45.1%</span>
-                  </div>
-                  <div className="w-full bg-[#edf4ff] h-1.5 rounded-full overflow-hidden">
-                    <div className="bg-error h-full rounded-full" style={{ width: '45.1%' }} />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* ── Activity Feed + Heritage Visual ───────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-lg mt-10">
-        {/* Activity Feed */}
-        <div className="lg:col-span-3 bg-white p-lg rounded-xl border border-[#d1e4fb]/50 shadow-sm">
-          <h4 className="text-headline-md font-bold text-on-surface mb-lg" style={{ fontFamily: "'Montserrat', sans-serif" }}>
-            Hoạt động gần đây
-          </h4>
-          <div className="space-y-md">
-            {activities.map((act, i) => (
-              <div
-                key={i}
-                className="flex items-start gap-md p-md rounded-lg hover:bg-[#edf4ff] transition-colors"
-              >
-                <div className={`mt-1 w-2 h-2 rounded-full ${act.dot} shrink-0`} />
-                <div>
-                  <p className="text-body-md">{act.text}</p>
-                  <p className="text-[12px] text-[#5e5e5b] mt-xs">
-                    {act.time} •{' '}
-                    <span className={`${act.tagClass} font-bold`}>{act.tag}</span>
-                  </p>
-                </div>
+                <span className="text-xs text-on-surface-variant pb-sm">{point.name}</span>
               </div>
             ))}
           </div>
-        </div>
-
-        {/* Cultural Visual Anchor */}
-        <div className="lg:col-span-2 relative overflow-hidden rounded-xl border border-[#d1e4fb]/50 min-h-[300px] flex items-end">
-          <img
-            src="/admin-heritage-bg.png"
-            alt="Đàn Bầu - Nhạc cụ truyền thống"
-            className="absolute inset-0 w-full h-full object-cover"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-primary/80 to-transparent" />
-          <div className="relative p-lg text-on-primary">
-            <h5 className="text-headline-md font-bold" style={{ fontFamily: "'Montserrat', sans-serif" }}>
-              Bảo tồn Âm nhạc
-            </h5>
-            <p className="text-body-md opacity-90 mt-xs">
-              Hệ thống quản lý đang hỗ trợ 12 loại nhạc cụ dân tộc Việt Nam với
-              độ chính xác AI 98%.
-            </p>
-          </div>
-        </div>
-      </div>
-    </>
+        ) : (
+          <div className="h-48 grid place-items-center text-on-surface-variant">Chưa có dữ liệu biểu đồ.</div>
+        )}
+      </section>
+    </div>
   );
 };
 

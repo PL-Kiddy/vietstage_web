@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { ChevronDown, CheckCircle, XCircle, X, ArrowLeft } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
-import { registerUser } from '../../data/mockUsers';
+import { authApi } from '../../api/services';
 
 interface ToastState {
   visible: boolean;
@@ -31,7 +31,7 @@ const RegisterForm = () => {
     }, 3500);
   };
 
-  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     if (!fullName.trim() || !email.trim() || !password.trim()) {
@@ -47,22 +47,13 @@ const RegisterForm = () => {
       return;
     }
 
-    const success = registerUser({
-      email: email.trim(),
-      password,
-      role: 'learner', // Default role for standard registration is learner
-      name: fullName.trim(),
-    });
-
-    if (!success) {
-      showToast('error', 'Email này đã được đăng ký trước đó.');
-      return;
+    try {
+      await authApi.register(email.trim(), password, fullName.trim());
+      showToast('success', 'Đăng ký thành công! Vui lòng sử dụng ứng dụng VietStage di động để đăng nhập.');
+      setTimeout(() => navigate('/login'), 2000);
+    } catch (error) {
+      showToast('error', error instanceof Error ? error.message : 'Không thể đăng ký tài khoản.');
     }
-
-    showToast('success', 'Đăng ký thành công! Vui lòng sử dụng ứng dụng VietStage di động để đăng nhập.');
-    setTimeout(() => {
-      navigate('/login');
-    }, 3000);
   };
 
   return (

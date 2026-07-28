@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 interface UseLoadingOptions {
   /** Minimum display time in ms (prevents flash) */
@@ -23,34 +23,32 @@ interface UseLoadingReturn {
 const useLoading = (options: UseLoadingOptions = {}): UseLoadingReturn => {
   const { minDuration = 2000, autoStart = false } = options;
   const [isLoading, setIsLoading] = useState(autoStart);
-  const [loadingStartTime, setLoadingStartTime] = useState<number | null>(
-    autoStart ? Date.now() : null
-  );
+  const loadingStartTime = useRef<number | null>(null);
 
   const startLoading = useCallback(() => {
     setIsLoading(true);
-    setLoadingStartTime(Date.now());
+    loadingStartTime.current = Date.now();
   }, []);
 
   const stopLoading = useCallback(() => {
-    if (loadingStartTime === null) {
+    if (loadingStartTime.current === null) {
       setIsLoading(false);
       return;
     }
 
-    const elapsed = Date.now() - loadingStartTime;
+    const elapsed = Date.now() - loadingStartTime.current;
     const remaining = Math.max(0, minDuration - elapsed);
 
     if (remaining > 0) {
       setTimeout(() => {
         setIsLoading(false);
-        setLoadingStartTime(null);
+        loadingStartTime.current = null;
       }, remaining);
     } else {
       setIsLoading(false);
-      setLoadingStartTime(null);
+      loadingStartTime.current = null;
     }
-  }, [loadingStartTime, minDuration]);
+  }, [minDuration]);
 
   // Auto-stop after minDuration if autoStart is used
   useEffect(() => {

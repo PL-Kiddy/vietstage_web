@@ -4,6 +4,7 @@ import {
   Users,
   ClipboardCheck,
   Settings,
+  Database,
   Home,
 } from 'lucide-react';
 
@@ -13,16 +14,13 @@ const navItems = [
   { icon: LayoutDashboard, label: 'Tổng quan', href: '/admin' },
   { icon: Users, label: 'Quản lý người dùng', href: '/admin/users' },
   { icon: ClipboardCheck, label: 'Kiểm duyệt học liệu', href: '/admin/review' },
+  { icon: Database, label: 'Dữ liệu nền', href: '/admin/master-data' },
   { icon: Settings, label: 'Cấu hình hệ thống', href: '/admin/settings' },
 ];
 
 const AdminSidebar = () => {
   const location = useLocation();
   const navigate = useNavigate();
-
-  const handleLogout = () => {
-    navigate('/login');
-  };
 
   return (
     <aside className="h-screen w-64 fixed left-0 top-0 bg-primary-container text-on-primary border-r border-on-secondary-fixed-variant flex flex-col py-10 z-20">

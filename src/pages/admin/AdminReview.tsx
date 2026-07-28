@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Play,
   Pause,
@@ -13,6 +13,7 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { reviewsApi } from '../../api/services';
 
 interface ReviewItem {
   id: string;
@@ -32,122 +33,25 @@ interface ReviewItem {
 
 const INSTRUMENT_OPTIONS = ['Đàn Bầu', 'Đàn Tranh', 'Sáo Trúc', 'Trống'];
 
-const mockReviewItems: ReviewItem[] = [
-  {
-    id: 'MS-00245',
-    title: 'Lưu Thủy Kim Tiền',
-    instrument: 'Đàn Tranh',
-    instructor: 'Trần Thế Nghĩa',
-    date: '20/10/2024',
-    sheetMusicUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAfg3iJoB4h0Q0ExatMk0LF9m04X0rBSM3Jt6QJ57PjPNBf25QyrOv3unEx0BJ0_LrTzAkhJHvCKvmQtm-efyzR42ER3CYB5ONIXLRVTqsbfYCX2IYfVo_k-u_BY3DJzE9Fr2v35w-iZu2scct9O7Zp7pwF2stnMoRwRwVV8ZnCTseS-5eE_EZhSTAZDUYQFLflwhafjkkIQCV0UXcZ_wt2q74uGiUWD9epmJfX_y-5TYCguAUIbj_Hmqm8cCwCBAGUG8tIjpaQJfeg',
-    audioUrl: '#',
-    duration: '04:12',
-    description: 'Học liệu hướng dẫn chi tiết cách rung ngón và nhấn ngón trên Đàn Tranh đối với bài Lưu Thủy Kim Tiền. Học viên cần chú ý lực nhấn của tay trái để cao độ chuẩn xác, âm thanh tròn trịa.',
-    status: 'pending',
-  },
-  {
-    id: 'MS-00246',
-    title: 'Cổ Bản (Lớp 1)',
-    instrument: 'Đàn Bầu',
-    instructor: 'Nguyễn Thanh Tú',
-    date: '21/10/2024',
-    sheetMusicUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAfg3iJoB4h0Q0ExatMk0LF9m04X0rBSM3Jt6QJ57PjPNBf25QyrOv3unEx0BJ0_LrTzAkhJHvCKvmQtm-efyzR42ER3CYB5ONIXLRVTqsbfYCX2IYfVo_k-u_BY3DJzE9Fr2v35w-iZu2scct9O7Zp7pwF2stnMoRwRwVV8ZnCTseS-5eE_EZhSTAZDUYQFLflwhafjkkIQCV0UXcZ_wt2q74uGiUWD9epmJfX_y-5TYCguAUIbj_Hmqm8cCwCBAGUG8tIjpaQJfeg',
-    audioUrl: '#',
-    duration: '03:30',
-    description: 'Bài Cổ Bản Lớp 1 hướng dẫn học viên các kỹ thuật gảy nốt cơ bản, kết hợp vuốt và nhấn. Yêu cầu học viên luyện tập giữ nhịp phách ổn định ở nhịp 2/4.',
-    status: 'pending',
-  },
-  {
-    id: 'MS-00247',
-    title: 'Hành Vân (Tone C5)',
-    instrument: 'Sáo Trúc',
-    instructor: 'Lê Hoàng Nam',
-    date: '22/10/2024',
-    sheetMusicUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAfg3iJoB4h0Q0ExatMk0LF9m04X0rBSM3Jt6QJ57PjPNBf25QyrOv3unEx0BJ0_LrTzAkhJHvCKvmQtm-efyzR42ER3CYB5ONIXLRVTqsbfYCX2IYfVo_k-u_BY3DJzE9Fr2v35w-iZu2scct9O7Zp7pwF2stnMoRwRwVV8ZnCTseS-5eE_EZhSTAZDUYQFLflwhafjkkIQCV0UXcZ_wt2q74uGiUWD9epmJfX_y-5TYCguAUIbj_Hmqm8cCwCBAGUG8tIjpaQJfeg',
-    audioUrl: '#',
-    duration: '05:00',
-    description: 'Hướng dẫn kỹ thuật lấy hơi, giữ hơi dài và kỹ thuật rung hơi cơ bản đối với bài Hành Vân bằng Sáo Trúc tone C5. Học viên lưu ý các nốt láy nền.',
-    status: 'approved',
-    approvedBy: 'Trần Minh Quân (Admin)',
-    approvedAt: '22/10/2024 15:30',
-  },
-  {
-    id: 'MS-00248',
-    title: 'Trống Hội Quê Hương',
-    instrument: 'Trống',
-    instructor: 'Phạm Minh Quốc',
-    date: '23/10/2024',
-    sheetMusicUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAfg3iJoB4h0Q0ExatMk0LF9m04X0rBSM3Jt6QJ57PjPNBf25QyrOv3unEx0BJ0_LrTzAkhJHvCKvmQtm-efyzR42ER3CYB5ONIXLRVTqsbfYCX2IYfVo_k-u_BY3DJzE9Fr2v35w-iZu2scct9O7Zp7pwF2stnMoRwRwVV8ZnCTseS-5eE_EZhSTAZDUYQFLflwhafjkkIQCV0UXcZ_wt2q74uGiUWD9epmJfX_y-5TYCguAUIbj_Hmqm8cCwCBAGUG8tIjpaQJfeg',
-    audioUrl: '#',
-    duration: '02:45',
-    description: 'Học liệu hướng dẫn tiết tấu gõ Trống Hội cơ bản. Nhịp phách dồn dập, khỏe khoắn, yêu cầu học viên nắm vững kỹ thuật gõ tang trống và mặt trống.',
-    status: 'pending',
-  },
-  {
-    id: 'MS-00249',
-    title: 'Lý Ngựa Ô (Đàn Bầu)',
-    instrument: 'Đàn Bầu',
-    instructor: 'Nguyễn Thanh Tú',
-    date: '24/10/2024',
-    sheetMusicUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAfg3iJoB4h0Q0ExatMk0LF9m04X0rBSM3Jt6QJ57PjPNBf25QyrOv3unEx0BJ0_LrTzAkhJHvCKvmQtm-efyzR42ER3CYB5ONIXLRVTqsbfYCX2IYfVo_k-u_BY3DJzE9Fr2v35w-iZu2scct9O7Zp7pwF2stnMoRwRwVV8ZnCTseS-5eE_EZhSTAZDUYQFLflwhafjkkIQCV0UXcZ_wt2q74uGiUWD9epmJfX_y-5TYCguAUIbj_Hmqm8cCwCBAGUG8tIjpaQJfeg',
-    audioUrl: '#',
-    duration: '03:15',
-    description: 'Bài hướng dẫn gảy nốt bồi âm và kỹ thuật nhấn cần tạo độ luyến đặc trưng của Đàn Bầu Nam Bộ. Cần chú ý độ mềm dẻo của cổ tay phải.',
-    status: 'rejected',
-    feedback: 'Âm thanh thu âm mẫu bị lẫn nhiều tiếng ồn môi trường và tiếng rè cần đàn. Vui lòng ghi âm lại bản âm thanh chất lượng hơn.',
-  },
-  {
-    id: 'MS-00250',
-    title: 'Lý Hoài Nam (Sáo Trúc)',
-    instrument: 'Sáo Trúc',
-    instructor: 'Lê Hoàng Nam',
-    date: '25/10/2024',
-    sheetMusicUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAfg3iJoB4h0Q0ExatMk0LF9m04X0rBSM3Jt6QJ57PjPNBf25QyrOv3unEx0BJ0_LrTzAkhJHvCKvmQtm-efyzR42ER3CYB5ONIXLRVTqsbfYCX2IYfVo_k-u_BY3DJzE9Fr2v35w-iZu2scct9O7Zp7pwF2stnMoRwRwVV8ZnCTseS-5eE_EZhSTAZDUYQFLflwhafjkkIQCV0UXcZ_wt2q74uGiUWD9epmJfX_y-5TYCguAUIbj_Hmqm8cCwCBAGUG8tIjpaQJfeg',
-    audioUrl: '#',
-    duration: '03:50',
-    description: 'Hướng dẫn thổi bài dân ca Lý Hoài Nam. Tập trung kỹ thuật vuốt nốt và kỹ thuật đánh lưỡi đơn để tạo âm thanh sắc nét, dứt khoát.',
-    status: 'approved',
-    approvedBy: 'Trần Minh Quân (Admin)',
-    approvedAt: '25/10/2024 10:45',
-  }
-];
-
 const AdminReview = () => {
-  // Initialize from LocalStorage + Migrate missing mock items and status field
-  const [items, setItems] = useState<ReviewItem[]>(() => {
-    const saved = localStorage.getItem('vietstage_review_items');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          const migrated = parsed.map((item: any) => {
-            const base = {
-              ...item,
-              status: item.status || 'pending',
-              description: item.description || 'Học liệu hướng dẫn kỹ thuật chi tiết.',
-            };
-            if (base.status === 'approved') {
-              base.approvedBy = base.approvedBy || 'Trần Minh Quân (Admin)';
-              base.approvedAt = base.approvedAt || '25/10/2024 10:45';
-            }
-            return base;
-          });
+  const [items, setItems] = useState<ReviewItem[]>([]);
 
-          // Merge any missing mock items to ensure approved/rejected items from previous testing are restored!
-          const migratedIds = new Set(migrated.map((item) => item.id));
-          const missingMockItems = mockReviewItems.filter((item) => !migratedIds.has(item.id));
-
-          if (missingMockItems.length > 0) {
-            return [...migrated, ...missingMockItems];
-          }
-          return migrated;
-        }
-      } catch (e) {
-        console.error('Error parsing review items from localStorage:', e);
-      }
+  const loadReviews = useCallback(async () => {
+    try {
+      const data = await reviewsApi.list();
+      setItems(data.map((item) => ({ ...item, id: String(item.id) })));
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Không thể tải danh sách kiểm duyệt.');
     }
-    return mockReviewItems;
-  });
+  }, []);
+
+  useEffect(() => {
+    void reviewsApi.list()
+      .then((data) => setItems(data.map((item) => ({ ...item, id: String(item.id) }))))
+      .catch((error: unknown) => {
+        alert(error instanceof Error ? error.message : 'Không thể tải danh sách kiểm duyệt.');
+      });
+  }, []);
 
   // Filtering states
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('pending');
@@ -182,13 +86,8 @@ const AdminReview = () => {
       : 252
     : 252;
 
-  // Auto-sync items to localStorage when changed
   useEffect(() => {
-    localStorage.setItem('vietstage_review_items', JSON.stringify(items));
-  }, [items]);
-
-  useEffect(() => {
-    let interval: any;
+    let interval: ReturnType<typeof setInterval> | undefined;
     if (isPlaying) {
       interval = setInterval(() => {
         setCurrentTime((prev) => {
@@ -211,11 +110,6 @@ const AdminReview = () => {
     return `${m}:${s}`;
   };
 
-  const saveItems = (updatedItems: ReviewItem[]) => {
-    setItems(updatedItems);
-    localStorage.setItem('vietstage_review_items', JSON.stringify(updatedItems));
-  };
-
   const openDrawer = (item: ReviewItem) => {
     setSelectedItem(item);
     setFeedback(item.feedback || '');
@@ -231,86 +125,48 @@ const AdminReview = () => {
     setCurrentTime(0);
   };
 
-  const handleApprove = () => {
+  const handleApprove = async () => {
     if (!selectedItem) return;
-    
-    const nowStr = new Date().toLocaleString('vi-VN', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-
-    const updated = items.map((item) =>
-      item.id === selectedItem.id
-        ? {
-            ...item,
-            status: 'approved' as const,
-            feedback: feedback.trim() || undefined,
-            approvedBy: 'Trần Minh Quân (Admin)',
-            approvedAt: nowStr
-          }
-        : item
-    );
-    saveItems(updated);
-    alert(`Đã phê duyệt học liệu: ${selectedItem.title}`);
-    closeDrawer();
+    try {
+      await reviewsApi.approve(Number(selectedItem.id));
+      await loadReviews();
+      alert(`Đã phê duyệt học liệu: ${selectedItem.title}`);
+      closeDrawer();
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Không thể phê duyệt học liệu.');
+    }
   };
 
-  const handleReject = () => {
+  const handleReject = async () => {
     if (!selectedItem) return;
     if (!feedback.trim()) {
       setFeedbackError('Lý do từ chối là bắt buộc để giảng viên nắm được thông tin chỉnh sửa.');
       return;
     }
-    
-    const updated = items.map((item) =>
-      item.id === selectedItem.id
-        ? { ...item, status: 'rejected' as const, feedback: feedback.trim() }
-        : item
-    );
-    saveItems(updated);
-    alert(`Đã từ chối học liệu: ${selectedItem.title}`);
-    closeDrawer();
+    try {
+      await reviewsApi.reject(Number(selectedItem.id), feedback.trim());
+      await loadReviews();
+      alert(`Đã từ chối học liệu: ${selectedItem.title}`);
+      closeDrawer();
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Không thể từ chối học liệu.');
+    }
   };
 
-  const handleResetToPending = (item: ReviewItem) => {
-    const updated = items.map((u) =>
-      u.id === item.id
-        ? { ...u, status: 'pending' as const, feedback: undefined, approvedBy: undefined, approvedAt: undefined }
-        : u
-    );
-    saveItems(updated);
-    setSelectedItem({ ...item, status: 'pending', feedback: undefined, approvedBy: undefined, approvedAt: undefined });
-    setFeedback('');
-    setFeedbackError('');
-    alert(`Đã chuyển học liệu "${item.title}" về trạng thái Chờ duyệt.`);
+  const handleResetToPending = async (item: ReviewItem) => {
+    try {
+      await reviewsApi.reset(Number(item.id));
+      await loadReviews();
+      setFeedback('');
+      setFeedbackError('');
+      alert(`Đã chuyển học liệu "${item.title}" về trạng thái Chờ duyệt.`);
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Không thể đổi trạng thái học liệu.');
+    }
   };
 
-  const handleRevoke = (item: ReviewItem) => {
-    const updated = items.map((u) =>
-      u.id === item.id
-        ? {
-            ...u,
-            status: 'pending' as const,
-            feedback: undefined,
-            approvedBy: undefined,
-            approvedAt: undefined
-          }
-        : u
-    );
-    saveItems(updated);
-    setSelectedItem({
-      ...item,
-      status: 'pending',
-      feedback: undefined,
-      approvedBy: undefined,
-      approvedAt: undefined
-    });
-    setFeedback('');
-    setFeedbackError('');
-    alert(`Đã thu hồi phê duyệt học liệu "${item.title}".`);
+  const handleRevoke = async (item: ReviewItem) => {
+    await handleResetToPending(item);
   };
 
   // Get instrument color tag style
@@ -540,19 +396,17 @@ const AdminReview = () => {
         {/* Restore/Reset mock data button */}
         <button
           onClick={() => {
-            if (window.confirm('Bạn có chắc chắn muốn khôi phục danh sách học liệu mẫu ban đầu? Lịch sử kiểm duyệt hiện tại sẽ được reset.')) {
-              saveItems(mockReviewItems);
-              setStatusFilter('all');
-              setSearchQuery('');
-              setSelectedInstrument('all');
-              setSelectedInstructor('all');
-              setCurrentPage(1);
-            }
+            void loadReviews();
+            setStatusFilter('all');
+            setSearchQuery('');
+            setSelectedInstrument('all');
+            setSelectedInstructor('all');
+            setCurrentPage(1);
           }}
           className="ml-auto text-xs font-semibold text-[#8b0000] hover:underline flex items-center gap-1 border border-[#8b0000]/30 px-3 py-2 rounded-lg hover:bg-[#8b0000]/5 transition-colors"
         >
           <RotateCcw className="w-3.5 h-3.5" />
-          Khôi phục dữ liệu mẫu
+          Làm mới dữ liệu
         </button>
       </div>
 

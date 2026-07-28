@@ -1,4 +1,3 @@
-import React from 'react';
 import { Outlet } from 'react-router-dom';
 import InstructorSidebar from './InstructorSidebar';
 import InstructorTopbar from './InstructorTopbar';

@@ -1,7 +1,6 @@
-import React, { useState } from 'react';
+import { useState, useEffect, useCallback, type FormEvent } from 'react';
 import {
   Plus,
-  BookOpen,
   Edit2,
   Trash2,
   Music,
@@ -10,6 +9,9 @@ import {
   Check,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { lessonsApi, masterDataApi } from '../../api/services';
+import { lessonDetailApi } from '../../api/management';
+import type { Instrument, Lesson as ApiLesson, SkillLevel } from '../../api/types';
 
 interface Lesson {
   id: string;
@@ -23,70 +25,34 @@ interface Lesson {
   passingThreshold: number;
   exercises: string[];
   orderIndex: number;
+  backendStatus?: ApiLesson['status'];
 }
 
-const initialLessons: Lesson[] = [
-  {
-    id: 'L-001',
-    title: 'Lý Ngựa Ô - Căn bản',
-    module: 'Nhạc lý cơ bản',
-    instrument: 'Đàn Nguyệt',
-    difficulty: 1,
-    updatedAt: '12/10/2023',
-    status: 'public',
-    description: 'Hướng dẫn các tư thế cầm đàn, gảy phím nốt trơn và bài luyện ngón chạy âm giai Cung oán.',
-    passingThreshold: 75,
-    exercises: ['Bài tập gảy phím đơn', 'Chạy ngón âm giai Cung oán', 'Luyện nhịp phách đơn'],
-    orderIndex: 1,
-  },
-  {
-    id: 'L-002',
-    title: 'Dạ Cổ Hoài Lang',
-    module: 'Cải Lương học',
-    instrument: 'Đàn Tranh',
-    difficulty: 2,
-    updatedAt: '08/10/2023',
-    status: 'draft',
-    description: 'Học bài bản Dạ Cổ Hoài Lang nhịp đôi. Tập trung kỹ thuật nhấn ngón rung, vuốt dây và láy âm.',
-    passingThreshold: 80,
-    exercises: ['Kỹ thuật nhấn ngón rung tranh', 'Thực hành nhịp đôi lòng bản', 'Trình diễn Dạ Cổ Hoài Lang trọn vẹn'],
-    orderIndex: 2,
-  },
-  {
-    id: 'L-003',
-    title: 'Lưu Thủy Kim Tiền',
-    module: 'Nhạc lễ',
-    instrument: 'Đàn Nguyệt',
-    difficulty: 3,
-    updatedAt: '05/10/2023',
-    status: 'public',
-    description: 'Học liên khúc Lưu Thủy và Kim Tiền bản nhạc lễ Nam Bộ. Yêu cầu kỹ thuật cao độ chuẩn xác và tốc độ nhanh.',
-    passingThreshold: 85,
-    exercises: ['Luyện ngón nhanh tốc độ 100bpm', 'Thực hành Lưu Thủy', 'Thực hành Kim Tiền liên khúc'],
-    orderIndex: 3,
-  },
-];
+const mapLesson = (lesson: ApiLesson): Lesson => ({
+  id: String(lesson.id),
+  title: lesson.title,
+  module: lesson.skillLevel?.levelName ?? 'Chưa phân cấp',
+  instrument: lesson.instrument?.name ?? 'Chưa chọn nhạc cụ',
+  difficulty: lesson.skillLevel?.id ?? 1,
+  updatedAt: lesson.updatedAt
+    ? new Date(lesson.updatedAt).toLocaleDateString('vi-VN')
+    : '',
+  status: lesson.status === 'DRAFT' || lesson.status === 'REJECTED' ? 'draft' : 'public',
+  backendStatus: lesson.status,
+  description: lesson.description ?? '',
+  passingThreshold: lesson.exercises?.[0]?.passThreshold ?? 80,
+  exercises: lesson.exercises?.map((exercise) => exercise.title) ?? [],
+  orderIndex: lesson.orderIndex ?? 0,
+});
 
 const InstructorLessons = () => {
-  const [lessons, setLessons] = useState<Lesson[]>(() => {
-    const saved = localStorage.getItem('vietstage_instructor_lessons');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        console.error('Error parsing instructor lessons:', e);
-      }
-    }
-    return initialLessons;
-  });
-
-  const saveLessons = (updatedLessons: Lesson[]) => {
-    setLessons(updatedLessons);
-    localStorage.setItem('vietstage_instructor_lessons', JSON.stringify(updatedLessons));
-  };
-
+  const [lessons, setLessons] = useState<Lesson[]>([]);
+  const [instruments, setInstruments] = useState<Instrument[]>([]);
+  const [skillLevels, setSkillLevels] = useState<SkillLevel[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [newTitle, setNewTitle] = useState('');
   const [newInstrument, setNewInstrument] = useState('Đàn Nguyệt');
+  const [newSkillLevelId, setNewSkillLevelId] = useState(0);
   const [newStatus, setNewStatus] = useState<'public' | 'draft'>('draft');
   const [newDescription, setNewDescription] = useState('');
   const [newPassingThreshold, setNewPassingThreshold] = useState<number>(80);
@@ -96,21 +62,64 @@ const InstructorLessons = () => {
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingLesson, setEditingLesson] = useState<Lesson | null>(null);
 
-  const handleEditClick = (lesson: Lesson) => {
-    setEditingLesson(lesson);
-    setNewTitle(lesson.title);
-    setNewInstrument(lesson.instrument);
-    setNewStatus(lesson.status);
-    setNewDescription(lesson.description || '');
-    setNewPassingThreshold(lesson.passingThreshold || 80);
-    setNewOrderIndex(lesson.orderIndex || 1);
-    setNewExercises(lesson.exercises || []);
-    setCurrentExerciseInput('');
+  const loadLessons = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const params = new URLSearchParams({ mine: 'true', page: '1', size: '100' });
+      const response = await lessonsApi.list(params);
+      setLessons(response.content.map(mapLesson));
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Không thể tải danh sách bài giảng.');
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams({ mine: 'true', page: '1', size: '100' });
+    void lessonsApi.list(params)
+      .then((response) => setLessons(response.content.map(mapLesson)))
+      .catch((error: unknown) => {
+        alert(error instanceof Error ? error.message : 'Không thể tải danh sách bài giảng.');
+      })
+      .finally(() => setIsLoading(false));
+    void Promise.all([masterDataApi.instruments(), masterDataApi.skillLevels()])
+      .then(([instrumentData, skillLevelData]) => {
+        setInstruments(instrumentData);
+        setSkillLevels(skillLevelData);
+        if (instrumentData[0]) setNewInstrument(instrumentData[0].name);
+        if (skillLevelData[0]) setNewSkillLevelId(skillLevelData[0].id);
+      })
+      .catch(() => {
+        setInstruments([]);
+        setSkillLevels([]);
+      });
+  }, []);
+
+
+  const handleEditClick = async (lesson: Lesson) => {
+    try {
+      const detail = await lessonDetailApi.get(Number(lesson.id));
+      const mapped = mapLesson(detail);
+      setEditingLesson(mapped);
+      setNewTitle(mapped.title);
+      setNewInstrument(mapped.instrument);
+      setNewSkillLevelId(detail.skillLevel?.id ?? skillLevels[0]?.id ?? 0);
+      setNewStatus(mapped.status);
+      setNewDescription(mapped.description);
+      setNewPassingThreshold(mapped.passingThreshold);
+      setNewOrderIndex(mapped.orderIndex || 1);
+      setNewExercises(mapped.exercises);
+      setCurrentExerciseInput('');
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Không thể tải chi tiết bài giảng.');
+    }
   };
 
   const handleCloseModal = () => {
     setNewTitle('');
-    setNewInstrument('Đàn Nguyệt');
+    setNewInstrument(instruments[0]?.name ?? 'Đàn Nguyệt');
+    setNewSkillLevelId(skillLevels[0]?.id ?? 0);
     setNewStatus('draft');
     setNewDescription('');
     setNewPassingThreshold(80);
@@ -121,56 +130,64 @@ const InstructorLessons = () => {
     setShowAddForm(false);
   };
 
-  const handleAddLesson = (e: React.FormEvent) => {
+  const handleAddLesson = async (e: FormEvent) => {
     e.preventDefault();
     if (!newTitle.trim()) {
       alert('Vui lòng nhập tên bài giảng');
       return;
     }
 
-    if (editingLesson) {
-      const updated = lessons.map((l) =>
-        l.id === editingLesson.id
-          ? {
-              ...l,
-              title: newTitle,
-              instrument: newInstrument,
-              status: newStatus,
-              description: newDescription,
-              passingThreshold: newPassingThreshold,
-              orderIndex: newOrderIndex,
-              exercises: newExercises,
-              updatedAt: new Date().toLocaleDateString('vi-VN'),
-            }
-          : l
-      );
-      saveLessons(updated);
-      alert('Đã cập nhật bài giảng thành công!');
-    } else {
-      const newLesson: Lesson = {
-        id: `L-00${lessons.length + 1}`,
-        title: newTitle,
-        module: 'Khóa học tự do',
-        instrument: newInstrument,
-        difficulty: 2,
-        updatedAt: new Date().toLocaleDateString('vi-VN'),
-        status: newStatus,
-        description: newDescription,
-        passingThreshold: newPassingThreshold,
-        orderIndex: newOrderIndex,
-        exercises: newExercises,
-      };
-      saveLessons([...lessons, newLesson]);
-      alert('Đã thêm bài giảng mới!');
+    const instrument = instruments.find((item) => item.name === newInstrument);
+    if (!instrument) {
+      alert('Vui lòng chọn nhạc cụ hợp lệ từ dữ liệu hệ thống.');
+      return;
     }
+    const skillLevelId = newSkillLevelId || undefined;
+    const targetStatus = newStatus === 'public' ? 'PENDING' : 'DRAFT';
 
-    handleCloseModal();
+    try {
+      if (editingLesson) {
+        await lessonsApi.update(Number(editingLesson.id), {
+          title: newTitle.trim(),
+          description: newDescription,
+          skillLevelId,
+          orderIndex: newOrderIndex,
+          exercises: newExercises,
+          passThreshold: newPassingThreshold,
+        });
+        if (editingLesson.backendStatus !== targetStatus
+            && !(editingLesson.backendStatus === 'APPROVED' && targetStatus === 'PENDING')) {
+          await lessonsApi.updateStatus(Number(editingLesson.id), targetStatus);
+        }
+        alert('Đã cập nhật bài giảng thành công!');
+      } else {
+        await lessonsApi.create({
+          title: newTitle.trim(),
+          description: newDescription,
+          instrumentId: instrument.id,
+          skillLevelId,
+          status: targetStatus,
+          orderIndex: newOrderIndex,
+          exercises: newExercises,
+          passThreshold: newPassingThreshold,
+        });
+        alert('Đã thêm bài giảng mới!');
+      }
+      await loadLessons();
+      handleCloseModal();
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Không thể lưu bài giảng.');
+    }
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (confirm('Bạn có chắc chắn muốn xóa bài giảng này không?')) {
-      const updated = lessons.filter((l) => l.id !== id);
-      saveLessons(updated);
+      try {
+        await lessonsApi.remove(Number(id));
+        await loadLessons();
+      } catch (error) {
+        alert(error instanceof Error ? error.message : 'Không thể xóa bài giảng.');
+      }
     }
   };
 
@@ -211,7 +228,7 @@ const InstructorLessons = () => {
           <div className="bg-white rounded-xl border border-outline-variant/10 overflow-hidden shadow-sm">
             <div className="px-xl py-lg border-b border-outline-variant/10 flex justify-between items-center bg-[#f5f3ee]/30">
               <span className="text-headline-md font-bold text-primary">
-                Danh sách lộ trình giáo trình
+                {isLoading ? 'Đang tải bài giảng...' : 'Danh sách lộ trình giáo trình'}
               </span>
               <span className="px-md py-xs bg-[#eae8e3] rounded-full text-label-sm font-label-sm">
                 Tổng cộng: {lessons.length} bài học
@@ -300,7 +317,7 @@ const InstructorLessons = () => {
                       </td>
                       <td className="py-lg px-xl text-right">
                         <button
-                          onClick={() => handleEditClick(lesson)}
+                          onClick={() => void handleEditClick(lesson)}
                           className="p-2 hover:bg-[#ffe088]/20 text-primary transition-all rounded-lg border border-[#ffe088]/30 inline-flex items-center justify-center bg-[#fbf9f4]"
                           title="Chỉnh sửa cấu hình bài giảng"
                         >
@@ -381,12 +398,14 @@ const InstructorLessons = () => {
                       <select
                         value={newInstrument}
                         onChange={(e) => setNewInstrument(e.target.value)}
+                        disabled={editingLesson !== null}
                         className="w-full bg-[#fbf9f4] border border-outline-variant/30 rounded-xl p-md text-body-md focus:border-primary focus:ring-1 focus:ring-primary transition-all outline-none text-on-surface cursor-pointer"
                       >
-                        <option>Đàn Nguyệt</option>
-                        <option>Đàn Tranh</option>
-                        <option>Đàn Bầu</option>
-                        <option>Đàn Tỳ Bà</option>
+                        {instruments.map((instrument) => (
+                          <option key={instrument.id} value={instrument.name}>
+                            {instrument.name}
+                          </option>
+                        ))}
                       </select>
                     </div>
                   </div>
@@ -406,11 +425,25 @@ const InstructorLessons = () => {
                     </div>
                     <div className="flex flex-col gap-xs">
                       <label className="font-label-sm text-on-surface-variant font-semibold uppercase tracking-wider text-xs">
+                        Trình độ
+                      </label>
+                      <select
+                        value={newSkillLevelId}
+                        onChange={(e) => setNewSkillLevelId(Number(e.target.value))}
+                        className="w-full bg-[#fbf9f4] border border-outline-variant/30 rounded-xl p-md text-body-md focus:border-primary focus:ring-1 focus:ring-primary transition-all outline-none text-on-surface cursor-pointer"
+                      >
+                        {skillLevels.map((level) => (
+                          <option key={level.id} value={level.id}>{level.levelName}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="flex flex-col gap-xs">
+                      <label className="font-label-sm text-on-surface-variant font-semibold uppercase tracking-wider text-xs">
                         Trạng thái hiển thị
                       </label>
                       <select
                         value={newStatus}
-                        onChange={(e) => setNewStatus(e.target.value as any)}
+                        onChange={(e) => setNewStatus(e.target.value as 'public' | 'draft')}
                         className="w-full bg-[#fbf9f4] border border-outline-variant/30 rounded-xl p-md text-body-md focus:border-primary focus:ring-1 focus:ring-primary transition-all outline-none text-on-surface cursor-pointer"
                       >
                         <option value="public">Công khai (Public)</option>

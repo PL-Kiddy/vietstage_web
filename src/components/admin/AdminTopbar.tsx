@@ -1,17 +1,19 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, Bell } from 'lucide-react';
+import { authApi } from '../../api/services';
+import { clearAuthSession, getAuthSession } from '../../api/authStorage';
 
 interface AdminTopbarProps {
   userName?: string;
   userRole?: string;
 }
 
-const AdminTopbar = ({
-  userName = 'Admin Name',
-  userRole = 'Administrator',
-}: AdminTopbarProps) => {
+const AdminTopbar = ({ userName, userRole }: AdminTopbarProps) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const session = getAuthSession();
+  const displayName = userName ?? session?.name ?? 'Quản trị viên';
+  const displayRole = userRole ?? 'Administrator';
   const navigate = useNavigate();
 
   return (
@@ -45,14 +47,14 @@ const AdminTopbar = ({
           >
             <div className="text-right">
               <p className="font-label-md text-label-md text-on-surface">
-                {userName}
+                {displayName}
               </p>
               <p className="text-[10px] text-[#5e5e5b] uppercase tracking-widest">
-                {userRole}
+                {displayRole}
               </p>
             </div>
             <div className="w-10 h-10 rounded-full border border-primary/20 bg-[#e3efff] flex items-center justify-center text-primary font-bold text-sm">
-              {userName.charAt(0).toUpperCase()}
+              {displayName.charAt(0).toUpperCase()}
             </div>
           </div>
 
@@ -75,10 +77,14 @@ const AdminTopbar = ({
                   Profile
                 </button>
                 <button
-                  onClick={() => {
+                  onClick={async () => {
                     setIsDropdownOpen(false);
-                    sessionStorage.removeItem('vietstage_current_user');
-                    navigate('/login');
+                    try {
+                      await authApi.logout();
+                    } finally {
+                      clearAuthSession();
+                      navigate('/login');
+                    }
                   }}
                   className="w-full text-left px-4 py-2 hover:bg-[#edf4ff] text-[14px] text-error transition-colors border-t border-[#d1e4fb]/40"
                 >
