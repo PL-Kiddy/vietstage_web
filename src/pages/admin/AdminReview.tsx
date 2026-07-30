@@ -13,7 +13,8 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { reviewsApi } from '../../api/services';
+import { lessonsApi, reviewsApi } from '../../api/services';
+import type { Lesson, ReviewItem as ApiReviewItem } from '../../api/types';
 
 interface ReviewItem {
   id: string;
@@ -25,36 +26,81 @@ interface ReviewItem {
   audioUrl: string;
   duration: string;
   description: string;
-  status: 'pending' | 'approved' | 'rejected';
+  status: 'draft' | 'pending' | 'approved' | 'rejected';
   feedback?: string;
   approvedBy?: string;
   approvedAt?: string;
 }
 
-const INSTRUMENT_OPTIONS = ['Đàn Bầu', 'Đàn Tranh', 'Sáo Trúc', 'Trống'];
+const normalizeReview = (item: ApiReviewItem): ReviewItem => ({
+  id: String(item.id),
+  title: item.title || 'Bài giảng chưa đặt tên',
+  instrument: item.instrument || 'Chưa xác định',
+  instructor: item.instructor || 'Chưa xác định',
+  date: item.date || '',
+  sheetMusicUrl: item.sheetMusicUrl || '',
+  audioUrl: item.audioUrl || '',
+  duration: item.duration || '00:00',
+  description: item.description || '',
+  status: String(item.status || 'pending').trim().toLowerCase() as ReviewItem['status'],
+  feedback: item.feedback,
+  approvedBy: item.approvedBy,
+  approvedAt: item.approvedAt,
+});
+
+const lessonToReview = (lesson: Lesson): ReviewItem => {
+  const assets = lesson.mediaAssets ?? [];
+  const sheet = assets.find((asset) => ['SHEET_MUSIC', 'SHEET_IMAGE', 'DOCUMENT'].includes(asset.assetType));
+  const audio = assets.find((asset) => ['AUDIO', 'REFERENCE_AUDIO', 'VIDEO'].includes(asset.assetType));
+  const duration = Math.max(0, Math.round(audio?.durationSec ?? 0));
+
+  return {
+    id: String(lesson.id),
+    title: lesson.title || 'Bài giảng chưa đặt tên',
+    instrument: lesson.instrument?.name || 'Chưa xác định',
+    instructor: lesson.createdBy?.fullName || 'Chưa xác định',
+    date: lesson.createdAt ? new Date(lesson.createdAt).toLocaleDateString('vi-VN') : '',
+    sheetMusicUrl: sheet?.assetUrl || '',
+    audioUrl: audio?.assetUrl || '',
+    duration: `${String(Math.floor(duration / 60)).padStart(2, '0')}:${String(duration % 60).padStart(2, '0')}`,
+    description: lesson.description || '',
+    status: String(lesson.status || 'PENDING').trim().toLowerCase() as ReviewItem['status'],
+  };
+};
 
 const AdminReview = () => {
   const [items, setItems] = useState<ReviewItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
 
   const loadReviews = useCallback(async () => {
+    setIsLoading(true);
+    setLoadError('');
     try {
-      const data = await reviewsApi.list();
-      setItems(data.map((item) => ({ ...item, id: String(item.id) })));
+      const reviewData = await reviewsApi.list();
+      if (reviewData.length > 0) {
+        setItems(reviewData.map(normalizeReview));
+        return;
+      }
+
+      // The deployed review endpoint may return an empty list while lessons are available.
+      const params = new URLSearchParams({ page: '1', size: '100' });
+      const lessonData = await lessonsApi.list(params);
+      setItems(lessonData.content.map(lessonToReview));
     } catch (error) {
-      alert(error instanceof Error ? error.message : 'Không thể tải danh sách kiểm duyệt.');
+      setItems([]);
+      setLoadError(error instanceof Error ? error.message : 'Không thể tải danh sách kiểm duyệt.');
+    } finally {
+      setIsLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    void reviewsApi.list()
-      .then((data) => setItems(data.map((item) => ({ ...item, id: String(item.id) }))))
-      .catch((error: unknown) => {
-        alert(error instanceof Error ? error.message : 'Không thể tải danh sách kiểm duyệt.');
-      });
-  }, []);
-
+    const timer = window.setTimeout(() => void loadReviews(), 0);
+    return () => window.clearTimeout(timer);
+  }, [loadReviews]);
   // Filtering states
-  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('pending');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'draft' | 'pending' | 'approved' | 'rejected'>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedInstrument, setSelectedInstrument] = useState<string>('all');
   const [selectedInstructor, setSelectedInstructor] = useState<string>('all');
@@ -153,16 +199,8 @@ const AdminReview = () => {
     }
   };
 
-  const handleResetToPending = async (item: ReviewItem) => {
-    try {
-      await reviewsApi.reset(Number(item.id));
-      await loadReviews();
-      setFeedback('');
-      setFeedbackError('');
-      alert(`Đã chuyển học liệu "${item.title}" về trạng thái Chờ duyệt.`);
-    } catch (error) {
-      alert(error instanceof Error ? error.message : 'Không thể đổi trạng thái học liệu.');
-    }
+const handleResetToPending = async (item: ReviewItem) => {
+    alert('Backend hiện chưa cung cấp endpoint đưa ' + item.title + ' về trạng thái chờ.');
   };
 
   const handleRevoke = async (item: ReviewItem) => {
@@ -224,9 +262,14 @@ const AdminReview = () => {
   }, [filteredItems, currentPage, perPage]);
 
   // Status counts
+  const draftCount = items.filter((i) => i.status === 'draft').length;
   const pendingCount = items.filter((i) => i.status === 'pending').length;
   const approvedCount = items.filter((i) => i.status === 'approved').length;
   const rejectedCount = items.filter((i) => i.status === 'rejected').length;
+  const instrumentOptions = useMemo(
+    () => Array.from(new Set(items.map((item) => item.instrument))).filter(Boolean),
+    [items],
+  );
 
   return (
     <div className="w-full mx-auto relative min-h-screen bg-surface-bright text-on-surface font-sans p-md md:p-lg">
@@ -286,7 +329,22 @@ const AdminReview = () => {
         >
           Tất cả ({items.length})
         </button>
-        <button
+                <button
+          onClick={() => {
+            setStatusFilter('draft');
+            setCurrentPage(1);
+          }}
+          className={`px-lg py-sm rounded-t-lg font-label-md text-label-md transition-all border-b-2 flex items-center gap-2 ${
+            statusFilter === 'draft'
+              ? 'border-slate-500 text-slate-700 bg-slate-50 font-bold'
+              : 'border-transparent text-[#5e5e5b] hover:bg-slate-50/50'
+          }`}
+        >
+          Bản nháp
+          <span className="bg-slate-200 text-slate-700 px-2 py-0.5 rounded-full text-xs font-semibold">
+            {draftCount}
+          </span>
+        </button><button
           onClick={() => {
             setStatusFilter('pending');
             setCurrentPage(1);
@@ -365,7 +423,7 @@ const AdminReview = () => {
             className="bg-transparent border-none text-label-md font-semibold text-primary focus:ring-0 cursor-pointer outline-none"
           >
             <option value="all">Tất cả nhạc cụ</option>
-            {INSTRUMENT_OPTIONS.map((ins) => (
+            {instrumentOptions.map((ins) => (
               <option key={ins} value={ins}>
                 {ins}
               </option>
@@ -410,8 +468,19 @@ const AdminReview = () => {
         </button>
       </div>
 
+      {loadError && (
+        <div className="mb-lg flex items-center justify-between gap-4 rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-red-800">
+          <span>{loadError}</span>
+          <button onClick={() => void loadReviews()} className="font-bold underline">Thử lại</button>
+        </div>
+      )}
       {/* Table Section */}
-      {filteredItems.length === 0 ? (
+      {isLoading ? (
+        <div className="bg-white rounded-xl border border-outline-variant/10 p-xxl text-center shadow-sm">
+          <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
+          <p className="text-body-md text-on-surface-variant">Đang tải danh sách kiểm duyệt...</p>
+        </div>
+      ) : filteredItems.length === 0 ? (
         <div className="bg-white rounded-xl border border-outline-variant/10 p-xxl text-center shadow-sm flex flex-col items-center justify-center gap-md">
           <p className="text-body-md text-on-surface-variant">
             Không tìm thấy học liệu nào phù hợp với bộ lọc hiện tại!
@@ -474,7 +543,11 @@ const AdminReview = () => {
                       {item.date}
                     </td>
                     <td className="px-xl py-lg whitespace-nowrap">
-                      {item.status === 'pending' && (
+                      {item.status === 'draft' && (
+                        <span className="px-lg py-sm bg-slate-50 border border-slate-200 text-slate-700 rounded-full text-[11px] font-bold tracking-wide whitespace-nowrap">
+                          Bản nháp
+                        </span>
+                      )}                      {item.status === 'pending' && (
                         <span className="px-lg py-sm bg-orange-50 border border-orange-200 text-orange-700 rounded-full text-[11px] font-bold tracking-wide whitespace-nowrap">
                           Chờ duyệt
                         </span>
@@ -705,7 +778,16 @@ const AdminReview = () => {
 
                   {/* Feedback Textarea & Validation */}
                   <div className="pt-md border-t border-outline-variant/10">
-                    {selectedItem.status === 'pending' ? (
+                    {selectedItem.status === 'draft' ? (
+                      <div className="bg-slate-50 p-md rounded-xl border border-slate-200">
+                        <span className="font-label-sm text-slate-700 block mb-xs font-semibold uppercase tracking-wider text-xs">
+                          Bản nháp chưa gửi duyệt
+                        </span>
+                        <p className="text-body-md text-on-surface-variant">
+                          Giảng viên cần chuyển bài giảng sang trạng thái Chờ duyệt trước khi quản trị viên có thể phê duyệt hoặc từ chối.
+                        </p>
+                      </div>
+                    ) : selectedItem.status === 'pending' ? (
                       <>
                         <label className="font-label-sm text-on-surface-variant block mb-xs font-semibold uppercase tracking-wider text-xs">
                           Lý do phản hồi <span className="text-error font-bold">* Bắt buộc nếu chọn Từ chối</span>
@@ -782,23 +864,7 @@ const AdminReview = () => {
                       <X className="w-5 h-5" />
                       Đóng
                     </button>
-                    {selectedItem.status === 'approved' ? (
-                      <button
-                        onClick={() => setRevokeModalItem(selectedItem)}
-                        className="flex-1 flex items-center justify-center gap-sm bg-[#c62828] text-white py-lg rounded-xl font-bold hover:bg-[#b71c1c] active:scale-[0.98] transition-all shadow-sm"
-                      >
-                        <RotateCcw className="w-5 h-5" />
-                        Thu hồi phê duyệt
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => handleResetToPending(selectedItem)}
-                        className="flex-1 flex items-center justify-center gap-sm bg-primary text-on-primary py-lg rounded-xl font-bold hover:bg-primary/95 active:scale-[0.98] transition-all shadow-sm"
-                      >
-                        <RotateCcw className="w-5 h-5" />
-                        Xét duyệt lại
-                      </button>
-                    )}
+
                   </>
                 )}
               </div>

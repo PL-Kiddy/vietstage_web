@@ -22,6 +22,12 @@ export const authApi = {
       body: { email, password, fullName },
       auth: false,
     }),
+  verifyRegistration: (email: string, otpCode: string) =>
+    apiRequest<AuthResponse>('/api/auth/verify-registration', {
+      method: 'POST',
+      body: { email, otpCode },
+      auth: false,
+    }),
   forgotPassword: (email: string) =>
     apiRequest<string>('/api/auth/forgot-password', {
       method: 'POST',
@@ -50,19 +56,14 @@ export const usersApi = {
     fullName: string;
     biography?: string;
     yearsExperience?: number;
-    instrumentIds?: number[];
   }) => apiRequest('/api/admin/create-instructor', { method: 'POST', body }),
-  update: (
-    id: number,
-    body: { fullName: string; email: string; instrumentIds?: number[] },
-  ) => apiRequest<void>(`/api/admin/users/${id}`, { method: 'PUT', body }),
   createAdmin: (body: { email: string; password: string; fullName: string }) =>
     apiRequest('/api/admin/create-admin', { method: 'POST', body }),
 };
 
 export const masterDataApi = {
-  instruments: () => apiRequest<Instrument[]>('/api/instruments', { auth: false }),
-  skillLevels: () => apiRequest<SkillLevel[]>('/api/skill-levels', { auth: false }),
+  instruments: () => apiRequest<Instrument[]>('/api/instruments'),
+  skillLevels: () => apiRequest<SkillLevel[]>('/api/skill-levels'),
 };
 
 export interface LessonInput {
@@ -83,7 +84,15 @@ export const lessonsApi = {
   update: (
     id: number,
     body: Pick<LessonInput, 'title' | 'description' | 'skillLevelId' | 'orderIndex' | 'exercises' | 'passThreshold'>,
-  ) => apiRequest<Lesson>(`/api/lessons/${id}`, { method: 'PUT', body }),
+  ) => apiRequest<Lesson>(`/api/lessons/${id}`, {
+    method: 'PUT',
+    body: {
+      title: body.title,
+      description: body.description,
+      skill_level_id: body.skillLevelId,
+      order_index: body.orderIndex,
+    },
+  }),
   updateStatus: (id: number, status: 'DRAFT' | 'PENDING') =>
     apiRequest(`/api/lessons/${id}/status`, { method: 'PUT', body: { status } }),
   remove: (id: number) => apiRequest<void>(`/api/lessons/${id}`, { method: 'DELETE' }),
@@ -93,8 +102,6 @@ export const reviewsApi = {
   list: () => apiRequest<ReviewItem[]>('/api/admin/reviews'),
   approve: (id: number) =>
     apiRequest<void>(`/api/admin/reviews/${id}/approve`, { method: 'POST' }),
-  reset: (id: number) =>
-    apiRequest<void>(`/api/admin/reviews/${id}/pending`, { method: 'POST' }),
   reject: (id: number, feedback: string) =>
     apiRequest<void>(`/api/admin/reviews/${id}/reject`, {
       method: 'POST',

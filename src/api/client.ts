@@ -1,7 +1,8 @@
 import { clearAuthSession, getAuthSession, updateAuthTokens } from './authStorage';
 import type { ApiResponse, AuthResponse } from './types';
 
-const API_URL = (import.meta.env.VITE_API_URL ?? 'http://localhost:9191').replace(/\/$/, '');
+const configuredApiUrl = (import.meta.env.VITE_API_URL ?? 'http://localhost:9191').replace(/\/$/, '');
+const API_URL = import.meta.env.DEV ? '' : configuredApiUrl;
 
 export class ApiError extends Error {
   readonly status: number;

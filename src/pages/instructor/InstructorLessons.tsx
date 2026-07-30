@@ -7,7 +7,12 @@ import {
   FileText,
   X,
   Check,
+  ListChecks,
+  BookOpen,
+  RefreshCw,
+  AlertCircle,
 } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { lessonsApi, masterDataApi } from '../../api/services';
 import { lessonDetailApi } from '../../api/management';
@@ -20,7 +25,7 @@ interface Lesson {
   instrument: string;
   difficulty: number;
   updatedAt: string;
-  status: 'public' | 'draft';
+  status: ApiLesson['status'];
   description: string;
   passingThreshold: number;
   exercises: string[];
@@ -37,7 +42,7 @@ const mapLesson = (lesson: ApiLesson): Lesson => ({
   updatedAt: lesson.updatedAt
     ? new Date(lesson.updatedAt).toLocaleDateString('vi-VN')
     : '',
-  status: lesson.status === 'DRAFT' || lesson.status === 'REJECTED' ? 'draft' : 'public',
+  status: lesson.status,
   backendStatus: lesson.status,
   description: lesson.description ?? '',
   passingThreshold: lesson.exercises?.[0]?.passThreshold ?? 80,
@@ -45,11 +50,24 @@ const mapLesson = (lesson: ApiLesson): Lesson => ({
   orderIndex: lesson.orderIndex ?? 0,
 });
 
+const getStatusMeta = (status: ApiLesson['status']) => {
+  switch (status) {
+    case 'PENDING':
+      return { label: 'Chờ duyệt', className: 'bg-amber-50 text-amber-800 border-amber-200', dot: 'bg-amber-500' };
+    case 'APPROVED':
+      return { label: 'Đã duyệt', className: 'bg-emerald-50 text-emerald-800 border-emerald-200', dot: 'bg-emerald-500' };
+    case 'REJECTED':
+      return { label: 'Bị từ chối', className: 'bg-red-50 text-red-800 border-red-200', dot: 'bg-red-500' };
+    default:
+      return { label: 'Bản nháp', className: 'bg-slate-50 text-slate-700 border-slate-200', dot: 'bg-slate-400' };
+  }
+};
 const InstructorLessons = () => {
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [instruments, setInstruments] = useState<Instrument[]>([]);
   const [skillLevels, setSkillLevels] = useState<SkillLevel[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [newTitle, setNewTitle] = useState('');
   const [newInstrument, setNewInstrument] = useState('Đàn Nguyệt');
   const [newSkillLevelId, setNewSkillLevelId] = useState(0);
@@ -64,38 +82,43 @@ const InstructorLessons = () => {
 
   const loadLessons = useCallback(async () => {
     setIsLoading(true);
+    setLoadError('');
     try {
-      const params = new URLSearchParams({ mine: 'true', page: '1', size: '100' });
+      const params = new URLSearchParams({ page: '1', size: '100' });
       const response = await lessonsApi.list(params);
-      setLessons(response.content.map(mapLesson));
+      setLessons(Array.isArray(response.content) ? response.content.map(mapLesson) : []);
     } catch (error) {
-      alert(error instanceof Error ? error.message : 'Không thể tải danh sách bài giảng.');
+      setLessons([]);
+      setLoadError(error instanceof Error ? error.message : 'Không thể tải danh sách bài giảng.');
     } finally {
       setIsLoading(false);
     }
   }, []);
 
-  useEffect(() => {
-    const params = new URLSearchParams({ mine: 'true', page: '1', size: '100' });
-    void lessonsApi.list(params)
-      .then((response) => setLessons(response.content.map(mapLesson)))
-      .catch((error: unknown) => {
-        alert(error instanceof Error ? error.message : 'Không thể tải danh sách bài giảng.');
-      })
-      .finally(() => setIsLoading(false));
-    void Promise.all([masterDataApi.instruments(), masterDataApi.skillLevels()])
-      .then(([instrumentData, skillLevelData]) => {
-        setInstruments(instrumentData);
-        setSkillLevels(skillLevelData);
-        if (instrumentData[0]) setNewInstrument(instrumentData[0].name);
-        if (skillLevelData[0]) setNewSkillLevelId(skillLevelData[0].id);
-      })
-      .catch(() => {
-        setInstruments([]);
-        setSkillLevels([]);
-      });
+  const loadMasterData = useCallback(async () => {
+    try {
+      const [instrumentData, skillLevelData] = await Promise.all([
+        masterDataApi.instruments(),
+        masterDataApi.skillLevels(),
+      ]);
+      setInstruments(instrumentData);
+      setSkillLevels(skillLevelData);
+      if (instrumentData[0]) setNewInstrument(instrumentData[0].name);
+      if (skillLevelData[0]) setNewSkillLevelId(skillLevelData[0].id);
+    } catch (error) {
+      setInstruments([]);
+      setSkillLevels([]);
+      setLoadError((current) => current || (error instanceof Error ? error.message : 'Không thể tải dữ liệu nhạc cụ và trình độ.'));
+    }
   }, []);
 
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void loadLessons();
+      void loadMasterData();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [loadLessons, loadMasterData]);
 
   const handleEditClick = async (lesson: Lesson) => {
     try {
@@ -105,7 +128,7 @@ const InstructorLessons = () => {
       setNewTitle(mapped.title);
       setNewInstrument(mapped.instrument);
       setNewSkillLevelId(detail.skillLevel?.id ?? skillLevels[0]?.id ?? 0);
-      setNewStatus(mapped.status);
+      setNewStatus(mapped.status === 'DRAFT' || mapped.status === 'REJECTED' ? 'draft' : 'public');
       setNewDescription(mapped.description);
       setNewPassingThreshold(mapped.passingThreshold);
       setNewOrderIndex(mapped.orderIndex || 1);
@@ -222,6 +245,17 @@ const InstructorLessons = () => {
         </button>
       </div>
 
+      {loadError && (
+        <div className="mb-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-red-800">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 mt-0.5 shrink-0" />
+            <span>{loadError}</span>
+          </div>
+          <button onClick={() => { void loadLessons(); void loadMasterData(); }} className="inline-flex items-center justify-center gap-2 font-bold whitespace-nowrap hover:underline">
+            <RefreshCw className="w-4 h-4" /> Thử lại
+          </button>
+        </div>
+      )}
       <div className="grid grid-cols-12 gap-gutter">
         {/* Lesson List Table */}
         <div className="col-span-12 flex flex-col gap-gutter">
@@ -236,37 +270,59 @@ const InstructorLessons = () => {
             </div>
 
             <div className="overflow-x-auto custom-scrollbar">
-              <table className="w-full border-collapse">
+              <table className="w-full min-w-[1080px] border-collapse">
                 <thead>
                   <tr className="bg-[#f5f3ee]/50">
-                    <th className="text-left py-md px-xl font-label-sm text-label-sm text-on-surface-variant border-b border-outline-variant/10">
+                    <th className="text-left whitespace-nowrap py-md px-xl font-label-sm text-label-sm text-on-surface-variant border-b border-outline-variant/10">
                       Thứ tự giáo trình
                     </th>
-                    <th className="text-left py-md px-xl font-label-sm text-label-sm text-on-surface-variant border-b border-outline-variant/10">
+                    <th className="text-left whitespace-nowrap py-md px-xl font-label-sm text-label-sm text-on-surface-variant border-b border-outline-variant/10">
                       Tên bài giảng
                     </th>
-                    <th className="text-left py-md px-md font-label-sm text-label-sm text-on-surface-variant border-b border-outline-variant/10">
+                    <th className="text-left whitespace-nowrap py-md px-md font-label-sm text-label-sm text-on-surface-variant border-b border-outline-variant/10">
                       Nhạc cụ
                     </th>
-                    <th className="text-left py-md px-md font-label-sm text-label-sm text-on-surface-variant border-b border-outline-variant/10">
+                    <th className="text-left whitespace-nowrap py-md px-md font-label-sm text-label-sm text-on-surface-variant border-b border-outline-variant/10">
                       Ngưỡng đạt (Scoring)
                     </th>
-                    <th className="text-left py-md px-md font-label-sm text-label-sm text-on-surface-variant border-b border-outline-variant/10">
+                    <th className="text-left whitespace-nowrap py-md px-md font-label-sm text-label-sm text-on-surface-variant border-b border-outline-variant/10">
                       Bài tập nhỏ
                     </th>
-                    <th className="text-left py-md px-md font-label-sm text-label-sm text-on-surface-variant border-b border-outline-variant/10">
+                    <th className="text-left whitespace-nowrap py-md px-md font-label-sm text-label-sm text-on-surface-variant border-b border-outline-variant/10">
                       Ngày cập nhật
                     </th>
-                    <th className="text-left py-md px-md font-label-sm text-label-sm text-on-surface-variant border-b border-outline-variant/10">
+                    <th className="text-left whitespace-nowrap py-md px-md font-label-sm text-label-sm text-on-surface-variant border-b border-outline-variant/10">
                       Trạng thái
                     </th>
-                    <th className="text-right py-md px-xl font-label-sm text-label-sm text-on-surface-variant border-b border-outline-variant/10">
+                    <th className="text-right whitespace-nowrap py-md px-xl font-label-sm text-label-sm text-on-surface-variant border-b border-outline-variant/10">
                       Hành động
                     </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-outline-variant/10">
-                  {sortedLessons.map((lesson) => (
+                  {isLoading ? (
+                    <tr>
+                      <td colSpan={8} className="px-xl py-14 text-center">
+                        <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
+                        <p className="text-on-surface-variant">Đang tải danh sách bài giảng...</p>
+                      </td>
+                    </tr>
+                  ) : sortedLessons.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="px-xl py-16 text-center">
+                        <div className="mx-auto flex max-w-md flex-col items-center">
+                          <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                            <BookOpen className="h-7 w-7" />
+                          </div>
+                          <h3 className="text-lg font-bold text-on-surface">Chưa có bài giảng nào</h3>
+                          <p className="mt-1 text-sm text-on-surface-variant">Tạo bài giảng đầu tiên để bắt đầu xây dựng lộ trình giảng dạy.</p>
+                          <button onClick={() => setShowAddForm(true)} className="mt-5 inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 font-bold text-white hover:opacity-90">
+                            <Plus className="h-4 w-4" /> Thêm bài giảng
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : sortedLessons.map((lesson) => (
                     <tr
                       key={lesson.id}
                       className="hover:bg-[#f5f3ee] transition-colors group"
@@ -303,19 +359,19 @@ const InstructorLessons = () => {
                         {lesson.updatedAt}
                       </td>
                       <td className="py-lg px-md">
-                        {lesson.status === 'public' ? (
-                          <span className="flex items-center gap-xs text-[#735c00] text-label-sm font-bold">
-                            <span className="w-2 h-2 rounded-full bg-[#735c00]" />{' '}
-                            Công khai
-                          </span>
-                        ) : (
-                          <span className="flex items-center gap-xs text-on-surface-variant text-label-sm">
-                            <span className="w-2 h-2 rounded-full bg-[#e3beb8]" />{' '}
-                            Nháp
-                          </span>
-                        )}
+                        <span className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-bold whitespace-nowrap ${getStatusMeta(lesson.status).className}`}>
+                          <span className={`h-2 w-2 rounded-full ${getStatusMeta(lesson.status).dot}`} />
+                          {getStatusMeta(lesson.status).label}
+                        </span>
                       </td>
                       <td className="py-lg px-xl text-right">
+                        <Link
+                          to={`/instructor/lessons/${lesson.id}/content`}
+                          className="mr-2 p-2 hover:bg-primary/10 text-primary transition-all rounded-lg border border-primary/20 inline-flex items-center justify-center bg-white"
+                          title="Quản lý bài tập, quiz và minigame"
+                        >
+                          <ListChecks className="w-4 h-4" />
+                        </Link>
                         <button
                           onClick={() => void handleEditClick(lesson)}
                           className="p-2 hover:bg-[#ffe088]/20 text-primary transition-all rounded-lg border border-[#ffe088]/30 inline-flex items-center justify-center bg-[#fbf9f4]"

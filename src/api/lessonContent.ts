@@ -1,0 +1,83 @@
+import { apiRequest } from './client';
+
+export interface Exercise {
+  id: number;
+  lessonId: number;
+  title: string;
+  description?: string;
+  beatMapAssetId?: number;
+  passThreshold?: number;
+  orderIndex: number;
+}
+
+export interface ExerciseInput {
+  title: string;
+  description?: string;
+  beatMapAssetId?: number;
+  passThreshold?: number;
+  orderIndex: number;
+}
+
+export interface Quiz {
+  id: number;
+  question: string;
+  options: string;
+  correctAnswer?: string;
+  orderIndex: number;
+}
+
+export interface QuizInput {
+  question: string;
+  options: string;
+  correctAnswer: string;
+  orderIndex: number;
+}
+
+export interface Minigame {
+  id: number;
+  title: string;
+  challengeType: string;
+  difficulty?: string;
+  maxScore: number;
+  orderIndex: number;
+  contentJson?: string;
+}
+
+export interface MinigameInput {
+  title: string;
+  challengeType: string;
+  contentJson?: string;
+  referenceAssetId?: number;
+  difficulty?: string;
+  maxScore: number;
+  orderIndex: number;
+}
+
+export const exercisesApi = {
+  list: (lessonId: number) =>
+    apiRequest<Exercise[]>(`/api/lessons/${lessonId}/exercises`),
+  create: (lessonId: number, body: ExerciseInput) =>
+    apiRequest<Exercise>(`/api/lessons/${lessonId}/exercises`, { method: 'POST', body }),
+  update: (id: number, body: ExerciseInput) =>
+    apiRequest<Exercise>(`/api/exercises/${id}`, { method: 'PUT', body }),
+  remove: (id: number) => apiRequest<void>(`/api/exercises/${id}`, { method: 'DELETE' }),
+};
+
+export const quizzesApi = {
+  list: (lessonId: number) => apiRequest<Quiz[]>(`/api/lessons/${lessonId}/quizzes`),
+  create: (lessonId: number, body: QuizInput) =>
+    apiRequest<Quiz>(`/api/lessons/${lessonId}/quizzes`, { method: 'POST', body }),
+  update: (id: number, body: QuizInput) =>
+    apiRequest<Quiz>(`/api/quizzes/${id}`, { method: 'PUT', body }),
+  remove: (id: number) => apiRequest<void>(`/api/quizzes/${id}`, { method: 'DELETE' }),
+};
+
+export const minigamesApi = {
+  list: (lessonId: number) =>
+    apiRequest<Minigame[]>(`/api/lessons/${lessonId}/minigames`),
+  create: (lessonId: number, body: MinigameInput) =>
+    apiRequest<Minigame>(`/api/lessons/${lessonId}/minigames`, { method: 'POST', body }),
+  update: (id: number, body: MinigameInput) =>
+    apiRequest<Minigame>(`/api/minigames/${id}`, { method: 'PUT', body }),
+  remove: (id: number) => apiRequest<void>(`/api/minigames/${id}`, { method: 'DELETE' }),
+};

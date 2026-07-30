@@ -49,8 +49,10 @@ const RegisterForm = () => {
 
     try {
       await authApi.register(email.trim(), password, fullName.trim());
-      showToast('success', 'Đăng ký thành công! Vui lòng sử dụng ứng dụng VietStage di động để đăng nhập.');
-      setTimeout(() => navigate('/login'), 2000);
+      showToast('success', 'Đăng ký thành công. Vui lòng nhập mã OTP để kích hoạt tài khoản.');
+      setTimeout(() => {
+        navigate(`/verify-registration?email=${encodeURIComponent(email.trim())}`);
+      }, 800);
     } catch (error) {
       showToast('error', error instanceof Error ? error.message : 'Không thể đăng ký tài khoản.');
     }

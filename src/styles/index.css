@@ -12,6 +12,10 @@
 }
 
 @layer components {
+  .input {
+    @apply w-full rounded-xl border border-outline-variant/30 bg-[#fbf9f4] px-4 py-3 text-on-surface outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/10;
+  }
+
   .glass-card {
     background: rgba(255, 255, 255, 0.8);
     backdrop-filter: blur(8px);

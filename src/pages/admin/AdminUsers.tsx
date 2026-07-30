@@ -211,7 +211,6 @@ const AdminUsers = () => {
     const generatedPassword = authMethod === 'password'
       ? newPassword
       : `Vs@${crypto.randomUUID().replaceAll('-', '').slice(0, 10)}`;
-    const instrumentId = instruments.find((instrument) => instrument.name === newInstrument)?.id;
 
     try {
       if (newUserRole === 'Giảng viên') {
@@ -219,7 +218,6 @@ const AdminUsers = () => {
           email: newUserEmail.trim(),
           password: generatedPassword,
           fullName: newUserName.trim(),
-          instrumentIds: instrumentId ? [instrumentId] : [],
         });
       } else {
         await usersApi.createAdmin({
@@ -257,20 +255,8 @@ const AdminUsers = () => {
     e.preventDefault();
     if (!isEditFormValid || !editingUser) return;
 
-    const instrumentId = instruments.find((instrument) => instrument.name === editInstrument)?.id;
-    try {
-      await usersApi.update(Number(editingUser.id), {
-        fullName: editName.trim(),
-        email: editEmail.trim(),
-        instrumentIds: editingUser.role === 'Giảng viên' && instrumentId ? [instrumentId] : [],
-      });
-      await loadUsers();
-      setIsEditDrawerOpen(false);
-      setSelectedUser(null);
-      alert('Đã cập nhật thông tin thành viên thành công!');
-    } catch (error) {
-      alert(error instanceof Error ? error.message : 'Không thể cập nhật thành viên.');
-    }
+alert('Backend hiện chưa cung cấp endpoint cập nhật thông tin người dùng. Bạn vẫn có thể khóa hoặc mở khóa tài khoản.');
+    setIsEditDrawerOpen(false);
   };
 
   return (

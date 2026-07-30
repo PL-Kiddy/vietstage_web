@@ -84,7 +84,7 @@ export interface Lesson {
   createdAt?: string;
   updatedAt?: string;
   techniques?: { id: number; name: string; guideUrl?: string }[];
-  lessonAssets?: {
+  mediaAssets?: {
     id: number;
     assetType: string;
     assetUrl: string;
