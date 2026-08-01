@@ -11,7 +11,7 @@ const InstructorStudents = () => {
 
   // 1. Fetch users
   const fetchUsers = () => instructorStudentsApi.listStudents();
-  const { data: users, execute: doFetchUsers } = useAxiosRequest<AdminUser[]>(fetchUsers, { auto: true });
+  const { data: users } = useAxiosRequest<AdminUser[]>(fetchUsers, { auto: true });
 
     const students = (users || []).filter((u: any) => u.role === 'Người học' || u.role === 'LEARNER' || u.role === 'learner' || u.role === 'Learner');
   const student = students[selectedIdx] || null;
