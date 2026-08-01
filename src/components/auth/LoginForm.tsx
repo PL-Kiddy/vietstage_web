@@ -16,6 +16,7 @@ const LoginForm = () => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [toast, setToast] = useState<ToastState>({
     visible: false,
     type: 'success',
@@ -32,11 +33,14 @@ const LoginForm = () => {
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
+    if (isLoading) return;
+
     if (!username.trim() || !password.trim()) {
       showToast('error', 'Vui lòng nhập đầy đủ tên đăng nhập và mật khẩu.');
       return;
     }
 
+    setIsLoading(true);
     try {
       const response = await authApi.login(username.trim(), password);
       const user = saveAuthSession(response, username.trim(), rememberMe);
@@ -44,6 +48,7 @@ const LoginForm = () => {
       if (user.role === 'learner') {
         clearAuthSession();
         showToast('error', 'Tài khoản học viên vui lòng đăng nhập trên ứng dụng di động VietStage.');
+        setIsLoading(false);
         return;
       }
 
@@ -53,6 +58,7 @@ const LoginForm = () => {
       }, 1000);
     } catch (error) {
       showToast('error', error instanceof Error ? error.message : 'Không thể đăng nhập.');
+      setIsLoading(false);
     }
   };
 
@@ -113,9 +119,10 @@ const LoginForm = () => {
                 id="username"
                 type="text"
                 value={username}
+                disabled={isLoading}
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder="Nhập email hoặc tên của bạn"
-                className="w-full pl-[48px] pr-md py-sm bg-surface-container-lowest border border-outline-variant/30 rounded-lg focus:ring-2 focus:ring-secondary/20 focus:border-secondary outline-none transition-all text-body-md"
+                className="w-full pl-[48px] pr-md py-sm bg-surface-container-lowest border border-outline-variant/30 rounded-lg focus:ring-2 focus:ring-secondary/20 focus:border-secondary outline-none transition-all text-body-md disabled:opacity-50"
               />
             </div>
           </div>
@@ -134,12 +141,14 @@ const LoginForm = () => {
                 id="password"
                 type={showPassword ? 'text' : 'password'}
                 value={password}
+                disabled={isLoading}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full pl-[48px] pr-[48px] py-sm bg-surface-container-lowest border border-outline-variant/30 rounded-lg focus:ring-2 focus:ring-secondary/20 focus:border-secondary outline-none transition-all text-body-md"
+                className="w-full pl-[48px] pr-[48px] py-sm bg-surface-container-lowest border border-outline-variant/30 rounded-lg focus:ring-2 focus:ring-secondary/20 focus:border-secondary outline-none transition-all text-body-md disabled:opacity-50"
               />
               <button
                 type="button"
+                disabled={isLoading}
                 onClick={() => setShowPassword(!showPassword)}
                 className="absolute right-md top-1/2 -translate-y-1/2 text-on-surface-variant hover:text-on-surface transition-colors"
                 aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
@@ -160,8 +169,9 @@ const LoginForm = () => {
                 <input
                   type="checkbox"
                   checked={rememberMe}
+                  disabled={isLoading}
                   onChange={(e) => setRememberMe(e.target.checked)}
-                  className="peer h-5 w-5 border-outline rounded text-primary focus:ring-primary transition-all"
+                  className="peer h-5 w-5 border-outline rounded text-primary focus:ring-primary transition-all disabled:opacity-50"
                 />
               </div>
               <span className="font-label-md text-label-md text-on-surface-variant group-hover:text-on-surface">
@@ -179,9 +189,10 @@ const LoginForm = () => {
           {/* Login Button */}
           <button
             type="submit"
-            className="w-full py-md bg-primary-container text-on-primary font-label-md text-headline-md rounded-lg shadow-md hover:opacity-90 active:scale-95 transition-all"
+            disabled={isLoading}
+            className="w-full py-md bg-primary-container text-on-primary font-label-md text-headline-md rounded-lg shadow-md hover:opacity-90 active:scale-95 transition-all disabled:opacity-50"
           >
-            Đăng nhập
+            {isLoading ? 'Đang kết nối / Đăng nhập...' : 'Đăng nhập'}
           </button>
         </form>
 

@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import HomePage from './pages/HomePage';
 import LoginPage from './pages/auth/LoginPage';
@@ -25,6 +26,11 @@ import InstructorProfile from './pages/instructor/InstructorProfile';
 function App() {
   // Show loading screen for 2.5s on initial app load
   const { isLoading } = useLoading({ autoStart: true, minDuration: 2500 });
+
+  // Silent background wake-up ping for Render backend cold-start
+  useEffect(() => {
+    fetch('/api/instruments').catch(() => {});
+  }, []);
 
   return (
     <>
