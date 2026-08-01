@@ -93,39 +93,39 @@ const LoginForm = () => {
       </div>
 
       {/* Form Card */}
-      <div className="w-full max-w-[420px] bg-white/70 backdrop-blur-md p-8 md:p-10 rounded-[32px] shadow-2xl border border-white/40 flex flex-col items-center">
+      <div className="w-full max-w-[480px] bg-white/75 backdrop-blur-md p-10 md:p-12 rounded-[40px] shadow-2xl border border-white/40 flex flex-col items-center">
         {/* Logo */}
-        <div className="flex flex-col items-center mb-2">
+        <div className="flex flex-col items-center mb-4">
           <img
             src={logoVuong}
             alt="VietStage"
-            className="w-20 h-20 object-contain"
+            className="w-28 h-28 object-contain"
           />
         </div>
 
         {/* Header */}
-        <div className="text-center mb-6">
-          <h2 className="text-xl font-bold text-neutral-800 mb-1">
-            Chào mừng trở lại
+        <div className="text-center mb-8">
+          <h2 className="text-xl md:text-2xl font-extrabold text-[#1D3E31] tracking-wide mb-2 uppercase">
+            CỔNG QUẢN TRỊ & GIẢNG DẠY
           </h2>
-          <p className="text-xs text-neutral-500">
-            Tiếp tục hành trình khám phá âm nhạc dân tộc
+          <p className="text-sm text-[#334155] max-w-[340px] leading-relaxed mx-auto font-semibold">
+            Hệ thống quản lý bài học và dữ liệu VietStage
           </p>
         </div>
 
         {/* Login Form */}
         <form className="w-full" onSubmit={handleSubmit}>
           {/* Email Field */}
-          <div className="w-full text-left space-y-1 mb-4">
+          <div className="w-full text-left space-y-2 mb-5">
             <label
-              className="text-xs text-neutral-600 block pl-3 font-medium"
+              className="text-sm text-[#1E293B] block pl-4 font-bold"
               htmlFor="username"
             >
               Email
             </label>
             <div className="relative">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-500">
-                <User size={18} />
+              <span className="absolute left-5 top-1/2 -translate-y-1/2 text-neutral-600">
+                <User size={20} />
               </span>
               <input
                 id="username"
@@ -133,31 +133,31 @@ const LoginForm = () => {
                 value={username}
                 disabled={isLoading}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder="Email của bạn"
-                className="w-full pl-11 pr-4 py-3 bg-white/50 backdrop-blur-sm border border-neutral-300/50 rounded-full focus:outline-none focus:ring-2 focus:ring-[#1D3E31]/20 focus:border-[#1D3E31] transition-all text-sm text-neutral-800 disabled:opacity-50"
+                placeholder="Email làm việc"
+                className="w-full pl-12 pr-4 py-3.5 bg-white/50 backdrop-blur-sm border border-neutral-300/60 rounded-full focus:outline-none focus:ring-2 focus:ring-[#1D3E31]/20 focus:border-[#1D3E31] transition-all text-base text-neutral-800 placeholder:text-[#64748B] placeholder:font-medium disabled:opacity-50"
               />
             </div>
           </div>
 
           {/* Password Field */}
-          <div className="w-full text-left space-y-1 mb-6">
-            <div className="flex justify-between items-center px-3">
+          <div className="w-full text-left space-y-2 mb-8">
+            <div className="flex justify-between items-center px-4">
               <label
-                className="text-xs text-neutral-600 font-medium"
+                className="text-sm text-[#1E293B] font-bold"
                 htmlFor="password"
               >
                 Mật khẩu
               </label>
               <Link
                 to="/forgot-password"
-                className="text-xs text-neutral-500 hover:underline"
+                className="text-sm text-[#8b0000] font-bold hover:underline transition-colors"
               >
                 Quên mật khẩu?
               </Link>
             </div>
             <div className="relative">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-500">
-                <Lock size={18} />
+              <span className="absolute left-5 top-1/2 -translate-y-1/2 text-neutral-600">
+                <Lock size={20} />
               </span>
               <input
                 id="password"
@@ -166,19 +166,19 @@ const LoginForm = () => {
                 disabled={isLoading}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Mật khẩu của bạn"
-                className="w-full pl-11 pr-11 py-3 bg-white/50 backdrop-blur-sm border border-neutral-300/50 rounded-full focus:outline-none focus:ring-2 focus:ring-[#1D3E31]/20 focus:border-[#1D3E31] transition-all text-sm text-neutral-800 disabled:opacity-50"
+                className="w-full pl-12 pr-12 py-3.5 bg-white/50 backdrop-blur-sm border border-neutral-300/60 rounded-full focus:outline-none focus:ring-2 focus:ring-[#1D3E31]/20 focus:border-[#1D3E31] transition-all text-base text-neutral-800 placeholder:text-[#64748B] placeholder:font-medium disabled:opacity-50"
               />
               <button
                 type="button"
                 disabled={isLoading}
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-neutral-800 transition-colors"
+                className="absolute right-5 top-1/2 -translate-y-1/2 text-neutral-600 hover:text-neutral-900 transition-colors"
                 aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
               >
                 {showPassword ? (
-                  <EyeOff size={16} />
+                  <EyeOff size={18} />
                 ) : (
-                  <Eye size={16} />
+                  <Eye size={18} />
                 )}
               </button>
             </div>
@@ -188,22 +188,11 @@ const LoginForm = () => {
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full py-3 bg-[#1D3E31] text-white font-bold rounded-full hover:opacity-90 active:scale-95 transition-all duration-200 shadow-md text-sm tracking-wider disabled:opacity-50"
+            className="w-full py-4 bg-[#1D3E31] text-white font-bold rounded-full hover:opacity-90 active:scale-95 transition-all duration-200 shadow-md text-base tracking-wider disabled:opacity-50 mt-2"
           >
-            {isLoading ? 'ĐANG ĐĂNG NHẬP...' : 'ĐĂNG NHẬP'}
+            {isLoading ? 'ĐANG ĐĂNG NHẬP HỆ THỐNG...' : 'ĐĂNG NHẬP HỆ THỐNG'}
           </button>
         </form>
-
-        {/* Register Link */}
-        <p className="text-xs text-neutral-600 mt-4 text-center">
-          Chưa có tài khoản?{' '}
-          <Link
-            to="/register"
-            className="text-[#1D3E31] font-bold hover:underline"
-          >
-            Đăng ký ngay
-          </Link>
-        </p>
       </div>
     </>
   );

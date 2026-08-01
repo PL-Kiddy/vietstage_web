@@ -1,9 +1,7 @@
 import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import LoginPage from './pages/auth/LoginPage';
-import RegisterPage from './pages/auth/RegisterPage';
 import ForgotPasswordPage from './pages/auth/ForgotPasswordPage';
-import VerifyRegistrationPage from './pages/auth/VerifyRegistrationPage';
 import LoadingScreen from './components/common/LoadingScreen';
 import useLoading from './hooks/useLoading';
 import ProtectedRoute from './components/common/ProtectedRoute';
@@ -38,9 +36,7 @@ function App() {
         <Routes>
           <Route path="/" element={<LoginPage />} />
           <Route path="/login" element={<LoginPage />} />
-          <Route path="/register" element={<RegisterPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-          <Route path="/verify-registration" element={<VerifyRegistrationPage />} />
 
           {/* Admin Routes */}
           <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
