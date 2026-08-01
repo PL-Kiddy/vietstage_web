@@ -1,11 +1,10 @@
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
   Users,
   ClipboardCheck,
   Settings,
   Database,
-  Home,
 } from 'lucide-react';
 
 import logo from '../../assets/logongangtachnen.png';
@@ -20,7 +19,6 @@ const navItems = [
 
 const AdminSidebar = () => {
   const location = useLocation();
-  const navigate = useNavigate();
 
   return (
     <aside className="h-screen w-64 fixed left-0 top-0 bg-primary-container text-on-primary border-r border-on-secondary-fixed-variant flex flex-col py-10 z-20">
@@ -58,17 +56,6 @@ const AdminSidebar = () => {
           );
         })}
       </nav>
-
-      {/* Bottom Actions */}
-      <div className="px-md mt-auto pt-lg border-t border-on-primary/10">
-        <button
-          onClick={() => navigate('/')}
-          className="w-full flex items-center gap-sm px-lg py-md text-on-primary/80 hover:text-on-primary hover:bg-on-primary-fixed-variant/50 transition-colors duration-200 rounded-lg"
-        >
-          <Home className="w-5 h-5" />
-          <span className="text-body-md">Quay lại trang chủ</span>
-        </button>
-      </div>
     </aside>
   );
 };
