@@ -3,6 +3,7 @@ import { User, Lock, Eye, EyeOff, CheckCircle, XCircle, X } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { authApi } from '../../api/services';
 import { clearAuthSession, saveAuthSession } from '../../api/authStorage';
+import logoVuong from '../../assets/logovuongtachnen.png';
 
 interface ToastState {
   visible: boolean;
@@ -15,7 +16,6 @@ const LoginForm = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [toast, setToast] = useState<ToastState>({
     visible: false,
@@ -36,14 +36,15 @@ const LoginForm = () => {
     if (isLoading) return;
 
     if (!username.trim() || !password.trim()) {
-      showToast('error', 'Vui lòng nhập đầy đủ tên đăng nhập và mật khẩu.');
+      showToast('error', 'Vui lòng nhập đầy đủ email và mật khẩu.');
       return;
     }
 
     setIsLoading(true);
     try {
       const response = await authApi.login(username.trim(), password);
-      const user = saveAuthSession(response, username.trim(), rememberMe);
+      // Default rememberMe to true
+      const user = saveAuthSession(response, username.trim(), true);
 
       if (user.role === 'learner') {
         clearAuthSession();
@@ -92,131 +93,117 @@ const LoginForm = () => {
       </div>
 
       {/* Form Card */}
-      <div className="w-full max-w-[440px] glass-effect p-lg md:p-xl rounded-xl shadow-lg">
+      <div className="w-full max-w-[420px] bg-white/70 backdrop-blur-md p-8 md:p-10 rounded-[32px] shadow-2xl border border-white/40 flex flex-col items-center">
+        {/* Logo */}
+        <div className="flex flex-col items-center mb-2">
+          <img
+            src={logoVuong}
+            alt="VietStage"
+            className="w-20 h-20 object-contain"
+          />
+        </div>
+
         {/* Header */}
-        <div className="text-center mb-xl">
-          <h2 className="font-headline-lg text-headline-lg text-on-surface mb-xs">
+        <div className="text-center mb-6">
+          <h2 className="text-xl font-bold text-neutral-800 mb-1">
             Chào mừng trở lại
           </h2>
-          <p className="font-body-md text-on-surface-variant opacity-70">
+          <p className="text-xs text-neutral-500">
             Tiếp tục hành trình khám phá âm nhạc dân tộc
           </p>
         </div>
 
         {/* Login Form */}
-        <form className="space-y-lg" onSubmit={handleSubmit}>
-          {/* Email / Username Field */}
-          <div className="space-y-xs">
+        <form className="w-full" onSubmit={handleSubmit}>
+          {/* Email Field */}
+          <div className="w-full text-left space-y-1 mb-4">
             <label
-              className="font-label-md text-label-md text-on-surface"
+              className="text-xs text-neutral-600 block pl-3 font-medium"
               htmlFor="username"
             >
-              Email/Tên đăng nhập
+              Email
             </label>
-            <div className="relative group">
-              <User className="absolute left-md top-1/2 -translate-y-1/2 w-5 h-5 text-on-surface-variant group-focus-within:text-secondary transition-colors" />
+            <div className="relative">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-500">
+                <User size={18} />
+              </span>
               <input
                 id="username"
                 type="text"
                 value={username}
                 disabled={isLoading}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder="Nhập email hoặc tên của bạn"
-                className="w-full pl-[48px] pr-md py-sm bg-surface-container-lowest border border-outline-variant/30 rounded-lg focus:ring-2 focus:ring-secondary/20 focus:border-secondary outline-none transition-all text-body-md disabled:opacity-50"
+                placeholder="Email của bạn"
+                className="w-full pl-11 pr-4 py-3 bg-white/50 backdrop-blur-sm border border-neutral-300/50 rounded-full focus:outline-none focus:ring-2 focus:ring-[#1D3E31]/20 focus:border-[#1D3E31] transition-all text-sm text-neutral-800 disabled:opacity-50"
               />
             </div>
           </div>
 
           {/* Password Field */}
-          <div className="space-y-xs">
-            <label
-              className="font-label-md text-label-md text-on-surface"
-              htmlFor="password"
-            >
-              Mật khẩu
-            </label>
-            <div className="relative group">
-              <Lock className="absolute left-md top-1/2 -translate-y-1/2 w-5 h-5 text-on-surface-variant group-focus-within:text-secondary transition-colors" />
+          <div className="w-full text-left space-y-1 mb-6">
+            <div className="flex justify-between items-center px-3">
+              <label
+                className="text-xs text-neutral-600 font-medium"
+                htmlFor="password"
+              >
+                Mật khẩu
+              </label>
+              <Link
+                to="/forgot-password"
+                className="text-xs text-neutral-500 hover:underline"
+              >
+                Quên mật khẩu?
+              </Link>
+            </div>
+            <div className="relative">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-500">
+                <Lock size={18} />
+              </span>
               <input
                 id="password"
                 type={showPassword ? 'text' : 'password'}
                 value={password}
                 disabled={isLoading}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                className="w-full pl-[48px] pr-[48px] py-sm bg-surface-container-lowest border border-outline-variant/30 rounded-lg focus:ring-2 focus:ring-secondary/20 focus:border-secondary outline-none transition-all text-body-md disabled:opacity-50"
+                placeholder="Mật khẩu của bạn"
+                className="w-full pl-11 pr-11 py-3 bg-white/50 backdrop-blur-sm border border-neutral-300/50 rounded-full focus:outline-none focus:ring-2 focus:ring-[#1D3E31]/20 focus:border-[#1D3E31] transition-all text-sm text-neutral-800 disabled:opacity-50"
               />
               <button
                 type="button"
                 disabled={isLoading}
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-md top-1/2 -translate-y-1/2 text-on-surface-variant hover:text-on-surface transition-colors"
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-neutral-800 transition-colors"
                 aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
               >
                 {showPassword ? (
-                  <EyeOff className="w-5 h-5" />
+                  <EyeOff size={16} />
                 ) : (
-                  <Eye className="w-5 h-5" />
+                  <Eye size={16} />
                 )}
               </button>
             </div>
-          </div>
-
-          {/* Options */}
-          <div className="flex items-center justify-between">
-            <label className="flex items-center gap-sm cursor-pointer group">
-              <div className="relative flex items-center">
-                <input
-                  type="checkbox"
-                  checked={rememberMe}
-                  disabled={isLoading}
-                  onChange={(e) => setRememberMe(e.target.checked)}
-                  className="peer h-5 w-5 border-outline rounded text-primary focus:ring-primary transition-all disabled:opacity-50"
-                />
-              </div>
-              <span className="font-label-md text-label-md text-on-surface-variant group-hover:text-on-surface">
-                Ghi nhớ đăng nhập
-              </span>
-            </label>
-            <Link
-              to="/forgot-password"
-              className="font-label-md text-label-md text-primary-container hover:text-primary transition-colors"
-            >
-              Quên mật khẩu?
-            </Link>
           </div>
 
           {/* Login Button */}
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full py-md bg-primary-container text-on-primary font-label-md text-headline-md rounded-lg shadow-md hover:opacity-90 active:scale-95 transition-all disabled:opacity-50"
+            className="w-full py-3 bg-[#1D3E31] text-white font-bold rounded-full hover:opacity-90 active:scale-95 transition-all duration-200 shadow-md text-sm tracking-wider disabled:opacity-50"
           >
-            {isLoading ? 'Đang kết nối / Đăng nhập...' : 'Đăng nhập'}
+            {isLoading ? 'ĐANG ĐĂNG NHẬP...' : 'ĐĂNG NHẬP'}
           </button>
         </form>
 
-        {/* Separator */}
-        <div className="relative my-xl flex items-center">
-          <div className="flex-grow border-t border-outline-variant/30"></div>
-          <span className="flex-shrink mx-md font-label-sm text-label-sm text-on-surface-variant/50">
-            HOẶC
-          </span>
-          <div className="flex-grow border-t border-outline-variant/30"></div>
-        </div>
-
-        {/* Footer Link */}
-        <div className="text-center">
-          <p className="font-label-md text-label-md text-on-surface-variant">
-            Chưa có tài khoản?{' '}
-            <Link
-              to="/register"
-              className="text-primary font-bold hover:underline ml-xs"
-            >
-              Đăng ký ngay
-            </Link>
-          </p>
-        </div>
+        {/* Register Link */}
+        <p className="text-xs text-neutral-600 mt-4 text-center">
+          Chưa có tài khoản?{' '}
+          <Link
+            to="/register"
+            className="text-[#1D3E31] font-bold hover:underline"
+          >
+            Đăng ký ngay
+          </Link>
+        </p>
       </div>
     </>
   );

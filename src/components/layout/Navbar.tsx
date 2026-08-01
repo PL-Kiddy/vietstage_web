@@ -11,7 +11,7 @@ const Navbar = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
-    <nav className="bg-surface dark:bg-surface-dim shadow-sm w-full top-0 z-50 sticky">
+    <nav className="bg-[#fbf9f4]/75 backdrop-blur-md border-b border-outline-variant/10 w-full top-0 z-50 sticky transition-all">
       <div className="flex justify-between items-center w-full px-margin-mobile md:px-margin-desktop py-md max-w-[1280px] mx-auto">
         {/* Logo */}
         <Link

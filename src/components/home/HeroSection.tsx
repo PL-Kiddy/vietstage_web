@@ -1,10 +1,17 @@
 import logoVuong from '../../assets/logovuongtachnen.png';
+import bgImage from '../../assets/logincogiaoMaithoisao.png';
 import { Sparkles } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 const HeroSection = () => {
   return (
-    <header className="relative overflow-hidden bg-surface-bright pt-xl pb-24 px-margin-mobile md:px-margin-desktop">
+    <header className="relative overflow-hidden pt-xl pb-24 px-margin-mobile md:px-margin-desktop">
+      {/* Background Image & Overlay */}
+      <div 
+        className="absolute inset-0 bg-cover bg-center -z-20"
+        style={{ backgroundImage: `url(${bgImage})` }}
+      />
+      <div className="absolute inset-0 bg-[#fbf9f4]/92 -z-10" />
       <div className="max-w-[1280px] mx-auto grid md:grid-cols-2 gap-xl items-center">
         {/* Left Content */}
         <motion.div
