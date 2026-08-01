@@ -18,6 +18,7 @@ const RegisterForm = () => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [agreeTerms, setAgreeTerms] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [toast, setToast] = useState<ToastState>({
     visible: false,
     type: 'success',
@@ -34,6 +35,8 @@ const RegisterForm = () => {
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
+    if (isLoading) return;
+
     if (!fullName.trim() || !email.trim() || !password.trim()) {
       showToast('error', 'Vui lòng điền đầy đủ các trường bắt buộc.');
       return;
@@ -47,6 +50,7 @@ const RegisterForm = () => {
       return;
     }
 
+    setIsLoading(true);
     try {
       await authApi.register(email.trim(), password, fullName.trim());
       showToast('success', 'Đăng ký thành công. Vui lòng nhập mã OTP để kích hoạt tài khoản.');
@@ -55,6 +59,7 @@ const RegisterForm = () => {
       }, 800);
     } catch (error) {
       showToast('error', error instanceof Error ? error.message : 'Không thể đăng ký tài khoản.');
+      setIsLoading(false);
     }
   };
 
@@ -118,9 +123,10 @@ const RegisterForm = () => {
             <input
               type="text"
               value={fullName}
+              disabled={isLoading}
               onChange={(e) => setFullName(e.target.value)}
               placeholder="Nguyễn Văn A"
-              className="w-full px-md py-sm border border-outline-variant/30 rounded-lg font-body-md text-body-md text-on-surface bg-surface-container-lowest focus:border-secondary focus:ring-2 focus:ring-secondary/10 outline-none transition-all"
+              className="w-full px-md py-sm border border-outline-variant/30 rounded-lg font-body-md text-body-md text-on-surface bg-surface-container-lowest focus:border-secondary focus:ring-2 focus:ring-secondary/10 outline-none transition-all disabled:opacity-50"
             />
           </div>
 
@@ -133,9 +139,10 @@ const RegisterForm = () => {
               <input
                 type="email"
                 value={email}
+                disabled={isLoading}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="example@mail.com"
-                className="w-full px-md py-sm border border-outline-variant/30 rounded-lg font-body-md text-body-md text-on-surface bg-surface-container-lowest focus:border-secondary focus:ring-2 focus:ring-secondary/10 outline-none transition-all"
+                className="w-full px-md py-sm border border-outline-variant/30 rounded-lg font-body-md text-body-md text-on-surface bg-surface-container-lowest focus:border-secondary focus:ring-2 focus:ring-secondary/10 outline-none transition-all disabled:opacity-50"
               />
             </div>
             <div className="space-y-xs">
@@ -145,9 +152,10 @@ const RegisterForm = () => {
               <input
                 type="tel"
                 value={phone}
+                disabled={isLoading}
                 onChange={(e) => setPhone(e.target.value)}
                 placeholder="0901 234 567"
-                className="w-full px-md py-sm border border-outline-variant/30 rounded-lg font-body-md text-body-md text-on-surface bg-surface-container-lowest focus:border-secondary focus:ring-2 focus:ring-secondary/10 outline-none transition-all"
+                className="w-full px-md py-sm border border-outline-variant/30 rounded-lg font-body-md text-body-md text-on-surface bg-surface-container-lowest focus:border-secondary focus:ring-2 focus:ring-secondary/10 outline-none transition-all disabled:opacity-50"
               />
             </div>
           </div>
@@ -160,8 +168,9 @@ const RegisterForm = () => {
             <div className="relative">
               <select
                 value={specialization}
+                disabled={isLoading}
                 onChange={(e) => setSpecialization(e.target.value)}
-                className="w-full appearance-none px-md py-sm border border-outline-variant/30 rounded-lg font-body-md text-body-md text-on-surface bg-surface-container-lowest focus:border-secondary focus:ring-2 focus:ring-secondary/10 outline-none transition-all"
+                className="w-full appearance-none px-md py-sm border border-outline-variant/30 rounded-lg font-body-md text-body-md text-on-surface bg-surface-container-lowest focus:border-secondary focus:ring-2 focus:ring-secondary/10 outline-none transition-all disabled:opacity-50 cursor-pointer"
               >
                 <option value="">Chọn nhạc cụ bạn quan tâm</option>
                 <option value="dan_bau">Đàn Bầu</option>
@@ -182,9 +191,10 @@ const RegisterForm = () => {
               <input
                 type="password"
                 value={password}
+                disabled={isLoading}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full px-md py-sm border border-outline-variant/30 rounded-lg font-body-md text-body-md text-on-surface bg-surface-container-lowest focus:border-secondary focus:ring-2 focus:ring-secondary/10 outline-none transition-all"
+                className="w-full px-md py-sm border border-outline-variant/30 rounded-lg font-body-md text-body-md text-on-surface bg-surface-container-lowest focus:border-secondary focus:ring-2 focus:ring-secondary/10 outline-none transition-all disabled:opacity-50"
               />
             </div>
             <div className="space-y-xs">
@@ -194,9 +204,10 @@ const RegisterForm = () => {
               <input
                 type="password"
                 value={confirmPassword}
+                disabled={isLoading}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full px-md py-sm border border-outline-variant/30 rounded-lg font-body-md text-body-md text-on-surface bg-surface-container-lowest focus:border-secondary focus:ring-2 focus:ring-secondary/10 outline-none transition-all"
+                className="w-full px-md py-sm border border-outline-variant/30 rounded-lg font-body-md text-body-md text-on-surface bg-surface-container-lowest focus:border-secondary focus:ring-2 focus:ring-secondary/10 outline-none transition-all disabled:opacity-50"
               />
             </div>
           </div>
@@ -207,8 +218,9 @@ const RegisterForm = () => {
               id="terms"
               type="checkbox"
               checked={agreeTerms}
+              disabled={isLoading}
               onChange={(e) => setAgreeTerms(e.target.checked)}
-              className="mt-1 w-5 h-5 rounded border-outline-variant/40 text-primary-container focus:ring-primary-container"
+              className="mt-1 w-5 h-5 rounded border-outline-variant/40 text-primary-container focus:ring-primary-container disabled:opacity-50"
             />
             <label
               className="font-label-md text-label-md text-on-surface-variant"
@@ -229,9 +241,10 @@ const RegisterForm = () => {
           {/* Submit Button */}
           <button
             type="submit"
-            className="w-full bg-primary-container text-white py-md rounded-lg font-headline-md text-headline-md hover:opacity-90 active:scale-95 transition-all duration-200 mt-xl shadow-lg"
+            disabled={isLoading}
+            className="w-full bg-primary-container text-white py-md rounded-lg font-headline-md text-headline-md hover:opacity-90 active:scale-95 transition-all duration-200 mt-xl shadow-lg disabled:opacity-50"
           >
-            Đăng ký tài khoản
+            {isLoading ? 'Đang tạo tài khoản...' : 'Đăng ký tài khoản'}
           </button>
         </form>
 

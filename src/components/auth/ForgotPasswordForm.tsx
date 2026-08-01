@@ -18,6 +18,7 @@ const ForgotPasswordForm = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
+  const [isLoading, setIsLoading] = useState(false);
   const [toast, setToast] = useState<ToastState>({
     visible: false,
     type: 'success',
@@ -34,17 +35,21 @@ const ForgotPasswordForm = () => {
   const handleSendOtp = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
+    if (isLoading) return;
     if (!email.trim()) {
       showToast('error', 'Vui lòng nhập địa chỉ email.');
       return;
     }
 
+    setIsLoading(true);
     try {
       await authApi.forgotPassword(email.trim());
       setStep(2);
-      showToast('success', 'Ma OTP da duoc gui den email cua ban.');
+      showToast('success', 'Mã OTP đã được gửi đến email của bạn.');
     } catch (error) {
       showToast('error', error instanceof Error ? error.message : 'Không thể gửi mã xác nhận.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -52,17 +57,18 @@ const ForgotPasswordForm = () => {
     e.preventDefault();
 
     if (!userEnteredOtp.trim()) {
-      showToast('error', 'Vui long nhap ma OTP.');
+      showToast('error', 'Vui lòng nhập mã OTP.');
       return;
     }
 
-    showToast('success', 'OTP da duoc nhap. Vui long dat lai mat khau moi.');
+    showToast('success', 'OTP đã được nhập. Vui lòng đặt lại mật khẩu mới.');
     setStep(3);
   };
 
   const handleResetPassword = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
+    if (isLoading) return;
     if (!newPassword || !confirmPassword) {
       showToast('error', 'Vui lòng điền đầy đủ thông tin mật khẩu.');
       return;
@@ -73,12 +79,14 @@ const ForgotPasswordForm = () => {
       return;
     }
 
+    setIsLoading(true);
     try {
       await authApi.resetPassword(email.trim(), userEnteredOtp.trim(), newPassword);
       showToast('success', 'Đặt lại mật khẩu thành công! Đang chuyển hướng...');
       setTimeout(() => navigate('/login'), 1500);
     } catch (error) {
       showToast('error', error instanceof Error ? error.message : 'Không thể cập nhật mật khẩu.');
+      setIsLoading(false);
     }
   };
 
@@ -153,10 +161,11 @@ const ForgotPasswordForm = () => {
                   id="recovery-email"
                   type="email"
                   value={email}
+                  disabled={isLoading}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="example@vietstage.vn"
                   required
-                  className="w-full pl-[48px] pr-md py-md bg-white border border-outline/20 rounded-lg font-body-md text-body-md focus:outline-none focus:border-secondary focus:ring-2 focus:ring-secondary/10 transition-all placeholder:text-on-surface-variant/40"
+                  className="w-full pl-[48px] pr-md py-md bg-white border border-outline/20 rounded-lg font-body-md text-body-md focus:outline-none focus:border-secondary focus:ring-2 focus:ring-secondary/10 transition-all placeholder:text-on-surface-variant/40 disabled:opacity-50"
                 />
               </div>
             </div>
@@ -164,9 +173,10 @@ const ForgotPasswordForm = () => {
             {/* Submit Button */}
             <button
               type="submit"
-              className="w-full py-md bg-primary-container text-white font-label-md text-body-md rounded-lg shadow-sm hover:opacity-90 active:scale-95 transition-all flex items-center justify-center gap-sm"
+              disabled={isLoading}
+              className="w-full py-md bg-primary-container text-white font-label-md text-body-md rounded-lg shadow-sm hover:opacity-90 active:scale-95 transition-all flex items-center justify-center gap-sm disabled:opacity-50"
             >
-              Gửi mã xác nhận
+              {isLoading ? 'Đang gửi mã...' : 'Gửi mã xác nhận'}
               <Send className="w-5 h-5" />
             </button>
           </form>
@@ -190,10 +200,11 @@ const ForgotPasswordForm = () => {
                   type="text"
                   maxLength={6}
                   value={userEnteredOtp}
+                  disabled={isLoading}
                   onChange={(e) => setUserEnteredOtp(e.target.value)}
                   placeholder="Nhập mã OTP..."
                   required
-                  className="w-full pl-[48px] pr-md py-md bg-white border border-outline/20 rounded-lg font-body-md text-body-md focus:outline-none focus:border-secondary focus:ring-2 focus:ring-secondary/10 transition-all placeholder:text-on-surface-variant/40 text-center tracking-widest font-mono text-lg"
+                  className="w-full pl-[48px] pr-md py-md bg-white border border-outline/20 rounded-lg font-body-md text-body-md focus:outline-none focus:border-secondary focus:ring-2 focus:ring-secondary/10 transition-all placeholder:text-on-surface-variant/40 text-center tracking-widest font-mono text-lg disabled:opacity-50"
                 />
               </div>
             </div>
@@ -201,7 +212,8 @@ const ForgotPasswordForm = () => {
             {/* Verification Button */}
             <button
               type="submit"
-              className="w-full py-md bg-primary-container text-white font-label-md text-body-md rounded-lg shadow-sm hover:opacity-90 active:scale-95 transition-all flex items-center justify-center gap-sm"
+              disabled={isLoading}
+              className="w-full py-md bg-primary-container text-white font-label-md text-body-md rounded-lg shadow-sm hover:opacity-90 active:scale-95 transition-all flex items-center justify-center gap-sm disabled:opacity-50"
             >
               Xác minh mã OTP
             </button>
@@ -211,15 +223,20 @@ const ForgotPasswordForm = () => {
               Không nhận được mã?{' '}
               <button
                 type="button"
+                disabled={isLoading}
                 onClick={async () => {
+                  if (isLoading) return;
+                  setIsLoading(true);
                   try {
                     await authApi.forgotPassword(email.trim());
-                    showToast('success', 'Da gui lai ma OTP den email cua ban.');
+                    showToast('success', 'Đã gửi lại mã OTP đến email của bạn.');
                   } catch (error) {
                     showToast('error', error instanceof Error ? error.message : 'Không thể gửi lại mã.');
+                  } finally {
+                    setIsLoading(false);
                   }
                 }}
-                className="text-primary font-bold hover:underline"
+                className="text-primary font-bold hover:underline disabled:opacity-50"
               >
                 Gửi lại mã
               </button>
@@ -244,13 +261,15 @@ const ForgotPasswordForm = () => {
                   id="new-password"
                   type={showPassword ? 'text' : 'password'}
                   value={newPassword}
+                  disabled={isLoading}
                   onChange={(e) => setNewPassword(e.target.value)}
                   placeholder="••••••••"
                   required
-                  className="w-full pl-[48px] pr-[48px] py-md bg-white border border-outline/20 rounded-lg font-body-md text-body-md focus:outline-none focus:border-secondary focus:ring-2 focus:ring-secondary/10 transition-all placeholder:text-on-surface-variant/40"
+                  className="w-full pl-[48px] pr-[48px] py-md bg-white border border-outline/20 rounded-lg font-body-md text-body-md focus:outline-none focus:border-secondary focus:ring-2 focus:ring-secondary/10 transition-all placeholder:text-on-surface-variant/40 disabled:opacity-50"
                 />
                 <button
                   type="button"
+                  disabled={isLoading}
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-md top-1/2 -translate-y-1/2 text-on-surface-variant hover:text-on-surface transition-colors"
                 >
@@ -273,10 +292,11 @@ const ForgotPasswordForm = () => {
                   id="confirm-password"
                   type="password"
                   value={confirmPassword}
+                  disabled={isLoading}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   placeholder="••••••••"
                   required
-                  className="w-full pl-[48px] pr-md py-md bg-white border border-outline/20 rounded-lg font-body-md text-body-md focus:outline-none focus:border-secondary focus:ring-2 focus:ring-secondary/10 transition-all placeholder:text-on-surface-variant/40"
+                  className="w-full pl-[48px] pr-md py-md bg-white border border-outline/20 rounded-lg font-body-md text-body-md focus:outline-none focus:border-secondary focus:ring-2 focus:ring-secondary/10 transition-all placeholder:text-on-surface-variant/40 disabled:opacity-50"
                 />
               </div>
             </div>
@@ -284,9 +304,10 @@ const ForgotPasswordForm = () => {
             {/* Reset Button */}
             <button
               type="submit"
-              className="w-full py-md bg-primary-container text-white font-label-md text-body-md rounded-lg shadow-sm hover:opacity-90 active:scale-95 transition-all flex items-center justify-center gap-sm"
+              disabled={isLoading}
+              className="w-full py-md bg-primary-container text-white font-label-md text-body-md rounded-lg shadow-sm hover:opacity-90 active:scale-95 transition-all flex items-center justify-center gap-sm disabled:opacity-50"
             >
-              Lưu mật khẩu mới
+              {isLoading ? 'Đang lưu mật khẩu...' : 'Lưu mật khẩu mới'}
             </button>
           </form>
         )}
