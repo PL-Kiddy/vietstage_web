@@ -4,9 +4,13 @@ import AdminTopbar from './AdminTopbar';
 
 const AdminLayout = () => {
   return (
-    <div className="min-h-screen" style={{ backgroundColor: '#f7f9ff' }}>
+    <div className="min-h-screen relative overflow-hidden" style={{ backgroundColor: '#f7f9ff' }}>
+      {/* Ambient Gradient Blobs for Glassmorphic Sidebar */}
+      <div className="absolute top-[-10%] left-[-10%] w-[350px] h-[350px] rounded-full bg-[#1D3E31]/8 blur-[100px] pointer-events-none z-0" />
+      <div className="absolute bottom-[20%] left-[-5%] w-[300px] h-[300px] rounded-full bg-[#8b0000]/5 blur-[90px] pointer-events-none z-0" />
+
       <AdminSidebar />
-      <main className="ml-64 min-h-screen relative pb-16">
+      <main className="ml-64 min-h-screen relative pb-16 z-10">
         <AdminTopbar />
 
         {/* Page Content (rendered by child routes) */}
