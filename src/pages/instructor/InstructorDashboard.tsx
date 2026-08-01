@@ -1,70 +1,97 @@
+import { useState, useCallback } from 'react';
 import {
   Users,
   BookOpen,
   AlertTriangle,
   Plus,
 } from 'lucide-react';
-
-/* ── Bento grid stats ─────────────────────────────────────── */
-const stats = [
-  {
-    icon: Users,
-    iconBg: 'bg-primary/5 text-primary',
-    label: 'Tổng số học viên',
-    value: '1,240',
-    badge: '+4%',
-    trending: true,
-  },
-  {
-    icon: BookOpen,
-    iconBg: 'bg-secondary/10 text-secondary',
-    label: 'Tổng bài giảng',
-    value: '12',
-  },
-  {
-    icon: AlertTriangle,
-    iconBg: 'bg-error/5 text-error',
-    label: 'Bài tập chờ nhận xét',
-    value: '08',
-    highlightBorder: true,
-  },
-];
-
-/* ── Recent student activities ────────────────────────────── */
-const activities = [
-  {
-    name: 'Nguyễn Văn A',
-    lesson: 'Lý Cây Đa (Sáo trúc)',
-    accuracy: '92%',
-    accuracyBg: 'bg-green-50 text-green-700',
-    time: '5 phút trước',
-  },
-  {
-    name: 'Lê Hồng Hạnh',
-    lesson: 'Trống Cơm (Đàn tranh)',
-    accuracy: '88%',
-    accuracyBg: 'bg-green-50 text-green-700',
-    time: '12 phút trước',
-  },
-  {
-    name: 'Trần Minh',
-    lesson: 'Dạ Cổ Hoài Lang (Đàn kìm)',
-    accuracy: '75%',
-    accuracyBg: 'bg-secondary-container text-on-secondary-fixed-variant',
-    time: '28 phút trước',
-  },
-  {
-    name: 'Phạm Kim Chi',
-    lesson: 'Cò Lả (Dân ca Bắc Bộ)',
-    accuracy: '95%',
-    accuracyBg: 'bg-green-50 text-green-700',
-    time: '45 phút trước',
-  },
-];
-
-/* ════════════════════════════════════════════════════════════ */
+import { useAxiosRequest } from '../../hooks/useAxiosRequest';
+import {
+  instructorStudentsApi,
+  lessonsApi,
+  reviewsApi,
+  instructorDashboardApi,
+} from '../../api/services';
+import type { Lesson, ReviewItem } from '../../api/types';
 
 const InstructorDashboard = () => {
+  // 1. Fetch dashboard stats from backend
+  const fetchStats = useCallback(() => instructorDashboardApi.getStats(), []);
+  const { data: dashboardStats } = useAxiosRequest(fetchStats, { auto: true });
+
+  // 2. Fallbacks: Fetch all students to count
+  const fetchStudents = useCallback(() => instructorStudentsApi.listStudents(), []);
+  const { data: studentsResponse } = useAxiosRequest(fetchStudents, { auto: true });
+  const studentsCount = (studentsResponse || []).filter(
+    (u: any) =>
+      u.role === 'Người học' ||
+      u.role === 'LEARNER' ||
+      u.role === 'learner' ||
+      u.role === 'Learner'
+  ).length;
+
+  // 3. Fallbacks: Fetch all lessons to count
+  const fetchLessons = useCallback(
+    () => lessonsApi.list(new URLSearchParams({ size: '100' })),
+    []
+  );
+  const { data: lessonsResponse } = useAxiosRequest(fetchLessons, { auto: true });
+  const lessonsCount = lessonsResponse?.content?.length || 0;
+
+  // 4. Fetch reviews list for activities & pending count
+  const fetchReviews = useCallback(() => reviewsApi.list(), []);
+  const { data: reviewsResponse, loading: reviewsLoading } = useAxiosRequest(
+    fetchReviews,
+    { auto: true }
+  );
+
+  const reviews = reviewsResponse || [];
+  const pendingReviewsCount = reviews.filter((r) => r.status === 'pending').length;
+
+  // Stats calculation with fallback mechanism
+  const totalStudents = dashboardStats?.students ?? dashboardStats?.totalLearners ?? studentsCount;
+  const totalLessons = dashboardStats?.courses ?? dashboardStats?.activeLessons ?? lessonsCount;
+  const pendingReviews = pendingReviewsCount;
+
+  const statsList = [
+    {
+      icon: Users,
+      iconBg: 'bg-primary/5 text-primary',
+      label: 'Tổng số học viên',
+      value: String(totalStudents),
+      badge: '+4%',
+      trending: true,
+    },
+    {
+      icon: BookOpen,
+      iconBg: 'bg-secondary/10 text-secondary',
+      label: 'Tổng bài giảng',
+      value: String(totalLessons),
+    },
+    {
+      icon: AlertTriangle,
+      iconBg: 'bg-error/5 text-error',
+      label: 'Bài tập chờ nhận xét',
+      value: String(pendingReviews),
+      highlightBorder: true,
+    },
+  ];
+
+  // Map reviews to student activities
+  const activities = reviews.slice(0, 5).map((r) => ({
+    name: r.instructor || 'Học viên',
+    lesson: r.title || 'Bài thực hành nhạc cụ',
+    accuracy: r.status === 'pending' ? 'Chờ duyệt' : r.status === 'approved' ? 'Đã duyệt' : 'Từ chối',
+    accuracyBg:
+      r.status === 'pending'
+        ? 'bg-amber-50 text-amber-700'
+        : r.status === 'approved'
+        ? 'bg-green-50 text-green-700'
+        : 'bg-red-50 text-red-700',
+    time: r.date || 'Gần đây',
+    id: r.id,
+  }));
+
   return (
     <>
       {/* Dashboard Header */}
@@ -79,7 +106,7 @@ const InstructorDashboard = () => {
 
       {/* Bento Stats Widgets */}
       <section className="grid grid-cols-1 sm:grid-cols-3 gap-gutter mb-xl">
-        {stats.map((s, idx) => (
+        {statsList.map((s, idx) => (
           <div
             key={idx}
             className={`bg-white p-lg rounded-xl shadow-sm border border-outline-variant/5 flex flex-col gap-sm relative overflow-hidden`}
@@ -176,7 +203,10 @@ const InstructorDashboard = () => {
           <h3 className="text-headline-md font-bold text-primary">
             Hoạt động mới nhất
           </h3>
-          <button className="flex items-center gap-xs text-secondary font-label-md text-label-md hover:underline font-semibold">
+          <button 
+            onClick={() => window.location.href = '/instructor/students'}
+            className="flex items-center gap-xs text-secondary font-label-md text-label-md hover:underline font-semibold"
+          >
             Xem toàn bộ →
           </button>
         </div>
@@ -186,13 +216,13 @@ const InstructorDashboard = () => {
             <thead>
               <tr className="bg-surface-container-low">
                 <th className="px-xl py-md font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider text-[12px]">
-                  Học viên
+                  Người thực hiện
                 </th>
                 <th className="px-xl py-md font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider text-[12px]">
-                  Bài tập vừa nộp
+                  Tên yêu cầu / Bài học
                 </th>
                 <th className="px-xl py-md font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider text-center text-[12px]">
-                  Độ chính xác
+                  Trạng thái
                 </th>
                 <th className="px-xl py-md font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider text-[12px]">
                   Thời gian
@@ -201,41 +231,61 @@ const InstructorDashboard = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-outline-variant/10">
-              {activities.map((act, idx) => (
-                <tr key={idx} className="hover:bg-surface-container-low/50 transition-colors">
-                  <td className="px-xl py-lg flex items-center gap-md">
-                    <div className="w-8 h-8 rounded-full bg-primary/10 font-bold text-primary flex items-center justify-center text-xs">
-                      {act.name.charAt(0)}
-                    </div>
-                    <span className="font-label-md text-label-md font-semibold text-on-surface">
-                      {act.name}
-                    </span>
-                  </td>
-                  <td className="px-xl py-lg text-body-md text-on-surface">
-                    {act.lesson}
-                  </td>
-                  <td className="px-xl py-lg text-center">
-                    <span className={`px-3 py-1 rounded-full font-label-sm text-label-sm font-bold ${act.accuracyBg}`}>
-                      {act.accuracy}
-                    </span>
-                  </td>
-                  <td className="px-xl py-lg text-body-md text-on-surface-variant">
-                    {act.time}
-                  </td>
-                  <td className="px-xl py-lg text-right">
-                    <button className="text-primary hover:text-primary-container font-semibold">
-                      Xem chi tiết
-                    </button>
+              {reviewsLoading ? (
+                <tr>
+                  <td colSpan={5} className="px-xl py-lg text-center text-on-surface-variant">
+                    Đang tải hoạt động mới nhất...
                   </td>
                 </tr>
-              ))}
+              ) : activities.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-xl py-lg text-center text-on-surface-variant">
+                    Chưa có hoạt động nào được ghi nhận.
+                  </td>
+                </tr>
+              ) : (
+                activities.map((act, idx) => (
+                  <tr key={idx} className="hover:bg-surface-container-low/50 transition-colors">
+                    <td className="px-xl py-lg flex items-center gap-md">
+                      <div className="w-8 h-8 rounded-full bg-primary/10 font-bold text-primary flex items-center justify-center text-xs">
+                        {act.name.charAt(0)}
+                      </div>
+                      <span className="font-label-md text-label-md font-semibold text-on-surface">
+                        {act.name}
+                      </span>
+                    </td>
+                    <td className="px-xl py-lg text-body-md text-on-surface">
+                      {act.lesson}
+                    </td>
+                    <td className="px-xl py-lg text-center">
+                      <span className={`px-3 py-1 rounded-full font-label-sm text-label-sm font-bold ${act.accuracyBg}`}>
+                        {act.accuracy}
+                      </span>
+                    </td>
+                    <td className="px-xl py-lg text-body-md text-on-surface-variant">
+                      {act.time}
+                    </td>
+                    <td className="px-xl py-lg text-right">
+                      <button 
+                        onClick={() => window.location.href = `/instructor/students`}
+                        className="text-primary hover:text-primary-container font-semibold"
+                      >
+                        Xem chi tiết
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
       </section>
 
       {/* Floating Action Button */}
-      <button className="fixed bottom-xl right-xl w-14 h-14 bg-primary text-on-primary rounded-full shadow-lg flex items-center justify-center hover:scale-105 active:scale-95 transition-all z-50">
+      <button 
+        onClick={() => window.location.href = '/instructor/lessons'}
+        className="fixed bottom-xl right-xl w-14 h-14 bg-primary text-on-primary rounded-full shadow-lg flex items-center justify-center hover:scale-105 active:scale-95 transition-all z-50"
+      >
         <Plus className="w-6 h-6 text-white" />
       </button>
     </>
