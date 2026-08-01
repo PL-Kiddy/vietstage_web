@@ -9,6 +9,8 @@ import type {
   SkillLevel,
   PracticeAttempt,
   FeedbackResponse,
+  LessonAsset,
+  DashboardStats,
 } from './types';
 
 export const authApi = {
@@ -124,4 +126,34 @@ export const instructorStudentsApi = {
       method: 'POST',
       body: { attemptId, content, type }
     })
+};
+
+export const lessonAssetsApi = {
+  getAssets: (lessonId: number, options?: RequestOptions) =>
+    apiRequest<LessonAsset[]>(`/api/lessons/${lessonId}/assets`, options),
+    
+  uploadAsset: (lessonId: number, file: File, type: string, tempoBpm?: number, durationSec?: number) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    let url = `/api/lessons/${lessonId}/assets?type=${type}`;
+    if (tempoBpm) url += `&tempo_bpm=${tempoBpm}`;
+    if (durationSec) url += `&duration_sec=${durationSec}`;
+    
+    // Note: apiRequest needs to handle FormData without setting application/json
+    return apiRequest<LessonAsset>(url, {
+      method: 'POST',
+      body: formData as any // The client.ts should ideally omit Content-Type for FormData
+    });
+  },
+  
+  deleteAsset: (lessonId: number, assetId: number, options?: RequestOptions) =>
+    apiRequest<void>(`/api/lessons/${lessonId}/assets/${assetId}`, {
+      ...options,
+      method: 'DELETE',
+    }),
+};
+
+export const instructorDashboardApi = {
+  getStats: (options?: RequestOptions) =>
+    apiRequest<DashboardStats>('/api/admin/dashboard', options),
 };

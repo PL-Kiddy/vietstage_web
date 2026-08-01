@@ -138,3 +138,20 @@ export interface FeedbackResponse {
   content: string;
   createdAt: string;
 }
+
+export interface LessonAsset {
+  id: number;
+  type: string;
+  url: string;
+  tempo_bpm?: number;
+  duration_sec?: number;
+}
+
+export interface DashboardStats {
+  courses?: number;
+  students?: number;
+  rating?: number;
+  totalLearners?: number;
+  activeLessons?: number;
+  completionRate?: number;
+}

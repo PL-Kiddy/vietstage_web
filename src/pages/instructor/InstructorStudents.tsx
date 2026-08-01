@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useAxiosRequest } from '../../hooks/useAxiosRequest';
 import { instructorStudentsApi } from '../../api/services';
 import type { AdminUser, PracticeAttempt } from '../../api/types';
@@ -13,7 +13,7 @@ const InstructorStudents = () => {
   const fetchUsers = () => instructorStudentsApi.listStudents();
   const { data: users, execute: doFetchUsers } = useAxiosRequest<AdminUser[]>(fetchUsers, { auto: true });
 
-    const students = (users || []).filter((u: AdminUser) => u.role === 'Người học');
+    const students = (users || []).filter((u: any) => u.role === 'Người học' || u.role === 'LEARNER' || u.role === 'learner' || u.role === 'Learner');
   const student = students[selectedIdx] || null;
 
   // 2. Fetch attempts
