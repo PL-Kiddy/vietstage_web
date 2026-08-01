@@ -1,7 +1,4 @@
-import { useState, useEffect } from 'react';
-import { useAxiosRequest } from '@/hooks/useAxiosRequest';
-import { instructorStudentsApi } from '@/api/services';
-import type { AdminUser, PracticeAttempt } from '@/api/types';
+import { useState } from 'react';
 import { Volume2, Send, Save, History } from 'lucide-react';
 
 interface Attempt {
@@ -180,7 +177,7 @@ const InstructorStudents = () => {
       return st;
     });
     saveStudents(updated);
-    alert(`Đã gửi nhận xét cho học viên ${student?.fullName} ở bài tập "${(attempt?.lessonName || "Bài thực hành")}"!`);
+    alert(`Đã gửi nhận xét cho học viên ${student.name} ở bài tập "${attempt.lessonName}"!`);
   };
 
   const handleSaveDraft = () => {
@@ -197,13 +194,13 @@ const InstructorStudents = () => {
       return st;
     });
     saveStudents(updated);
-    alert(`Đã lưu nháp nhận xét lượt thực hành của ${student?.fullName}`);
+    alert(`Đã lưu nháp nhận xét lượt thực hành của ${student.name}`);
   };
 
   const handleStudentChange = (idx: number) => {
     setSelectedIdx(idx);
     setActiveAttemptIdx(0);
-    setFeedbackText("" || '');
+    setFeedbackText(students[idx]?.attempts[0]?.feedbackText || '');
   };
 
   // Safe coordinates helper for radar chart polygon
@@ -217,9 +214,9 @@ const InstructorStudents = () => {
 
   const points = attempt
     ? [
-        getRadarPoint((attempt?.pitch_score || 0), -Math.PI / 2), // Pitch (Top)
-        getRadarPoint((attempt?.rhythm_score || 0), Math.PI / 6),  // Rhythm (Bottom Right)
-        getRadarPoint((attempt?.technique_score || 0), (5 * Math.PI) / 6), // Technique (Bottom Left)
+        getRadarPoint(attempt.pitch, -Math.PI / 2), // Pitch (Top)
+        getRadarPoint(attempt.rhythm, Math.PI / 6),  // Rhythm (Bottom Right)
+        getRadarPoint(attempt.technique, (5 * Math.PI) / 6), // Technique (Bottom Left)
       ].join(' ')
     : '';
 
@@ -282,7 +279,7 @@ const InstructorStudents = () => {
               Biểu đồ Năng lực
             </h3>
             <span className="px-3 py-1 rounded-full bg-[#f0eee9] text-[#745c00] font-label-sm text-label-sm font-semibold">
-              Điểm số: {attempt ? (attempt?.overall_score || 0) : 0}/10
+              Điểm số: {attempt ? attempt.score : 0}/10
             </span>
           </div>
 
@@ -305,32 +302,32 @@ const InstructorStudents = () => {
                   <polygon points={points} fill="rgba(115, 92, 0, 0.25)" stroke="#735c00" strokeWidth="2.5" />
 
                   {/* Individual indicator dots */}
-                  <circle cx="150" cy={150 - 12 * (attempt?.pitch_score || 0)} r="5" fill="#735c00" stroke="white" strokeWidth="1.5" />
-                  <circle cx={150 + 12 * (attempt?.rhythm_score || 0) * Math.cos(Math.PI / 6)} cy={150 + 12 * (attempt?.rhythm_score || 0) * Math.sin(Math.PI / 6)} r="5" fill="#735c00" stroke="white" strokeWidth="1.5" />
-                  <circle cx={150 + 12 * (attempt?.technique_score || 0) * Math.cos((5 * Math.PI) / 6)} cy={150 + 12 * (attempt?.technique_score || 0) * Math.sin((5 * Math.PI) / 6)} r="5" fill="#735c00" stroke="white" strokeWidth="1.5" />
+                  <circle cx="150" cy={150 - 12 * attempt.pitch} r="5" fill="#735c00" stroke="white" strokeWidth="1.5" />
+                  <circle cx={150 + 12 * attempt.rhythm * Math.cos(Math.PI / 6)} cy={150 + 12 * attempt.rhythm * Math.sin(Math.PI / 6)} r="5" fill="#735c00" stroke="white" strokeWidth="1.5" />
+                  <circle cx={150 + 12 * attempt.technique * Math.cos((5 * Math.PI) / 6)} cy={150 + 12 * attempt.technique * Math.sin((5 * Math.PI) / 6)} r="5" fill="#735c00" stroke="white" strokeWidth="1.5" />
                 </svg>
 
                 {/* Outer Labels */}
                 <div className="absolute top-2 left-1/2 -translate-x-1/2 flex flex-col items-center">
                   <span className="text-[11px] uppercase tracking-wider text-on-surface-variant font-bold">Cao độ</span>
-                  <span className="text-body-sm font-bold text-primary">{(attempt?.pitch_score || 0)}/10</span>
+                  <span className="text-body-sm font-bold text-primary">{attempt.pitch}/10</span>
                 </div>
                 <div className="absolute bottom-6 right-2 flex flex-col items-end">
                   <span className="text-[11px] uppercase tracking-wider text-on-surface-variant font-bold">Nhịp điệu</span>
-                  <span className="text-body-sm font-bold text-primary">{(attempt?.rhythm_score || 0)}/10</span>
+                  <span className="text-body-sm font-bold text-primary">{attempt.rhythm}/10</span>
                 </div>
                 <div className="absolute bottom-6 left-2 flex flex-col items-start">
                   <span className="text-[11px] uppercase tracking-wider text-on-surface-variant font-bold">Kỹ thuật</span>
-                  <span className="text-body-sm font-bold text-primary">{(attempt?.technique_score || 0)}/10</span>
+                  <span className="text-body-sm font-bold text-primary">{attempt.technique}/10</span>
                 </div>
               </div>
 
               {/* Progress Summary Cards */}
               <div className="grid grid-cols-3 gap-sm w-full mt-xl">
                 {[
-                  { label: 'Pitch Precision', val: (attempt?.pitch_score || 0) * 10, suffix: '%' },
-                  { label: 'Rhythm Sync', val: (attempt?.rhythm_score || 0) * 10, suffix: '%' },
-                  { label: 'Technique Score', val: (attempt?.technique_score || 0) * 10, suffix: '%' },
+                  { label: 'Pitch Precision', val: attempt.pitch * 10, suffix: '%' },
+                  { label: 'Rhythm Sync', val: attempt.rhythm * 10, suffix: '%' },
+                  { label: 'Technique Score', val: attempt.technique * 10, suffix: '%' },
                 ].map((stat, i) => (
                   <div key={i} className="bg-[#fbf9f4] p-md rounded-lg border border-outline-variant/10 text-center">
                     <span className="text-[11px] text-on-surface-variant block font-medium uppercase tracking-wider leading-none mb-1">
@@ -362,14 +359,14 @@ const InstructorStudents = () => {
             </div>
 
             <div className="space-y-sm max-h-48 overflow-y-auto custom-scrollbar pr-1">
-              {attempts.map((att, aIdx) => {
+              {student.attempts.map((att, aIdx) => {
                 const isActive = aIdx === activeAttemptIdx;
                 return (
                   <div
                     key={att.id}
                     onClick={() => {
                       setActiveAttemptIdx(aIdx);
-                      setFeedbackText(attempts[aIdx]?.feedbackText || '');
+                      setFeedbackText(student.attempts[aIdx]?.feedbackText || '');
                     }}
                     className={`p-md rounded-lg border cursor-pointer transition-all flex justify-between items-center ${
                       isActive
@@ -412,8 +409,8 @@ const InstructorStudents = () => {
                 </button>
                 <div className="flex-grow">
                   <div className="flex justify-between items-center text-[12px] text-on-surface-variant font-medium">
-                    <span>Lượt ghi âm #{(attempt?.id || "N/A")}</span>
-                    <span>0:00 / {(attempt?.duration || "0:00")}</span>
+                    <span>Lượt ghi âm #{attempt.id}</span>
+                    <span>0:00 / {attempt.duration}</span>
                   </div>
                   {/* Waveform placeholder line */}
                   <div className="h-1 w-full bg-[#eae8e3] rounded-full overflow-hidden mt-sm">
@@ -428,7 +425,7 @@ const InstructorStudents = () => {
                   value={feedbackText}
                   onChange={(e) => setFeedbackText(e.target.value)}
                   className="w-full bg-[#fbf9f4] border border-[#ffe088]/30 rounded-xl p-md text-body-md focus:border-primary focus:ring-0 h-20 outline-none transition-all resize-none placeholder:text-on-surface-variant/40"
-                  placeholder={"Nhập nhận xét..."}
+                  placeholder={student.feedbackPlaceholder}
                 />
                 <div className="flex gap-sm">
                   <button
