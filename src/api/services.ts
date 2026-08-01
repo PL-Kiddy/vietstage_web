@@ -7,6 +7,8 @@ import type {
   PageResponse,
   ReviewItem,
   SkillLevel,
+  PracticeAttempt,
+  FeedbackResponse,
 } from './types';
 
 export const authApi = {
@@ -107,4 +109,19 @@ export const reviewsApi = {
       method: 'POST',
       body: { feedback },
     }),
+};
+
+export const instructorStudentsApi = {
+  // Using Admin endpoint as placeholder for now, assuming frontend will filter by role='LEARNER'
+  listStudents: (options?: RequestOptions) => apiRequest<AdminUser[]>('/api/admin/users', options),
+  
+  // Fake endpoint based on Option A. Backend should implement /api/instructor/learners/{learnerId}/attempts
+  getAttempts: (learnerId: number, options?: RequestOptions) => 
+    apiRequest<PageResponse<PracticeAttempt>>(`/api/instructor/learners/${learnerId}/attempts`, options),
+    
+  sendFeedback: (attemptId: number, content: string, type: string) => 
+    apiRequest<FeedbackResponse>('/api/feedback', {
+      method: 'POST',
+      body: { attemptId, content, type }
+    })
 };

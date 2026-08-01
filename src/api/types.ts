@@ -115,3 +115,26 @@ export interface ReviewItem {
   approvedBy?: string;
   approvedAt?: string;
 }
+
+export interface PracticeAttempt {
+  id: number;
+  session_id?: number;
+  exercise_id?: number;
+  pitch_score?: number;
+  rhythm_score?: number;
+  technique_score?: number;
+  overall_score?: number;
+  audio_url?: string;
+  feedback_data?: string;
+  createdAt: string;
+  updatedAt?: string;
+  // Giả định thêm thuộc tính lessonName vì UI cần hiển thị
+  lessonName?: string;
+  duration?: string;
+}
+
+export interface FeedbackResponse {
+  id: number;
+  content: string;
+  createdAt: string;
+}
