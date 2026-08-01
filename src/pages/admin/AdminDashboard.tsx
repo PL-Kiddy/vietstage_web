@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { BookOpenCheck, GraduationCap, RefreshCw, Users, WalletCards } from 'lucide-react';
 import { dashboardApi, type DashboardStats } from '../../api/management';
+import { useAxiosRequest } from '../../hooks/useAxiosRequest';
 
 const numberFormat = new Intl.NumberFormat('vi-VN');
 const moneyFormat = new Intl.NumberFormat('vi-VN', {
@@ -10,53 +11,36 @@ const moneyFormat = new Intl.NumberFormat('vi-VN', {
 });
 
 const AdminDashboard = () => {
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-
-  const loadDashboard = () => {
-    setLoading(true);
-    setError('');
-    void dashboardApi.get()
-      .then(setStats)
-      .catch((reason: unknown) => {
-        setError(reason instanceof Error ? reason.message : 'Không thể tải tổng quan.');
-      })
-      .finally(() => setLoading(false));
-  };
-
-  useEffect(() => {
-    void dashboardApi.get()
-      .then(setStats)
-      .catch((reason: unknown) => {
-        setError(reason instanceof Error ? reason.message : 'Không thể tải tổng quan.');
-      })
-      .finally(() => setLoading(false));
-  }, []);
+  const {
+    data: stats,
+    error,
+    loading,
+    execute: reloadDashboard,
+  } = useAxiosRequest<DashboardStats>((signal) => dashboardApi.get({ signal }));
 
   const maxUsers = useMemo(
     () => Math.max(1, ...(stats?.chartData.map((point) => point.users) ?? [])),
     [stats],
   );
 
-  if (loading) return <div className="p-xl text-center">Đang tải tổng quan...</div>;
+  if (loading) return <div className="p-xl text-center">Dang tai tong quan...</div>;
 
   const cards = [
-    { label: 'Tổng người dùng', value: numberFormat.format(stats?.totalUsers ?? 0), icon: Users },
-    { label: 'Giảng viên hoạt động', value: numberFormat.format(stats?.activeInstructors ?? 0), icon: GraduationCap },
-    { label: 'Tổng bài giảng', value: numberFormat.format(stats?.totalLessons ?? 0), icon: BookOpenCheck },
-    { label: 'Tổng doanh thu', value: moneyFormat.format(stats?.totalRevenue ?? 0), icon: WalletCards },
+    { label: 'Tong nguoi dung', value: numberFormat.format(stats?.totalUsers ?? 0), icon: Users },
+    { label: 'Giang vien hoat dong', value: numberFormat.format(stats?.activeInstructors ?? 0), icon: GraduationCap },
+    { label: 'Tong bai giang', value: numberFormat.format(stats?.totalLessons ?? 0), icon: BookOpenCheck },
+    { label: 'Tong doanh thu', value: moneyFormat.format(stats?.totalRevenue ?? 0), icon: WalletCards },
   ];
 
   return (
     <div className="space-y-xl">
       <div className="flex items-end justify-between gap-md">
         <div>
-          <h2 className="text-headline-lg font-bold text-primary">Tổng quan Quản trị</h2>
-          <p className="text-on-surface-variant">Dữ liệu thống kê trực tiếp từ hệ thống VietStage.</p>
+          <h2 className="text-headline-lg font-bold text-primary">Tong quan Quan tri</h2>
+          <p className="text-on-surface-variant">Du lieu thong ke truc tiep tu he thong VietStage.</p>
         </div>
-        <button onClick={loadDashboard} className="flex items-center gap-sm border border-primary text-primary px-md py-sm rounded-lg">
-          <RefreshCw className="w-4 h-4" /> Làm mới
+        <button onClick={() => void reloadDashboard()} className="flex items-center gap-sm border border-primary text-primary px-md py-sm rounded-lg">
+          <RefreshCw className="w-4 h-4" /> Lam moi
         </button>
       </div>
 
@@ -73,8 +57,8 @@ const AdminDashboard = () => {
       </div>
 
       <section className="bg-white rounded-xl border border-outline-variant/20 shadow-sm p-lg">
-        <h3 className="text-headline-md font-bold text-on-surface">Tăng trưởng người dùng</h3>
-        <p className="text-sm text-on-surface-variant mb-lg">Số người dùng theo kỳ báo cáo từ backend.</p>
+        <h3 className="text-headline-md font-bold text-on-surface">Tang truong nguoi dung</h3>
+        <p className="text-sm text-on-surface-variant mb-lg">So nguoi dung theo ky bao cao tu backend.</p>
         {stats?.chartData.length ? (
           <div className="h-72 flex items-end gap-md border-b border-outline-variant/30 px-md">
             {stats.chartData.map((point) => (
@@ -83,14 +67,14 @@ const AdminDashboard = () => {
                 <div
                   className="w-full max-w-16 bg-primary/80 rounded-t-md hover:bg-primary transition-colors"
                   style={{ height: `${Math.max(4, (point.users / maxUsers) * 80)}%` }}
-                  title={`${point.name}: ${numberFormat.format(point.users)} người dùng`}
+                  title={`${point.name}: ${numberFormat.format(point.users)} nguoi dung`}
                 />
                 <span className="text-xs text-on-surface-variant pb-sm">{point.name}</span>
               </div>
             ))}
           </div>
         ) : (
-          <div className="h-48 grid place-items-center text-on-surface-variant">Chưa có dữ liệu biểu đồ.</div>
+          <div className="h-48 grid place-items-center text-on-surface-variant">Chua co du lieu bieu do.</div>
         )}
       </section>
     </div>

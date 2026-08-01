@@ -17,6 +17,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { lessonsApi, masterDataApi } from '../../api/services';
 import { lessonDetailApi } from '../../api/management';
 import type { Instrument, Lesson as ApiLesson, SkillLevel } from '../../api/types';
+import { useAxiosRequest } from '../../hooks/useAxiosRequest';
 
 interface Lesson {
   id: string;
@@ -79,28 +80,41 @@ const InstructorLessons = () => {
   const [currentExerciseInput, setCurrentExerciseInput] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingLesson, setEditingLesson] = useState<Lesson | null>(null);
+  const { execute: requestLessons } = useAxiosRequest<Lesson[]>(async (signal) => {
+    const params = new URLSearchParams({ page: '1', size: '100' });
+    const response = await lessonsApi.list(params, { signal });
+    return Array.isArray(response.content) ? response.content.map(mapLesson) : [];
+  }, { auto: false });
+  const { execute: requestInstruments } = useAxiosRequest<Instrument[]>(
+    (signal) => masterDataApi.instruments({ signal }),
+    { auto: false },
+  );
+  const { execute: requestSkillLevels } = useAxiosRequest<SkillLevel[]>(
+    (signal) => masterDataApi.skillLevels({ signal }),
+    { auto: false },
+  );
 
-  const loadLessons = useCallback(async () => {
+  const loadLessons = useCallback(async (signal?: AbortSignal) => {
     setIsLoading(true);
     setLoadError('');
     try {
-      const params = new URLSearchParams({ page: '1', size: '100' });
-      const response = await lessonsApi.list(params);
-      setLessons(Array.isArray(response.content) ? response.content.map(mapLesson) : []);
+      const response = await requestLessons(signal);
+      if (response) setLessons(response);
     } catch (error) {
       setLessons([]);
       setLoadError(error instanceof Error ? error.message : 'Không thể tải danh sách bài giảng.');
     } finally {
-      setIsLoading(false);
+      if (!signal?.aborted) setIsLoading(false);
     }
-  }, []);
+  }, [requestLessons]);
 
-  const loadMasterData = useCallback(async () => {
+  const loadMasterData = useCallback(async (signal?: AbortSignal) => {
     try {
       const [instrumentData, skillLevelData] = await Promise.all([
-        masterDataApi.instruments(),
-        masterDataApi.skillLevels(),
+        requestInstruments(signal),
+        requestSkillLevels(signal),
       ]);
+      if (!instrumentData || !skillLevelData) return;
       setInstruments(instrumentData);
       setSkillLevels(skillLevelData);
       if (instrumentData[0]) setNewInstrument(instrumentData[0].name);
@@ -110,14 +124,18 @@ const InstructorLessons = () => {
       setSkillLevels([]);
       setLoadError((current) => current || (error instanceof Error ? error.message : 'Không thể tải dữ liệu nhạc cụ và trình độ.'));
     }
-  }, []);
+  }, [requestInstruments, requestSkillLevels]);
 
   useEffect(() => {
+    const controller = new AbortController();
     const timer = window.setTimeout(() => {
-      void loadLessons();
-      void loadMasterData();
+      void loadLessons(controller.signal);
+      void loadMasterData(controller.signal);
     }, 0);
-    return () => window.clearTimeout(timer);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
   }, [loadLessons, loadMasterData]);
 
   const handleEditClick = async (lesson: Lesson) => {

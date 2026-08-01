@@ -1,4 +1,4 @@
-import { apiRequest } from './client';
+import { apiRequest, type RequestOptions } from './client';
 import type {
   AdminUser,
   AuthResponse,
@@ -29,7 +29,7 @@ export const authApi = {
       auth: false,
     }),
   forgotPassword: (email: string) =>
-    apiRequest<string>('/api/auth/forgot-password', {
+    apiRequest<void>('/api/auth/forgot-password', {
       method: 'POST',
       body: { email },
       auth: false,
@@ -44,7 +44,7 @@ export const authApi = {
 };
 
 export const usersApi = {
-  list: () => apiRequest<AdminUser[]>('/api/admin/users'),
+  list: (options?: RequestOptions) => apiRequest<AdminUser[]>('/api/admin/users', options),
   updateStatus: (id: number, status: 'active' | 'locked') =>
     apiRequest<void>(`/api/admin/users/${id}/status`, {
       method: 'PUT',
@@ -62,8 +62,8 @@ export const usersApi = {
 };
 
 export const masterDataApi = {
-  instruments: () => apiRequest<Instrument[]>('/api/instruments'),
-  skillLevels: () => apiRequest<SkillLevel[]>('/api/skill-levels'),
+  instruments: (options?: RequestOptions) => apiRequest<Instrument[]>('/api/instruments', options),
+  skillLevels: (options?: RequestOptions) => apiRequest<SkillLevel[]>('/api/skill-levels', options),
 };
 
 export interface LessonInput {
@@ -78,8 +78,8 @@ export interface LessonInput {
 }
 
 export const lessonsApi = {
-  list: (params: URLSearchParams) =>
-    apiRequest<PageResponse<Lesson>>(`/api/lessons?${params.toString()}`),
+  list: (params: URLSearchParams, options?: RequestOptions) =>
+    apiRequest<PageResponse<Lesson>>(`/api/lessons?${params.toString()}`, options),
   create: (body: LessonInput) => apiRequest<Lesson>('/api/lessons', { method: 'POST', body }),
   update: (
     id: number,
@@ -99,7 +99,7 @@ export const lessonsApi = {
 };
 
 export const reviewsApi = {
-  list: () => apiRequest<ReviewItem[]>('/api/admin/reviews'),
+  list: (options?: RequestOptions) => apiRequest<ReviewItem[]>('/api/admin/reviews', options),
   approve: (id: number) =>
     apiRequest<void>(`/api/admin/reviews/${id}/approve`, { method: 'POST' }),
   reject: (id: number, feedback: string) =>

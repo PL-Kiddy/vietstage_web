@@ -15,6 +15,8 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 
+const DEFAULT_ADMIN_API_KEY = import.meta.env.VITE_ADMIN_DEFAULT_API_KEY ?? '';
+
 const AdminSettings = () => {
   const [selectedInstrument, setSelectedInstrument] = useState<string>('global');
 
@@ -48,7 +50,7 @@ const AdminSettings = () => {
 
   const [apiKey, setApiKey] = useState<string>(() => {
     const saved = localStorage.getItem('vietstage_setting_apikey');
-    return saved ? saved : 'vs_live_4920_kdn92_admin_stage_secret_key_6a9b8c7d';
+    return saved ? saved : DEFAULT_ADMIN_API_KEY;
   });
 
   const [apiKeyCreatedAt, setApiKeyCreatedAt] = useState<string>(() => {
@@ -590,3 +592,4 @@ const AdminSettings = () => {
 };
 
 export default AdminSettings;
+

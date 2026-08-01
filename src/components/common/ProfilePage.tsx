@@ -1,6 +1,7 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import { CalendarDays, Edit, Mail, Save, Shield, User } from 'lucide-react';
 import { profileApi, type UserProfile } from '../../api/management';
+import { useAxiosRequest } from '../../hooks/useAxiosRequest';
 
 interface ProfilePageProps {
   accentClass?: string;
@@ -16,24 +17,17 @@ const initialsOf = (name: string) =>
     .join('');
 
 const ProfilePage = ({ accentClass = 'bg-[#edf4ff]', roleLabel }: ProfilePageProps) => {
-  const [profile, setProfile] = useState<UserProfile | null>(null);
   const [fullName, setFullName] = useState('');
   const [editing, setEditing] = useState(false);
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
-
-  useEffect(() => {
-    void profileApi.get()
-      .then((data) => {
-        setProfile(data);
-        setFullName(data.fullName);
-      })
-      .catch((reason: unknown) => {
-        setError(reason instanceof Error ? reason.message : 'Không thể tải hồ sơ.');
-      })
-      .finally(() => setLoading(false));
-  }, []);
+  const [actionError, setError] = useState('');
+  const {
+    data: profile,
+    error: loadError,
+    loading,
+    setData: setProfile,
+  } = useAxiosRequest<UserProfile>((signal) => profileApi.get({ signal }));
+  const error = actionError || loadError;
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();

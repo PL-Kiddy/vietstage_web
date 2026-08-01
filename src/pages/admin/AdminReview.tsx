@@ -15,6 +15,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { lessonsApi, reviewsApi } from '../../api/services';
 import type { Lesson, ReviewItem as ApiReviewItem } from '../../api/types';
+import { useAxiosRequest } from '../../hooks/useAxiosRequest';
 
 interface ReviewItem {
   id: string;
@@ -72,32 +73,37 @@ const AdminReview = () => {
   const [items, setItems] = useState<ReviewItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
+  const { execute: requestReviews } = useAxiosRequest<ReviewItem[]>(async (signal) => {
+    const reviewData = await reviewsApi.list({ signal });
+    if (reviewData.length > 0) return reviewData.map(normalizeReview);
 
-  const loadReviews = useCallback(async () => {
+    // Some deployments expose pending lessons before the review projection is populated.
+    const params = new URLSearchParams({ page: '1', size: '100' });
+    const lessonData = await lessonsApi.list(params, { signal });
+    return lessonData.content.map(lessonToReview);
+  }, { auto: false });
+
+  const loadReviews = useCallback(async (signal?: AbortSignal) => {
     setIsLoading(true);
     setLoadError('');
     try {
-      const reviewData = await reviewsApi.list();
-      if (reviewData.length > 0) {
-        setItems(reviewData.map(normalizeReview));
-        return;
-      }
-
-      // The deployed review endpoint may return an empty list while lessons are available.
-      const params = new URLSearchParams({ page: '1', size: '100' });
-      const lessonData = await lessonsApi.list(params);
-      setItems(lessonData.content.map(lessonToReview));
+      const reviewData = await requestReviews(signal);
+      if (reviewData) setItems(reviewData);
     } catch (error) {
       setItems([]);
       setLoadError(error instanceof Error ? error.message : 'Không thể tải danh sách kiểm duyệt.');
     } finally {
-      setIsLoading(false);
+      if (!signal?.aborted) setIsLoading(false);
     }
-  }, []);
+  }, [requestReviews]);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => void loadReviews(), 0);
-    return () => window.clearTimeout(timer);
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => void loadReviews(controller.signal), 0);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
   }, [loadReviews]);
   // Filtering states
   const [statusFilter, setStatusFilter] = useState<'all' | 'draft' | 'pending' | 'approved' | 'rejected'>('all');

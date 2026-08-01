@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback, type FormEvent } from 'react';
+﻿import { useState, useMemo, useEffect, type FormEvent } from 'react';
 import {
   UserPlus,
   Lock,
@@ -19,6 +19,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { masterDataApi, usersApi } from '../../api/services';
 import type { AdminUser as ApiAdminUser, Instrument } from '../../api/types';
+import { useAxiosRequest } from '../../hooks/useAxiosRequest';
 
 // Extended type to support 'pending' status
 export interface ExtendedAdminUser extends Omit<ApiAdminUser, 'id' | 'status'> {
@@ -55,6 +56,11 @@ const getAvatarStyle = (role: string) => {
 
 /* ════════════════════════════════════════════════════════════ */
 
+const mapExtendedUser = (user: ApiAdminUser): ExtendedAdminUser => ({
+  ...user,
+  id: String(user.id),
+});
+
 const AdminUsers = () => {
   const [roleFilter, setRoleFilter] = useState('Tất cả');
   const [searchQuery, setSearchQuery] = useState('');
@@ -87,31 +93,28 @@ const AdminUsers = () => {
   // Action Menu state
   const [openActionMenuUserId, setOpenActionMenuUserId] = useState<string | null>(null);
 
-  const [users, setUsers] = useState<ExtendedAdminUser[]>([]);
-  const [instruments, setInstruments] = useState<Instrument[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const {
+    data: usersData = [],
+    error: usersError,
+    loading: isLoading,
+    execute: loadUsers,
+  } = useAxiosRequest<ApiAdminUser[]>((signal) => usersApi.list({ signal }), { initialData: [] });
 
-  const loadUsers = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const data = await usersApi.list();
-      setUsers(data.map((user) => ({ ...user, id: String(user.id) })));
-    } catch (error) {
-      alert(error instanceof Error ? error.message : 'Không thể tải danh sách người dùng.');
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+  const { data: instruments = [] } = useAxiosRequest<Instrument[]>(
+    (signal) => masterDataApi.instruments({ signal }),
+    { initialData: [] },
+  );
+
+  const users = useMemo(
+    () => usersData.map(mapExtendedUser),
+    [usersData],
+  );
 
   useEffect(() => {
-    void usersApi.list()
-      .then((data) => setUsers(data.map((user) => ({ ...user, id: String(user.id) }))))
-      .catch((error: unknown) => {
-        alert(error instanceof Error ? error.message : 'Không thể tải danh sách người dùng.');
-      })
-      .finally(() => setIsLoading(false));
-    void masterDataApi.instruments().then(setInstruments).catch(() => setInstruments([]));
-  }, []);
+    if (usersError) {
+      alert(usersError);
+    }
+  }, [usersError]);
 
   const instrumentOptions = instruments.length > 0
     ? instruments.map((instrument) => instrument.name)
@@ -1164,3 +1167,4 @@ alert('Backend hiện chưa cung cấp endpoint cập nhật thông tin người
 };
 
 export default AdminUsers;
+

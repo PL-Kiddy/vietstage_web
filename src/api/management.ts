@@ -1,4 +1,4 @@
-import { apiRequest } from './client';
+import { apiRequest, type RequestOptions } from './client';
 import type { Instrument, Lesson, SkillLevel } from './types';
 
 export interface DashboardChartPoint {
@@ -55,11 +55,11 @@ export interface TechniqueInput {
 export type TechniqueUpdateInput = Omit<TechniqueInput, 'instrument_id'>;
 
 export const dashboardApi = {
-  get: () => apiRequest<DashboardStats>('/api/admin/dashboard'),
+  get: (options?: RequestOptions) => apiRequest<DashboardStats>('/api/admin/dashboard', options),
 };
 
 export const profileApi = {
-  get: () => apiRequest<UserProfile>('/api/users/me'),
+  get: (options?: RequestOptions) => apiRequest<UserProfile>('/api/users/me', options),
   update: (fullName: string) =>
     apiRequest<UserProfile>('/api/users/me', {
       method: 'PUT',
@@ -111,3 +111,4 @@ export const techniqueManagementApi = {
 export const lessonDetailApi = {
   get: (id: number) => apiRequest<Lesson>(`/api/lessons/${id}`),
 };
+

@@ -1,8 +1,17 @@
+import axios from 'axios';
+import type { AxiosRequestConfig, Method } from 'axios';
 import { clearAuthSession, getAuthSession, updateAuthTokens } from './authStorage';
 import type { ApiResponse, AuthResponse } from './types';
 
-const configuredApiUrl = (import.meta.env.VITE_API_URL ?? 'http://localhost:9191').replace(/\/$/, '');
+const configuredApiUrl = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '');
 const API_URL = import.meta.env.DEV ? '' : configuredApiUrl;
+
+const axiosClient = axios.create({
+  baseURL: API_URL || undefined,
+  headers: {
+    Accept: 'application/json',
+  },
+});
 
 export class ApiError extends Error {
   readonly status: number;
@@ -15,14 +24,45 @@ export class ApiError extends Error {
   }
 }
 
+interface ApiEnvelope<T> {
+  success?: boolean;
+  message?: string;
+  data?: T;
+}
+
 let refreshPromise: Promise<boolean> | null = null;
 
-const parseResponse = async <T>(response: Response): Promise<ApiResponse<T>> => {
-  const payload = (await response.json().catch(() => null)) as ApiResponse<T> | null;
-  if (!response.ok || !payload?.success) {
-    throw new ApiError(payload?.message ?? `HTTP ${response.status}`, response.status, payload?.data);
+const toApiError = (error: unknown): ApiError => {
+  if (axios.isAxiosError(error)) {
+    const status = error.response?.status ?? 0;
+    const payload = error.response?.data as ApiEnvelope<unknown> | undefined;
+    if (!error.response) {
+      return new ApiError(
+        'Khong the ket noi may chu VietStage. Vui long kiem tra backend dang chay.',
+        0,
+        error,
+      );
+    }
+    return new ApiError(payload?.message ?? error.message ?? `HTTP ${status}`, status, payload?.data);
   }
-  return payload;
+
+  if (error instanceof ApiError) {
+    return error;
+  }
+
+  return new ApiError(error instanceof Error ? error.message : 'Unknown API error', 0, error);
+};
+
+const unwrapResponse = <T>(payload: ApiEnvelope<T> | null | undefined, status: number): T => {
+  if (!payload) {
+    throw new ApiError(`HTTP ${status}`, status);
+  }
+
+  if (payload.success === false) {
+    throw new ApiError(payload.message ?? `HTTP ${status}`, status, payload.data);
+  }
+
+  return payload.data as T;
 };
 
 const refreshSession = async (): Promise<boolean> => {
@@ -30,17 +70,14 @@ const refreshSession = async (): Promise<boolean> => {
   if (!session?.refreshToken || !session.sessionId) return false;
 
   try {
-    const response = await fetch(`${API_URL}/api/auth/refresh`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        sessionId: session.sessionId,
-        refreshToken: session.refreshToken,
-      }),
+    const response = await axiosClient.post<ApiResponse<AuthResponse>>('/api/auth/refresh', {
+      sessionId: session.sessionId,
+      refreshToken: session.refreshToken,
     });
-    const payload = await parseResponse<AuthResponse>(response);
-    if (!payload.data.token || !payload.data.refreshToken || !payload.data.sessionId) return false;
-    updateAuthTokens(payload.data.token, payload.data.refreshToken, payload.data.sessionId);
+
+    const data = unwrapResponse<AuthResponse>(response.data, response.status);
+    if (!data.token || !data.refreshToken || !data.sessionId) return false;
+    updateAuthTokens(data.token, data.refreshToken, data.sessionId);
     return true;
   } catch {
     clearAuthSession();
@@ -48,7 +85,8 @@ const refreshSession = async (): Promise<boolean> => {
   }
 };
 
-export interface RequestOptions extends Omit<RequestInit, 'body'> {
+export interface RequestOptions extends Omit<AxiosRequestConfig, 'url' | 'data' | 'method' | 'auth'> {
+  method?: Method;
   body?: unknown;
   auth?: boolean;
   retryAuth?: boolean;
@@ -58,44 +96,49 @@ export const apiRequest = async <T>(
   path: string,
   options: RequestOptions = {},
 ): Promise<T> => {
-  const { body, auth = true, retryAuth = true, headers, ...init } = options;
+  const { body, auth = true, retryAuth = true, headers, ...config } = options;
   const session = getAuthSession();
-  const requestHeaders = new Headers(headers);
-  requestHeaders.set('Accept', 'application/json');
-  if (body !== undefined) requestHeaders.set('Content-Type', 'application/json');
+  const requestHeaders = {
+    ...(headers ?? {}),
+    Accept: 'application/json',
+  } as Record<string, string>;
+
+  if (body !== undefined && !(body instanceof FormData)) {
+    requestHeaders['Content-Type'] = 'application/json';
+  }
+
   if (auth && session?.accessToken) {
-    requestHeaders.set('Authorization', `Bearer ${session.accessToken}`);
+    requestHeaders.Authorization = `Bearer ${session.accessToken}`;
   }
 
-  let response: Response;
   try {
-    response = await fetch(`${API_URL}${path}`, {
-      ...init,
+    const response = await axiosClient.request<ApiEnvelope<T>>({
+      url: path,
+      data: body,
       headers: requestHeaders,
-      body: body === undefined ? undefined : JSON.stringify(body),
+      ...config,
     });
+
+    if (response.status === 204) return undefined as T;
+    return unwrapResponse<T>(response.data, response.status);
   } catch (error) {
-    if (error instanceof TypeError) {
-      throw new ApiError(
-        'Không thể kết nối máy chủ VietStage. Vui lòng kiểm tra backend đang chạy.',
-        0,
-        error,
-      );
-    }
-    throw error;
-  }
+    const apiError = toApiError(error);
 
-  if (response.status === 401 && auth && retryAuth) {
-    refreshPromise ??= refreshSession().finally(() => {
-      refreshPromise = null;
-    });
-    if (await refreshPromise) {
-      return apiRequest<T>(path, { ...options, retryAuth: false });
-    }
-    window.dispatchEvent(new Event('vietstage:unauthorized'));
-    window.location.assign('/login');
-  }
+    if (apiError.status === 401 && auth && retryAuth) {
+      refreshPromise ??= refreshSession().finally(() => {
+        refreshPromise = null;
+      });
 
-  if (response.status === 204) return undefined as T;
-  return (await parseResponse<T>(response)).data;
+      if (await refreshPromise) {
+        return apiRequest<T>(path, { ...options, retryAuth: false });
+      }
+
+      window.dispatchEvent(new Event('vietstage:unauthorized'));
+      window.location.assign('/login');
+    }
+
+    throw apiError;
+  }
 };
+
+

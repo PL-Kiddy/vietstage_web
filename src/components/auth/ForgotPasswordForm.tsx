@@ -13,7 +13,6 @@ const ForgotPasswordForm = () => {
   const navigate = useNavigate();
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [email, setEmail] = useState('');
-  const [otpCode, setOtpCode] = useState('');
   const [userEnteredOtp, setUserEnteredOtp] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -41,10 +40,9 @@ const ForgotPasswordForm = () => {
     }
 
     try {
-      const verificationCode = await authApi.forgotPassword(email.trim());
-      setOtpCode(verificationCode);
+      await authApi.forgotPassword(email.trim());
       setStep(2);
-      showToast('success', `Đã tạo mã xác nhận. Mã OTP: ${verificationCode}`, 8000);
+      showToast('success', 'Ma OTP da duoc gui den email cua ban.');
     } catch (error) {
       showToast('error', error instanceof Error ? error.message : 'Không thể gửi mã xác nhận.');
     }
@@ -53,12 +51,12 @@ const ForgotPasswordForm = () => {
   const handleVerifyOtp = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    if (userEnteredOtp.trim() !== otpCode) {
-      showToast('error', 'Mã OTP không chính xác. Vui lòng thử lại!');
+    if (!userEnteredOtp.trim()) {
+      showToast('error', 'Vui long nhap ma OTP.');
       return;
     }
 
-    showToast('success', 'Xác minh OTP thành công! Vui lòng nhập mật khẩu mới.');
+    showToast('success', 'OTP da duoc nhap. Vui long dat lai mat khau moi.');
     setStep(3);
   };
 
@@ -215,9 +213,8 @@ const ForgotPasswordForm = () => {
                 type="button"
                 onClick={async () => {
                   try {
-                    const verificationCode = await authApi.forgotPassword(email.trim());
-                    setOtpCode(verificationCode);
-                    showToast('success', `Đã gửi lại mã! Mã OTP mới: ${verificationCode}`, 8000);
+                    await authApi.forgotPassword(email.trim());
+                    showToast('success', 'Da gui lai ma OTP den email cua ban.');
                   } catch (error) {
                     showToast('error', error instanceof Error ? error.message : 'Không thể gửi lại mã.');
                   }
@@ -327,3 +324,5 @@ const ForgotPasswordForm = () => {
 };
 
 export default ForgotPasswordForm;
+
+
