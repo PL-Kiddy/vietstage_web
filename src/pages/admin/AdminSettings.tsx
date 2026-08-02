@@ -152,9 +152,6 @@ const AdminSettings = () => {
       {/* Page Header */}
       <div className="flex justify-between items-end border-b border-outline-variant/20 pb-md mb-lg">
         <div>
-          <span className="text-[#1D4532] font-label-md text-label-md uppercase tracking-widest text-sm">
-            System Configuration
-          </span>
           <h3
             className="text-headline-lg font-bold text-[#1D4532] mt-xs"
             style={{ fontFamily: "'Montserrat', sans-serif" }}

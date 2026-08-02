@@ -423,7 +423,7 @@ alert('Backend hiện chưa cung cấp endpoint cập nhật thông tin người
       <div className="bg-white rounded-xl border border-[#d1e4fb]/50 overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse min-w-[800px]">
-            <thead className="bg-[#e3efff]">
+            <thead className="bg-[#EDF7F2]">
               <tr>
                 {(isLearnersMode
                   ? ['Họ và Tên', 'Email', 'Ngày đăng ký', 'Trạng thái', 'Thao tác']
@@ -432,7 +432,7 @@ alert('Backend hiện chưa cung cấp endpoint cập nhật thông tin người
                   (h, i) => (
                     <th
                       key={i}
-                      className={`px-lg py-md font-label-md text-[#5e5e5b] uppercase tracking-wider ${
+                      className={`px-lg py-md font-label-md text-[#1D4532] font-semibold uppercase tracking-wider ${
                         i === 4 ? 'text-right' : ''
                       }`}
                     >
