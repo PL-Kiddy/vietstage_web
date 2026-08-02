@@ -306,7 +306,7 @@ const handleResetToPending = async (item: ReviewItem) => {
       )}
 
       {/* Header Section */}
-      <section className="mb-lg border-b border-outline-variant/10 pb-md">
+      <section className="mb-4 border-b border-outline-variant/10 pb-md">
         <span className="text-[#1D4532] font-bold text-label-md tracking-wider uppercase text-sm">
           Phê duyệt học liệu
         </span>
@@ -319,6 +319,68 @@ const handleResetToPending = async (item: ReviewItem) => {
         <p className="text-body-md text-[#5e5e5b] mt-xs">
           Phê duyệt, từ chối và xem lại lịch sử kiểm duyệt các học liệu do Giảng viên đóng góp.
         </p>
+
+        {/* Search + Filters bar — dưới tiêu đề */}
+        <div className="flex flex-wrap items-center gap-md mt-lg">
+          {/* Search Bar */}
+          <div className="flex items-center gap-xs px-md py-sm bg-white border border-[#d1e4fb] rounded-lg w-full sm:w-80 shadow-sm focus-within:ring-1 focus-within:ring-[#1D4532] transition-all">
+            <Search className="w-5 h-5 text-[#5e5e5b]" />
+            <input
+              type="text"
+              placeholder="Tìm theo tên bài học, giảng viên..."
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="bg-transparent border-none outline-none text-body-md w-full text-on-surface focus:ring-0 placeholder:text-[#5e5e5b]/50"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => { setSearchQuery(''); setCurrentPage(1); }}
+                className="text-[#5e5e5b] hover:text-error transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+
+          {/* Instrument Filter */}
+          <div className="flex items-center gap-xs px-md py-sm bg-white border border-outline-variant rounded-lg shadow-sm">
+            <span className="font-label-md text-[#5e5e5b]">Nhạc cụ:</span>
+            <select
+              value={selectedInstrument}
+              onChange={(e) => {
+                setSelectedInstrument(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="bg-transparent border-none text-label-md font-semibold text-[#1D4532] focus:ring-0 cursor-pointer outline-none"
+            >
+              <option value="all">Tất cả nhạc cụ</option>
+              {instrumentOptions.map((ins) => (
+                <option key={ins} value={ins}>{ins}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Instructor Filter */}
+          <div className="flex items-center gap-xs px-md py-sm bg-white border border-outline-variant rounded-lg shadow-sm">
+            <span className="font-label-md text-[#5e5e5b]">Giảng viên:</span>
+            <select
+              value={selectedInstructor}
+              onChange={(e) => {
+                setSelectedInstructor(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="bg-transparent border-none text-label-md font-semibold text-[#1D4532] focus:ring-0 cursor-pointer outline-none"
+            >
+              <option value="all">Tất cả</option>
+              {Array.from(new Set(items.map((i) => i.instructor))).filter(Boolean).map((ins) => (
+                <option key={ins} value={ins}>{ins}</option>
+              ))}
+            </select>
+          </div>
+        </div>
       </section>
 
       {/* Status filtering pills */}
@@ -401,64 +463,11 @@ const handleResetToPending = async (item: ReviewItem) => {
         </button>
       </div>
 
-      {/* Search and dropdown filters */}
-      <div className="flex flex-wrap items-center gap-md mb-lg">
-        {/* Search Bar */}
-        <div className="flex items-center gap-xs px-md py-sm bg-white border border-[#d1e4fb] rounded-lg w-full sm:w-80 shadow-sm focus-within:ring-1 focus-within:ring-[#1D4532] transition-all">
-          <Search className="w-5 h-5 text-[#5e5e5b]" />
-          <input
-            type="text"
-            placeholder="Tìm theo tên bài học, giảng viên..."
-            value={searchQuery}
-            onChange={(e) => {
-              setSearchQuery(e.target.value);
-              setCurrentPage(1);
-            }}
-            className="bg-transparent border-none outline-none text-body-md w-full text-on-surface focus:ring-0 placeholder:text-[#5e5e5b]/50"
-          />
-        </div>
-
-        {/* Instrument Filter */}
-        <div className="flex items-center gap-xs px-md py-sm bg-white border border-outline-variant rounded-lg shadow-sm">
-          <span className="font-label-md text-[#5e5e5b]">Nhạc cụ:</span>
-          <select
-            value={selectedInstrument}
-            onChange={(e) => {
-              setSelectedInstrument(e.target.value);
-              setCurrentPage(1);
-            }}
-            className="bg-transparent border-none text-label-md font-semibold text-[#1D4532] focus:ring-0 cursor-pointer outline-none"
-          >
-            <option value="all">Tất cả nhạc cụ</option>
-            {instrumentOptions.map((ins) => (
-              <option key={ins} value={ins}>
-                {ins}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Instructor Filter */}
-        <div className="flex items-center gap-xs px-md py-sm bg-white border border-outline-variant rounded-lg shadow-sm">
-          <span className="font-label-md text-[#5e5e5b]">Giảng viên:</span>
-          <select
-            value={selectedInstructor}
-            onChange={(e) => {
-              setSelectedInstructor(e.target.value);
-              setCurrentPage(1);
-            }}
-            className="bg-transparent border-none text-label-md font-semibold text-[#1D4532] focus:ring-0 cursor-pointer outline-none"
-          >
-            <option value="all">Tất cả giảng viên</option>
-            {Array.from(new Set(items.map((i) => i.instructor))).map((instructor) => (
-              <option key={instructor} value={instructor}>
-                {instructor}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Restore/Reset mock data button */}
+      {/* Refresh + count row */}
+      <div className="flex items-center justify-between mb-lg">
+        <p className="text-sm text-[#5e5e5b]">
+          Hiển thị <strong>{filteredItems.length}</strong> / {items.length} học liệu
+        </p>
         <button
           onClick={() => {
             void loadReviews();
@@ -468,7 +477,7 @@ const handleResetToPending = async (item: ReviewItem) => {
             setSelectedInstructor('all');
             setCurrentPage(1);
           }}
-          className="ml-auto text-xs font-semibold text-[#1D4532] hover:underline flex items-center gap-1 border border-[#1D4532]/30 px-3 py-2 rounded-lg hover:bg-[#1D4532]/5 transition-colors"
+          className="text-xs font-semibold text-[#1D4532] hover:underline flex items-center gap-1 border border-[#1D4532]/30 px-3 py-2 rounded-lg hover:bg-[#1D4532]/5 transition-colors"
         >
           <RotateCcw className="w-3.5 h-3.5" />
           Làm mới dữ liệu

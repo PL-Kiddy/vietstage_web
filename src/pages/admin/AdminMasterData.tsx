@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useState, useMemo, type FormEvent } from 'react';
 import {
   Edit2,
   ListFilter,
@@ -10,6 +10,7 @@ import {
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react';
+import { Search } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createPortal } from 'react-dom';
 import {
@@ -58,6 +59,9 @@ const AdminMasterData = () => {
   // Action Menu state
   const [openActionMenu, setOpenActionMenu] = useState<{ type: Tab; id: number } | null>(null);
 
+  // Search state
+  const [searchQuery, setSearchQuery] = useState('');
+
   // Drawer states
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
@@ -95,6 +99,7 @@ const AdminMasterData = () => {
   useEffect(() => {
     setCurrentPage(1);
     setOpenActionMenu(null);
+    setSearchQuery('');
   }, [tab]);
 
   // Open Drawer helpers
@@ -294,22 +299,81 @@ const AdminMasterData = () => {
   };
 
   const activeData = getActiveData();
-  const totalPages = Math.max(1, Math.ceil(activeData.length / perPage));
-  const pagedItems = activeData.slice((currentPage - 1) * perPage, currentPage * perPage);
+
+  // Apply search filter across active tab
+  const filteredData = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return activeData;
+    return activeData.filter((item: any) => {
+      if (tab === 'instruments') {
+        return (
+          item.name?.toLowerCase().includes(q) ||
+          item.instrumentCode?.toLowerCase().includes(q) ||
+          item.description?.toLowerCase().includes(q)
+        );
+      }
+      if (tab === 'skill-levels') {
+        return (
+          item.levelName?.toLowerCase().includes(q) ||
+          item.levelCode?.toLowerCase().includes(q)
+        );
+      }
+      // techniques
+      return (
+        item.name?.toLowerCase().includes(q) ||
+        item.description?.toLowerCase().includes(q)
+      );
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeData, searchQuery, tab]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredData.length / perPage));
+  const pagedItems = filteredData.slice((currentPage - 1) * perPage, currentPage * perPage);
 
   return (
     <div className="w-full max-w-[1300px] mx-auto flex-1 flex flex-col justify-between">
       <div className="flex-grow space-y-lg mb-lg">
       {/* Page Header */}
-      <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-lg">
+      <div className="flex flex-col gap-4 mb-2">
         <div>
           <h2 className="text-headline-lg font-bold text-[#1D4532]">Dữ liệu nền</h2>
           <p className="text-on-surface-variant">Quản lý nhạc cụ, trình độ và kỹ thuật biểu diễn.</p>
         </div>
-        <div className="flex items-center gap-md w-full xl:w-auto">
+
+        <div className="flex flex-wrap items-center gap-md w-full">
+          {/* Search Bar */}
+          <div className="flex items-center gap-xs px-md py-sm bg-white border border-[#d1e4fb] rounded-lg w-full sm:w-80 shadow-sm focus-within:ring-1 focus-within:ring-[#1D4532] transition-all">
+            <Search className="w-5 h-5 text-[#5e5e5b] flex-shrink-0" />
+            <input
+              type="text"
+              placeholder={
+                tab === 'instruments'
+                  ? 'Tìm theo tên, mã nhạc cụ...'
+                  : tab === 'skill-levels'
+                  ? 'Tìm theo tên, mã trình độ...'
+                  : 'Tìm theo tên kỹ thuật...'
+              }
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="bg-transparent border-none outline-none text-body-md w-full text-on-surface focus:ring-0 placeholder:text-[#5e5e5b]/50"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => { setSearchQuery(''); setCurrentPage(1); }}
+                className="text-[#5e5e5b] hover:text-error transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+
+          {/* Thêm mới */}
           <button
             onClick={handleAddNewClick}
-            className="bg-[#1D4532] text-white px-lg py-sm rounded-lg font-medium text-sm hover:bg-[#1D4532]/95 transition-all flex items-center gap-xs shadow-md"
+            className="bg-[#1D4532] text-white px-lg py-sm rounded-lg font-medium text-sm hover:bg-[#1D4532]/95 transition-all flex items-center gap-xs shadow-md ml-auto"
           >
             <Plus className="w-4 h-4" /> Thêm {getTabLabel()}
           </button>
@@ -336,6 +400,11 @@ const AdminMasterData = () => {
             }`}
           >
             {label}
+            {searchQuery && (
+              <span className="ml-2 text-xs bg-[#1D4532]/10 text-[#1D4532] rounded-full px-2 py-0.5">
+                {filteredData.length}
+              </span>
+            )}
           </button>
         ))}
       </div>

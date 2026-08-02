@@ -94,6 +94,15 @@ const AdminUsers = () => {
   const [roleFilter, setRoleFilter] = useState('Tất cả');
   const [statusFilter, setStatusFilter] = useState('Tất cả');
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Reset filters when switching between modes
+  useEffect(() => {
+    setRoleFilter('Tất cả');
+    setStatusFilter('Tất cả');
+    setSearchQuery('');
+    setCurrentPage(1);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLearnersMode]);
   const [selectedUser, setSelectedUser] = useState<ExtendedAdminUser | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
@@ -416,7 +425,10 @@ alert('Backend hiện chưa cung cấp endpoint cập nhật thông tin người
           <table className="w-full text-left border-collapse min-w-[800px]">
             <thead className="bg-[#e3efff]">
               <tr>
-                {['Họ và Tên', 'Vai trò', 'Ngày đăng ký', 'Trạng thái', 'Thao tác'].map(
+                {(isLearnersMode
+                  ? ['Họ và Tên', 'Email', 'Ngày đăng ký', 'Trạng thái', 'Thao tác']
+                  : ['Họ và Tên', 'Vai trò', 'Ngày đăng ký', 'Trạng thái', 'Thao tác']
+                ).map(
                   (h, i) => (
                     <th
                       key={i}
@@ -441,7 +453,7 @@ alert('Backend hiện chưa cung cấp endpoint cập nhật thông tin người
               ) : pageUsers.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="text-center py-xl text-body-md text-[#5e5e5b]">
-                    Không tìm thấy thành viên phù hợp.
+                    {isLearnersMode ? 'Không tìm thấy học viên phù hợp.' : 'Không tìm thấy thành viên phù hợp.'}
                   </td>
                 </tr>
               ) : (
@@ -468,15 +480,19 @@ alert('Backend hiện chưa cung cấp endpoint cập nhật thông tin người
                       </div>
                     </td>
 
-                    {/* Role Badge */}
+                    {/* Role Badge or Email (depending on mode) */}
                     <td className="px-lg py-md">
-                      <span
-                        className={`px-sm py-1 text-[12px] font-bold rounded-lg ${
-                          roleBadge[user.role] ?? ''
-                        }`}
-                      >
-                        {user.role}
-                      </span>
+                      {isLearnersMode ? (
+                        <span className="text-[12px] text-[#5e5e5b]">{user.email}</span>
+                      ) : (
+                        <span
+                          className={`px-sm py-1 text-[12px] font-bold rounded-lg ${
+                            roleBadge[user.role] ?? ''
+                          }`}
+                        >
+                          {user.role}
+                        </span>
+                      )}
                     </td>
 
                     {/* Date */}
