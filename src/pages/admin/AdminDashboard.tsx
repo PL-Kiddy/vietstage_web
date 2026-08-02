@@ -22,7 +22,7 @@ const AdminDashboard = () => {
   } = useAxiosRequest<DashboardStats>((signal) => dashboardApi.get({ signal }));
 
   const maxUsers = useMemo(
-    () => Math.max(1, ...(stats?.chartData.map((point) => point.users) ?? [])),
+    () => Math.max(1, ...((stats?.chartData ?? []).map((point) => point.users))),
     [stats],
   );
 
@@ -85,7 +85,7 @@ const AdminDashboard = () => {
             </div>
           </div>
         </div>
-        {stats?.chartData.length ? (
+        {stats?.chartData && stats.chartData.length > 0 ? (
           <div className="h-72 flex items-end gap-md border-b border-outline-variant/30 px-md">
             {stats.chartData.map((point) => (
               <div key={point.name} className="flex-1 h-full flex flex-col justify-end items-center gap-sm">

@@ -70,12 +70,15 @@ const AdminMasterData = () => {
         skillLevelManagementApi.list(),
         techniqueManagementApi.list(),
       ]);
-      setInstruments(instrumentData);
-      setSkillLevels(skillData);
-      setTechniques(techniqueData);
+      const instList = Array.isArray(instrumentData) ? instrumentData : (instrumentData as any)?.content || [];
+      const skillList = Array.isArray(skillData) ? skillData : (skillData as any)?.content || [];
+      const techList = Array.isArray(techniqueData) ? techniqueData : (techniqueData as any)?.content || [];
+      setInstruments(instList);
+      setSkillLevels(skillList);
+      setTechniques(techList);
       setTechniqueForm((current) => ({
         ...current,
-        instrument_id: current.instrument_id || instrumentData[0]?.id || 0,
+        instrument_id: current.instrument_id || instList[0]?.id || 0,
       }));
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Không thể tải dữ liệu nền.');

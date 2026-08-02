@@ -75,12 +75,12 @@ const AdminReview = () => {
   const [loadError, setLoadError] = useState('');
   const { execute: requestReviews } = useAxiosRequest<ReviewItem[]>(async (signal) => {
     const reviewData = await reviewsApi.list({ signal });
-    if (reviewData.length > 0) return reviewData.map(normalizeReview);
+    if (Array.isArray(reviewData) && reviewData.length > 0) return reviewData.map(normalizeReview);
 
     // Some deployments expose pending lessons before the review projection is populated.
     const params = new URLSearchParams({ page: '1', size: '100' });
     const lessonData = await lessonsApi.list(params, { signal });
-    return lessonData.content.map(lessonToReview);
+    return (lessonData?.content ?? []).map(lessonToReview);
   }, { auto: false });
 
   const loadReviews = useCallback(async (signal?: AbortSignal) => {

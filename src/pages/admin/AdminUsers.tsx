@@ -59,6 +59,9 @@ const getAvatarStyle = (role: string) => {
 
 const mapExtendedUser = (user: ApiAdminUser): ExtendedAdminUser => ({
   ...user,
+  name: user.name || (user as any).fullName || 'Chưa cập nhật',
+  email: user.email || '',
+  role: user.role || 'Người học',
   id: String(user.id),
 });
 
@@ -107,7 +110,7 @@ const AdminUsers = () => {
   );
 
   const users = useMemo(
-    () => usersData.map(mapExtendedUser),
+    () => (Array.isArray(usersData) ? usersData : (usersData as any)?.content ?? []).map(mapExtendedUser),
     [usersData],
   );
 
