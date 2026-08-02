@@ -1,4 +1,4 @@
-﻿import { useState, useMemo, useEffect, type FormEvent } from 'react';
+import { useState, useMemo, useEffect, type FormEvent } from 'react';
 import {
   UserPlus,
   Lock,
@@ -17,6 +17,7 @@ import {
   Mail,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { createPortal } from 'react-dom';
 import { masterDataApi, usersApi } from '../../api/services';
 import type { AdminUser as ApiAdminUser, Instrument } from '../../api/types';
 import { useAxiosRequest } from '../../hooks/useAxiosRequest';
@@ -754,12 +755,14 @@ alert('Backend hiện chưa cung cấp endpoint cập nhật thông tin người
       )}
 
       {/* ── ADD USER DRAWER ─────────────────────────────────── */}
-      <AnimatePresence>
-        {isAddDrawerOpen && (
+      {createPortal(
+        <AnimatePresence>
+          {isAddDrawerOpen && (
           <>
             {/* Backdrop Blur Overlay */}
             <motion.div
-              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40"
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm"
+              style={{ zIndex: 999 }}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
@@ -768,7 +771,7 @@ alert('Backend hiện chưa cung cấp endpoint cập nhật thông tin người
 
             {/* Slide-in Drawer */}
             <motion.div
-              className="fixed top-0 right-0 h-full w-[100%] sm:w-[65%] md:w-[55%] lg:w-[45%] bg-[#fbf9f4] border-l border-outline-variant/15 shadow-2xl z-50 overflow-hidden flex flex-col"
+              className="fixed top-0 right-0 h-full w-[100%] sm:w-[65%] md:w-[55%] lg:w-[45%] bg-[#fbf9f4] border-l border-outline-variant/15 shadow-2xl z-[1000] overflow-hidden flex flex-col"
               initial={{ x: '100%' }}
               animate={{ x: 0 }}
               exit={{ x: '100%' }}
@@ -951,15 +954,18 @@ alert('Backend hiện chưa cung cấp endpoint cập nhật thông tin người
             </motion.div>
           </>
         )}
-      </AnimatePresence>
+        </AnimatePresence>,
+        document.body
+      )}
 
       {/* ── EDIT USER DRAWER ────────────────────────────────── */}
-      <AnimatePresence>
-        {isEditDrawerOpen && editingUser && (
+      {createPortal(
+        <AnimatePresence>
+          {isEditDrawerOpen && editingUser && (
           <>
             {/* Backdrop Blur Overlay */}
             <motion.div
-              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40"
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[999]"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
@@ -968,7 +974,7 @@ alert('Backend hiện chưa cung cấp endpoint cập nhật thông tin người
 
             {/* Slide-in Drawer */}
             <motion.div
-              className="fixed top-0 right-0 h-full w-[100%] sm:w-[65%] md:w-[55%] lg:w-[45%] bg-[#fbf9f4] border-l border-outline-variant/15 shadow-2xl z-50 overflow-hidden flex flex-col"
+              className="fixed top-0 right-0 h-full w-[100%] sm:w-[65%] md:w-[55%] lg:w-[45%] bg-[#fbf9f4] border-l border-outline-variant/15 shadow-2xl z-[1000] overflow-hidden flex flex-col"
               initial={{ x: '100%' }}
               animate={{ x: 0 }}
               exit={{ x: '100%' }}
@@ -1104,7 +1110,9 @@ alert('Backend hiện chưa cung cấp endpoint cập nhật thông tin người
             </motion.div>
           </>
         )}
-      </AnimatePresence>
+      </AnimatePresence>,
+      document.body
+      )}
 
       {/* ── CONFIRMATION MODALS ──────────────────────────────── */}
       {confirmModalData && (

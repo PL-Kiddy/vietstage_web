@@ -1,6 +1,17 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import { Edit2, ListFilter, Plus, RefreshCw, Trash2, X, Check } from 'lucide-react';
+import {
+  Edit2,
+  ListFilter,
+  Plus,
+  Trash2,
+  X,
+  Check,
+  MoreVertical,
+  ChevronLeft,
+  ChevronRight,
+} from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { createPortal } from 'react-dom';
 import {
   instrumentManagementApi,
   skillLevelManagementApi,
@@ -40,6 +51,13 @@ const AdminMasterData = () => {
   const [techniqueEditingId, setTechniqueEditingId] = useState<number | null>(null);
   const [techniqueInstrumentFilter, setTechniqueInstrumentFilter] = useState(0);
 
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [perPage, setPerPage] = useState(10);
+
+  // Action Menu state
+  const [openActionMenu, setOpenActionMenu] = useState<{ type: Tab; id: number } | null>(null);
+
   // Drawer states
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
@@ -69,6 +87,12 @@ const AdminMasterData = () => {
   useEffect(() => {
     void loadAll();
   }, [loadAll]);
+
+  // Reset page when tab changes
+  useEffect(() => {
+    setCurrentPage(1);
+    setOpenActionMenu(null);
+  }, [tab]);
 
   // Open Drawer helpers
   const handleAddNewClick = () => {
@@ -241,6 +265,7 @@ const AdminMasterData = () => {
           ? await instrumentManagementApi.techniques(instrumentId)
           : await techniqueManagementApi.list(),
       );
+      setCurrentPage(1);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Không thể lọc kỹ thuật.');
     }
@@ -252,11 +277,21 @@ const AdminMasterData = () => {
     return 'kỹ thuật';
   };
 
-  // Reusable classes using Theme Forest Green (#1D4532) and light green (#EDF7F2)
+  // Reusable classes
   const fieldClass =
     'w-full bg-[#fbf9f4] border border-outline-variant/30 rounded-xl p-md text-body-md focus:border-[#1D4532] focus:ring-1 focus:ring-[#1D4532] transition-all outline-none text-on-surface';
   const labelClass = 'font-label-sm text-on-surface-variant font-semibold uppercase tracking-wider text-xs';
-  const actionClass = 'p-2 rounded-lg border border-outline-variant/30 hover:bg-[#EDF7F2] transition-colors';
+
+  // Get active dataset for pagination calculations
+  const getActiveData = (): any[] => {
+    if (tab === 'instruments') return instruments;
+    if (tab === 'skill-levels') return skillLevels;
+    return techniques;
+  };
+
+  const activeData = getActiveData();
+  const totalPages = Math.max(1, Math.ceil(activeData.length / perPage));
+  const pagedItems = activeData.slice((currentPage - 1) * perPage, currentPage * perPage);
 
   return (
     <div className="max-w-[1300px] mx-auto space-y-lg">
@@ -267,12 +302,6 @@ const AdminMasterData = () => {
           <p className="text-on-surface-variant">Quản lý nhạc cụ, trình độ và kỹ thuật biểu diễn.</p>
         </div>
         <div className="flex items-center gap-md w-full xl:w-auto">
-          <button
-            onClick={() => void loadAll()}
-            className="flex items-center gap-xs border border-[#1D4532] text-[#1D4532] px-lg py-sm rounded-lg hover:bg-[#EDF7F2] transition-colors font-medium text-sm"
-          >
-            <RefreshCw className="w-4 h-4" /> Làm mới
-          </button>
           <button
             onClick={handleAddNewClick}
             className="bg-[#1D4532] text-white px-lg py-sm rounded-lg font-medium text-sm hover:bg-[#1D4532]/95 transition-all flex items-center gap-xs shadow-md"
@@ -307,9 +336,9 @@ const AdminMasterData = () => {
       {loading ? (
         <div className="p-xl text-center">Đang tải dữ liệu...</div>
       ) : (
-        <div className="w-full">
+        <div className="space-y-lg">
           {tab === 'instruments' && (
-            <div className="bg-white rounded-xl border border-outline-variant/20 overflow-x-auto shadow-sm">
+            <div className="bg-white rounded-xl border border-outline-variant/20 overflow-visible shadow-sm">
               <table className="w-full text-left">
                 <thead className="bg-[#EDF7F2]">
                   <tr>
@@ -320,35 +349,61 @@ const AdminMasterData = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-outline-variant/10">
-                  {instruments.map((item) => (
+                  {pagedItems.map((item: Instrument) => (
                     <tr key={item.id} className="hover:bg-[#EDF7F2]/30 transition-colors">
                       <td className="p-md text-sm">{item.instrumentCode}</td>
                       <td className="p-md font-semibold text-[#1D4532] text-sm">{item.name}</td>
                       <td className="p-md text-sm max-w-md truncate">{item.description || '—'}</td>
-                      <td className="p-md">
-                        <div className="flex justify-end gap-xs">
-                          <button
-                            title="Xem kỹ thuật"
-                            onClick={() => void showInstrumentTechniques(item.id)}
-                            className={actionClass}
-                          >
-                            <ListFilter className="w-4 h-4" />
-                          </button>
-                          <button
-                            title="Sửa"
-                            onClick={() => void editInstrument(item.id)}
-                            className={actionClass}
-                          >
-                            <Edit2 className="w-4 h-4" />
-                          </button>
-                          <button
-                            title="Xóa"
-                            onClick={() => void deleteInstrument(item.id)}
-                            className={actionClass}
-                          >
-                            <Trash2 className="w-4 h-4 text-red-600" />
-                          </button>
-                        </div>
+                      <td className="p-md text-right relative" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          onClick={() =>
+                            setOpenActionMenu(
+                              openActionMenu?.type === 'instruments' && openActionMenu?.id === item.id
+                                ? null
+                                : { type: 'instruments', id: item.id }
+                            )
+                          }
+                          className="p-2 hover:bg-[#EDF7F2] rounded-full transition-colors text-on-surface-variant hover:text-on-surface"
+                        >
+                          <MoreVertical className="w-5 h-5" />
+                        </button>
+                        {openActionMenu?.type === 'instruments' && openActionMenu?.id === item.id && (
+                          <>
+                            <div className="fixed inset-0 z-10" onClick={() => setOpenActionMenu(null)} />
+                            <div className="absolute right-4 mt-1 w-48 bg-white border border-[#d1e4fb] rounded-xl shadow-lg py-1 z-20 text-left">
+                              <button
+                                onClick={() => {
+                                  setOpenActionMenu(null);
+                                  void showInstrumentTechniques(item.id);
+                                }}
+                                className="w-full flex items-center gap-xs px-4 py-2 hover:bg-[#EDF7F2] text-[13px] text-on-surface transition-colors"
+                              >
+                                <ListFilter className="w-4 h-4 text-[#1D4532] mr-2" />
+                                Xem kỹ thuật
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setOpenActionMenu(null);
+                                  void editInstrument(item.id);
+                                }}
+                                className="w-full flex items-center gap-xs px-4 py-2 hover:bg-[#EDF7F2] text-[13px] text-on-surface transition-colors"
+                              >
+                                <Edit2 className="w-4 h-4 text-[#1D4532] mr-2" />
+                                Sửa nhạc cụ
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setOpenActionMenu(null);
+                                  void deleteInstrument(item.id);
+                                }}
+                                className="w-full flex items-center gap-xs px-4 py-2 hover:bg-red-50 text-[13px] text-red-700 transition-colors border-t border-[#d1e4fb]/40"
+                              >
+                                <Trash2 className="w-4 h-4 text-red-600 mr-2" />
+                                Xóa nhạc cụ
+                              </button>
+                            </div>
+                          </>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -358,7 +413,7 @@ const AdminMasterData = () => {
           )}
 
           {tab === 'skill-levels' && (
-            <div className="bg-white rounded-xl border border-outline-variant/20 overflow-x-auto shadow-sm">
+            <div className="bg-white rounded-xl border border-outline-variant/20 overflow-visible shadow-sm">
               <table className="w-full text-left">
                 <thead className="bg-[#EDF7F2]">
                   <tr>
@@ -369,28 +424,51 @@ const AdminMasterData = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-outline-variant/10">
-                  {skillLevels.map((item) => (
+                  {pagedItems.map((item: SkillLevel) => (
                     <tr key={item.id} className="hover:bg-[#EDF7F2]/30 transition-colors">
                       <td className="p-md text-sm">{item.orderIndex}</td>
                       <td className="p-md text-sm">{item.levelCode}</td>
                       <td className="p-md font-semibold text-[#1D4532] text-sm">{item.levelName}</td>
-                      <td className="p-md">
-                        <div className="flex justify-end gap-xs">
-                          <button
-                            title="Sửa"
-                            onClick={() => void editSkillLevel(item.id)}
-                            className={actionClass}
-                          >
-                            <Edit2 className="w-4 h-4" />
-                          </button>
-                          <button
-                            title="Xóa"
-                            onClick={() => void deleteSkillLevel(item.id)}
-                            className={actionClass}
-                          >
-                            <Trash2 className="w-4 h-4 text-red-600" />
-                          </button>
-                        </div>
+                      <td className="p-md text-right relative" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          onClick={() =>
+                            setOpenActionMenu(
+                              openActionMenu?.type === 'skill-levels' && openActionMenu?.id === item.id
+                                ? null
+                                : { type: 'skill-levels', id: item.id }
+                            )
+                          }
+                          className="p-2 hover:bg-[#EDF7F2] rounded-full transition-colors text-on-surface-variant hover:text-on-surface"
+                        >
+                          <MoreVertical className="w-5 h-5" />
+                        </button>
+                        {openActionMenu?.type === 'skill-levels' && openActionMenu?.id === item.id && (
+                          <>
+                            <div className="fixed inset-0 z-10" onClick={() => setOpenActionMenu(null)} />
+                            <div className="absolute right-4 mt-1 w-48 bg-white border border-[#d1e4fb] rounded-xl shadow-lg py-1 z-20 text-left">
+                              <button
+                                onClick={() => {
+                                  setOpenActionMenu(null);
+                                  void editSkillLevel(item.id);
+                                }}
+                                className="w-full flex items-center gap-xs px-4 py-2 hover:bg-[#EDF7F2] text-[13px] text-on-surface transition-colors"
+                              >
+                                <Edit2 className="w-4 h-4 text-[#1D4532] mr-2" />
+                                Sửa trình độ
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setOpenActionMenu(null);
+                                  void deleteSkillLevel(item.id);
+                                }}
+                                className="w-full flex items-center gap-xs px-4 py-2 hover:bg-red-50 text-[13px] text-red-700 transition-colors border-t border-[#d1e4fb]/40"
+                              >
+                                <Trash2 className="w-4 h-4 text-red-600 mr-2" />
+                                Xóa trình độ
+                              </button>
+                            </div>
+                          </>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -416,7 +494,7 @@ const AdminMasterData = () => {
                   ))}
                 </select>
               </div>
-              <div className="bg-white rounded-xl border border-outline-variant/20 overflow-x-auto shadow-sm">
+              <div className="bg-white rounded-xl border border-outline-variant/20 overflow-visible shadow-sm">
                 <table className="w-full text-left">
                   <thead className="bg-[#EDF7F2]">
                     <tr>
@@ -427,7 +505,7 @@ const AdminMasterData = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-outline-variant/10">
-                    {techniques.map((item) => (
+                    {pagedItems.map((item: Technique) => (
                       <tr key={item.id} className="hover:bg-[#EDF7F2]/30 transition-colors">
                         <td className="p-md font-semibold text-[#1D4532] text-sm">{item.name}</td>
                         <td className="p-md text-sm">
@@ -448,23 +526,46 @@ const AdminMasterData = () => {
                             '—'
                           )}
                         </td>
-                        <td className="p-md">
-                          <div className="flex justify-end gap-xs">
-                            <button
-                              title="Sửa"
-                              onClick={() => void editTechnique(item.id)}
-                              className={actionClass}
-                            >
-                              <Edit2 className="w-4 h-4" />
-                            </button>
-                            <button
-                              title="Xóa"
-                              onClick={() => void deleteTechnique(item.id)}
-                              className={actionClass}
-                            >
-                              <Trash2 className="w-4 h-4 text-red-600" />
-                            </button>
-                          </div>
+                        <td className="p-md text-right relative" onClick={(e) => e.stopPropagation()}>
+                          <button
+                            onClick={() =>
+                              setOpenActionMenu(
+                                openActionMenu?.type === 'techniques' && openActionMenu?.id === item.id
+                                  ? null
+                                  : { type: 'techniques', id: item.id }
+                              )
+                            }
+                            className="p-2 hover:bg-[#EDF7F2] rounded-full transition-colors text-on-surface-variant hover:text-on-surface"
+                          >
+                            <MoreVertical className="w-5 h-5" />
+                          </button>
+                          {openActionMenu?.type === 'techniques' && openActionMenu?.id === item.id && (
+                            <>
+                              <div className="fixed inset-0 z-10" onClick={() => setOpenActionMenu(null)} />
+                              <div className="absolute right-4 mt-1 w-48 bg-white border border-[#d1e4fb] rounded-xl shadow-lg py-1 z-20 text-left">
+                                <button
+                                  onClick={() => {
+                                    setOpenActionMenu(null);
+                                    void editTechnique(item.id);
+                                  }}
+                                  className="w-full flex items-center gap-xs px-4 py-2 hover:bg-[#EDF7F2] text-[13px] text-on-surface transition-colors"
+                                >
+                                  <Edit2 className="w-4 h-4 text-[#1D4532] mr-2" />
+                                  Sửa kỹ thuật
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setOpenActionMenu(null);
+                                    void deleteTechnique(item.id);
+                                  }}
+                                  className="w-full flex items-center gap-xs px-4 py-2 hover:bg-red-50 text-[13px] text-red-700 transition-colors border-t border-[#d1e4fb]/40"
+                                >
+                                  <Trash2 className="w-4 h-4 text-red-600 mr-2" />
+                                  Xóa kỹ thuật
+                                </button>
+                              </div>
+                            </>
+                          )}
                         </td>
                       </tr>
                     ))}
@@ -473,16 +574,76 @@ const AdminMasterData = () => {
               </div>
             </div>
           )}
+
+          {/* ── Pagination ───────────────────────────────────────── */}
+          <div className="mt-lg flex flex-col sm:flex-row justify-between items-center gap-md text-[12px] text-[#5e5e5b]">
+            <div className="flex items-center gap-lg">
+              <p>
+                Hiển thị {activeData.length === 0 ? 0 : (currentPage - 1) * perPage + 1} -{' '}
+                {Math.min(currentPage * perPage, activeData.length)} trong tổng số{' '}
+                {activeData.length} {getTabLabel()}
+              </p>
+
+              <div className="flex items-center gap-xs">
+                <span>Số dòng mỗi trang:</span>
+                <select
+                  value={perPage}
+                  onChange={(e) => {
+                    setPerPage(Number(e.target.value));
+                    setCurrentPage(1);
+                  }}
+                  className="bg-white border border-outline-variant rounded px-2 py-1 text-label-md cursor-pointer outline-none"
+                >
+                  <option value={5}>5 dòng</option>
+                  <option value={10}>10 dòng</option>
+                  <option value={20}>20 dòng</option>
+                  <option value={50}>50 dòng</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex gap-xs">
+              <button
+                disabled={currentPage <= 1}
+                onClick={() => setCurrentPage((p) => p - 1)}
+                className="p-2 border border-outline-variant rounded hover:bg-[#EDF7F2] transition-colors disabled:opacity-40"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+                <button
+                  key={p}
+                  onClick={() => setCurrentPage(p)}
+                  className={`px-3 py-1 rounded font-bold transition-colors ${
+                    p === currentPage
+                      ? 'bg-[#1D4532] text-white'
+                      : 'border border-outline-variant hover:bg-[#EDF7F2]'
+                  }`}
+                >
+                  {p}
+                </button>
+              ))}
+              <button
+                disabled={currentPage >= totalPages}
+                onClick={() => setCurrentPage((p) => p + 1)}
+                className="p-2 border border-outline-variant rounded hover:bg-[#EDF7F2] transition-colors disabled:opacity-40"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
       {/* ── DRAWERS ────────────────────────────────────────── */}
-      <AnimatePresence>
-        {isDrawerOpen && (
+      {createPortal(
+        <AnimatePresence>
+          {isDrawerOpen && (
           <>
             {/* Backdrop Blur Overlay */}
             <motion.div
-              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40"
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm"
+              style={{ zIndex: 999 }}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
@@ -491,7 +652,8 @@ const AdminMasterData = () => {
 
             {/* Slide-in Drawer */}
             <motion.div
-              className="fixed top-0 right-0 h-full w-[100%] sm:w-[60%] md:w-[50%] lg:w-[40%] bg-[#fbf9f4] border-l border-outline-variant/15 shadow-2xl z-50 overflow-hidden flex flex-col"
+              className="fixed top-0 right-0 h-full w-[100%] sm:w-[60%] md:w-[50%] lg:w-[40%] bg-[#fbf9f4] border-l border-outline-variant/15 shadow-2xl overflow-hidden flex flex-col"
+              style={{ zIndex: 1000 }}
               initial={{ x: '100%' }}
               animate={{ x: 0 }}
               exit={{ x: '100%' }}
@@ -699,7 +861,9 @@ const AdminMasterData = () => {
             </motion.div>
           </>
         )}
-      </AnimatePresence>
+        </AnimatePresence>,
+        document.body
+      )}
     </div>
   );
 };
