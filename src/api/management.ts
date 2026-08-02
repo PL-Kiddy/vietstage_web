@@ -90,15 +90,38 @@ export interface Notification {
   id: number;
   title: string;
   message: string;
-  read: boolean;
+  type?: string;
+  read: boolean;       // mapped from is_read
+  is_read?: boolean;   // raw field from API
   createdAt: string;
+  created_at?: string; // raw field from API
 }
+
+// Internal helper to normalize API notification object
+const normalizeNotification = (n: any): Notification => ({
+  id: n.id,
+  title: n.title || '',
+  message: n.message || '',
+  type: n.type,
+  read: n.is_read ?? n.read ?? false,
+  is_read: n.is_read,
+  createdAt: n.created_at || n.createdAt || '',
+  created_at: n.created_at,
+});
 
 // Notification API
 export const notificationApi = {
-  // Lấy danh sách thông báo, có thể filter bằng isRead, page, size
-  list: (options?: RequestOptions) =>
-    apiRequest<Notification[]>('/api/notifications', options),
+  // Lấy danh sách thông báo — backend trả về { data: [...], page, size, total, unread_count }
+  list: async (options?: RequestOptions): Promise<Notification[]> => {
+    const raw = await apiRequest<any>('/api/notifications', options);
+    // Handle both direct array and nested { data: [...] } envelope
+    const arr: any[] = Array.isArray(raw)
+      ? raw
+      : Array.isArray(raw?.data)
+      ? raw.data
+      : [];
+    return arr.map(normalizeNotification);
+  },
   // Đánh dấu một thông báo đã đọc
   markAsRead: (id: number) =>
     apiRequest<void>(`/api/notifications/${id}`, { method: 'PUT' }),

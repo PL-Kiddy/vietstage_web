@@ -48,7 +48,7 @@ const AdminTopbar = ({ userName, userRole }: AdminTopbarProps) => {
       setLoading(true);
       try {
         const data = await notificationApi.list();
-        setNotifications(Array.isArray(data) ? data : []);
+        setNotifications(data);
       } catch {
         setNotifications([]);
       } finally {
