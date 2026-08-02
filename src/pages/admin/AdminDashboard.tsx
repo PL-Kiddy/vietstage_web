@@ -1,14 +1,9 @@
 import { useMemo, useState } from 'react';
-import { BookOpenCheck, GraduationCap, RefreshCw, Users, WalletCards } from 'lucide-react';
+import { BookOpenCheck, GraduationCap, Users } from 'lucide-react';
 import { dashboardApi, type DashboardStats } from '../../api/management';
 import { useAxiosRequest } from '../../hooks/useAxiosRequest';
 
 const numberFormat = new Intl.NumberFormat('vi-VN');
-const moneyFormat = new Intl.NumberFormat('vi-VN', {
-  style: 'currency',
-  currency: 'VND',
-  maximumFractionDigits: 0,
-});
 
 const AdminDashboard = () => {
   const [startDate, setStartDate] = useState('2026-01-01');
@@ -18,7 +13,6 @@ const AdminDashboard = () => {
     data: stats,
     error,
     loading,
-    execute: reloadDashboard,
   } = useAxiosRequest<DashboardStats>((signal) => dashboardApi.get({ signal }));
 
   const maxUsers = useMemo(

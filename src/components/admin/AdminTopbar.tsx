@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Bell, CheckCheck, X, User, LogOut } from 'lucide-react';
+import { Bell, CheckCheck, X, User, LogOut } from 'lucide-react';
 import { authApi } from '../../api/services';
 import { clearAuthSession, getAuthSession } from '../../api/authStorage';
 import { notificationApi, profileApi, type Notification, type UserProfile } from '../../api/management';

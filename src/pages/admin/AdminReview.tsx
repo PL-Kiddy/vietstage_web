@@ -9,7 +9,6 @@ import {
   ZoomIn,
   ChevronLeft,
   ChevronRight,
-  RotateCcw,
   AlertTriangle,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';

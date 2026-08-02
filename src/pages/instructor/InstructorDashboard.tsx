@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useCallback } from 'react';
 import {
   Users,
   BookOpen,
@@ -12,7 +12,6 @@ import {
   reviewsApi,
   instructorDashboardApi,
 } from '../../api/services';
-import type { Lesson, ReviewItem } from '../../api/types';
 
 const InstructorDashboard = () => {
   // 1. Fetch dashboard stats from backend
