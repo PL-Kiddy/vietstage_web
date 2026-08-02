@@ -165,6 +165,7 @@ const AdminMasterData = () => {
       setTechniques(await instrumentManagementApi.techniques(id));
       setTechniqueInstrumentFilter(id);
       setTab('techniques');
+    setCurrentPage(1);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Không thể tải kỹ thuật của nhạc cụ.');
     }
@@ -323,7 +324,10 @@ const AdminMasterData = () => {
         ] as const).map(([value, label]) => (
           <button
             key={value}
-            onClick={() => setTab(value)}
+            onClick={() => {
+              setTab(value);
+              setCurrentPage(1);
+            }}
             className={`px-lg py-md font-semibold border-b-2 transition-all ${
               tab === value ? 'border-[#1D4532] text-[#1D4532]' : 'border-transparent text-on-surface-variant hover:text-[#1D4532]'
             }`}

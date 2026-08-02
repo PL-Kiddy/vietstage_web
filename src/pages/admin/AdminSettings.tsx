@@ -149,8 +149,8 @@ const AdminSettings = () => {
 
   return (
     <div className="max-w-container-max mx-auto w-full relative">
-      {/* Page Header (Sticky to keep save button visible) */}
-      <div className="sticky top-16 z-30 bg-[#f7f9ff] py-md flex justify-between items-end border-b border-[#d1e4fb] mb-lg">
+      {/* Page Header */}
+      <div className="flex justify-between items-end border-b border-outline-variant/20 pb-md mb-lg">
         <div>
           <span className="text-[#1D4532] font-label-md text-label-md uppercase tracking-widest text-sm">
             System Configuration
