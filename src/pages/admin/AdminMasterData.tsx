@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import { Edit2, ListFilter, Plus, RefreshCw, Trash2 } from 'lucide-react';
+import { Edit2, ListFilter, Plus, RefreshCw, Trash2, X, Check } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   instrumentManagementApi,
   skillLevelManagementApi,
@@ -30,6 +31,7 @@ const AdminMasterData = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  // Form states
   const [instrumentForm, setInstrumentForm] = useState<InstrumentInput>(emptyInstrument);
   const [instrumentEditingId, setInstrumentEditingId] = useState<number | null>(null);
   const [skillForm, setSkillForm] = useState<SkillLevelInput>(emptySkillLevel);
@@ -37,6 +39,9 @@ const AdminMasterData = () => {
   const [techniqueForm, setTechniqueForm] = useState<TechniqueInput>(emptyTechnique);
   const [techniqueEditingId, setTechniqueEditingId] = useState<number | null>(null);
   const [techniqueInstrumentFilter, setTechniqueInstrumentFilter] = useState(0);
+
+  // Drawer states
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
   const loadAll = useCallback(async () => {
     setLoading(true);
@@ -62,26 +67,32 @@ const AdminMasterData = () => {
   }, []);
 
   useEffect(() => {
-    void Promise.all([
-      instrumentManagementApi.list(),
-      skillLevelManagementApi.list(),
-      techniqueManagementApi.list(),
-    ])
-      .then(([instrumentData, skillData, techniqueData]) => {
-        setInstruments(instrumentData);
-        setSkillLevels(skillData);
-        setTechniques(techniqueData);
-        setTechniqueForm((current) => ({
-          ...current,
-          instrument_id: current.instrument_id || instrumentData[0]?.id || 0,
-        }));
-      })
-      .catch((reason: unknown) => {
-        setError(reason instanceof Error ? reason.message : 'Không thể tải dữ liệu nền.');
-      })
-      .finally(() => setLoading(false));
-  }, []);
+    void loadAll();
+  }, [loadAll]);
 
+  // Open Drawer helpers
+  const handleAddNewClick = () => {
+    if (tab === 'instruments') {
+      setInstrumentForm(emptyInstrument);
+      setInstrumentEditingId(null);
+    } else if (tab === 'skill-levels') {
+      setSkillForm(emptySkillLevel);
+      setSkillEditingId(null);
+    } else if (tab === 'techniques') {
+      setTechniqueForm({
+        ...emptyTechnique,
+        instrument_id: instruments[0]?.id || 0,
+      });
+      setTechniqueEditingId(null);
+    }
+    setIsDrawerOpen(true);
+  };
+
+  const handleCloseDrawer = () => {
+    setIsDrawerOpen(false);
+  };
+
+  // Submit / Edit / Delete Instrument
   const submitInstrument = async (event: FormEvent) => {
     event.preventDefault();
     try {
@@ -90,6 +101,7 @@ const AdminMasterData = () => {
       } else {
         await instrumentManagementApi.create(instrumentForm);
       }
+      setIsDrawerOpen(false);
       setInstrumentEditingId(null);
       setInstrumentForm(emptyInstrument);
       await loadAll();
@@ -107,6 +119,7 @@ const AdminMasterData = () => {
         description: item.description ?? '',
         iconUrl: item.iconUrl ?? '',
       });
+      setIsDrawerOpen(true);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Không thể tải nhạc cụ.');
     }
@@ -122,6 +135,7 @@ const AdminMasterData = () => {
     }
   };
 
+  // Show Technique of Instrument
   const showInstrumentTechniques = async (id: number) => {
     try {
       setTechniques(await instrumentManagementApi.techniques(id));
@@ -132,6 +146,7 @@ const AdminMasterData = () => {
     }
   };
 
+  // Submit / Edit / Delete Skill Level
   const submitSkillLevel = async (event: FormEvent) => {
     event.preventDefault();
     try {
@@ -140,6 +155,7 @@ const AdminMasterData = () => {
       } else {
         await skillLevelManagementApi.create(skillForm);
       }
+      setIsDrawerOpen(false);
       setSkillEditingId(null);
       setSkillForm(emptySkillLevel);
       await loadAll();
@@ -153,6 +169,7 @@ const AdminMasterData = () => {
       const item = await skillLevelManagementApi.get(id);
       setSkillEditingId(id);
       setSkillForm(item);
+      setIsDrawerOpen(true);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Không thể tải trình độ.');
     }
@@ -168,6 +185,7 @@ const AdminMasterData = () => {
     }
   };
 
+  // Submit / Edit / Delete Technique
   const submitTechnique = async (event: FormEvent) => {
     event.preventDefault();
     try {
@@ -180,6 +198,7 @@ const AdminMasterData = () => {
       } else {
         await techniqueManagementApi.create(techniqueForm);
       }
+      setIsDrawerOpen(false);
       setTechniqueEditingId(null);
       setTechniqueForm({ ...emptyTechnique, instrument_id: instruments[0]?.id ?? 0 });
       await loadAll();
@@ -198,6 +217,7 @@ const AdminMasterData = () => {
         guide_url: item.guide_url ?? '',
         instrument_id: item.instrument_id,
       });
+      setIsDrawerOpen(true);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Không thể tải kỹ thuật.');
     }
@@ -226,24 +246,45 @@ const AdminMasterData = () => {
     }
   };
 
+  const getTabLabel = () => {
+    if (tab === 'instruments') return 'nhạc cụ';
+    if (tab === 'skill-levels') return 'trình độ';
+    return 'kỹ thuật';
+  };
+
+  // Reusable classes using Theme Forest Green (#1D4532) and light green (#EDF7F2)
   const fieldClass =
-    'w-full rounded-lg border border-outline-variant/30 bg-white px-md py-sm outline-none focus:border-primary';
-  const actionClass = 'p-2 rounded-lg border border-outline-variant/30 hover:bg-[#edf4ff]';
+    'w-full bg-[#fbf9f4] border border-outline-variant/30 rounded-xl p-md text-body-md focus:border-[#1D4532] focus:ring-1 focus:ring-[#1D4532] transition-all outline-none text-on-surface';
+  const labelClass = 'font-label-sm text-on-surface-variant font-semibold uppercase tracking-wider text-xs';
+  const actionClass = 'p-2 rounded-lg border border-outline-variant/30 hover:bg-[#EDF7F2] transition-colors';
 
   return (
     <div className="max-w-[1300px] mx-auto space-y-lg">
-      <div className="flex flex-wrap items-center justify-between gap-md">
+      {/* Page Header */}
+      <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-lg">
         <div>
-          <h2 className="text-headline-lg font-bold text-primary">Dữ liệu nền</h2>
+          <h2 className="text-headline-lg font-bold text-[#1D4532]">Dữ liệu nền</h2>
           <p className="text-on-surface-variant">Quản lý nhạc cụ, trình độ và kỹ thuật biểu diễn.</p>
         </div>
-        <button onClick={() => void loadAll()} className="flex items-center gap-sm border border-primary text-primary px-md py-sm rounded-lg">
-          <RefreshCw className="w-4 h-4" /> Làm mới
-        </button>
+        <div className="flex items-center gap-md w-full xl:w-auto">
+          <button
+            onClick={() => void loadAll()}
+            className="flex items-center gap-xs border border-[#1D4532] text-[#1D4532] px-lg py-sm rounded-lg hover:bg-[#EDF7F2] transition-colors font-medium text-sm"
+          >
+            <RefreshCw className="w-4 h-4" /> Làm mới
+          </button>
+          <button
+            onClick={handleAddNewClick}
+            className="bg-[#1D4532] text-white px-lg py-sm rounded-lg font-medium text-sm hover:bg-[#1D4532]/95 transition-all flex items-center gap-xs shadow-md"
+          >
+            <Plus className="w-4 h-4" /> Thêm {getTabLabel()}
+          </button>
+        </div>
       </div>
 
-      {error && <div className="rounded-lg bg-error-container text-on-error-container p-md">{error}</div>}
+      {error && <div className="rounded-lg bg-red-50 border border-red-200 text-red-700 p-md">{error}</div>}
 
+      {/* Tabs list */}
       <div className="flex gap-sm border-b border-outline-variant/20">
         {([
           ['instruments', 'Nhạc cụ'],
@@ -253,110 +294,412 @@ const AdminMasterData = () => {
           <button
             key={value}
             onClick={() => setTab(value)}
-            className={`px-lg py-md font-semibold border-b-2 ${tab === value ? 'border-primary text-primary' : 'border-transparent text-on-surface-variant'}`}
+            className={`px-lg py-md font-semibold border-b-2 transition-all ${
+              tab === value ? 'border-[#1D4532] text-[#1D4532]' : 'border-transparent text-on-surface-variant hover:text-[#1D4532]'
+            }`}
           >
             {label}
           </button>
         ))}
       </div>
 
+      {/* Main Tables Grid */}
       {loading ? (
         <div className="p-xl text-center">Đang tải dữ liệu...</div>
       ) : (
-        <div className="grid grid-cols-1 xl:grid-cols-[360px_1fr] gap-lg">
+        <div className="w-full">
           {tab === 'instruments' && (
-            <>
-              <form onSubmit={submitInstrument} className="bg-white rounded-xl border border-outline-variant/20 p-lg space-y-md h-fit">
-                <h3 className="font-bold text-lg">{instrumentEditingId ? 'Sửa nhạc cụ' : 'Thêm nhạc cụ'}</h3>
-                <input required placeholder="Tên nhạc cụ" value={instrumentForm.name} onChange={(event) => setInstrumentForm({ ...instrumentForm, name: event.target.value })} className={fieldClass} />
-                <textarea placeholder="Mô tả" value={instrumentForm.description} onChange={(event) => setInstrumentForm({ ...instrumentForm, description: event.target.value })} className={fieldClass} />
-                <input placeholder="URL biểu tượng" value={instrumentForm.iconUrl} onChange={(event) => setInstrumentForm({ ...instrumentForm, iconUrl: event.target.value })} className={fieldClass} />
-                <button className="w-full bg-primary text-on-primary rounded-lg py-sm font-semibold"><Plus className="w-4 h-4 inline mr-2" />{instrumentEditingId ? 'Cập nhật' : 'Thêm mới'}</button>
-              </form>
-              <div className="bg-white rounded-xl border border-outline-variant/20 overflow-x-auto">
-                <table className="w-full text-left">
-                  <thead className="bg-[#edf4ff]"><tr><th className="p-md">Mã</th><th className="p-md">Tên</th><th className="p-md">Mô tả</th><th className="p-md text-right">Thao tác</th></tr></thead>
-                  <tbody>{instruments.map((item) => (
-                    <tr key={item.id} className="border-t border-outline-variant/10">
-                      <td className="p-md">{item.instrumentCode}</td><td className="p-md font-semibold">{item.name}</td><td className="p-md">{item.description || '—'}</td>
-                      <td className="p-md"><div className="flex justify-end gap-xs">
-                        <button title="Xem kỹ thuật" onClick={() => void showInstrumentTechniques(item.id)} className={actionClass}><ListFilter className="w-4 h-4" /></button>
-                        <button title="Sửa" onClick={() => void editInstrument(item.id)} className={actionClass}><Edit2 className="w-4 h-4" /></button>
-                        <button title="Xóa" onClick={() => void deleteInstrument(item.id)} className={actionClass}><Trash2 className="w-4 h-4 text-error" /></button>
-                      </div></td>
+            <div className="bg-white rounded-xl border border-outline-variant/20 overflow-x-auto shadow-sm">
+              <table className="w-full text-left">
+                <thead className="bg-[#EDF7F2]">
+                  <tr>
+                    <th className="p-md font-semibold text-[#1D4532]">Mã nhạc cụ</th>
+                    <th className="p-md font-semibold text-[#1D4532]">Tên nhạc cụ</th>
+                    <th className="p-md font-semibold text-[#1D4532]">Mô tả</th>
+                    <th className="p-md font-semibold text-[#1D4532] text-right">Thao tác</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-outline-variant/10">
+                  {instruments.map((item) => (
+                    <tr key={item.id} className="hover:bg-[#EDF7F2]/30 transition-colors">
+                      <td className="p-md text-sm">{item.instrumentCode}</td>
+                      <td className="p-md font-semibold text-[#1D4532] text-sm">{item.name}</td>
+                      <td className="p-md text-sm max-w-md truncate">{item.description || '—'}</td>
+                      <td className="p-md">
+                        <div className="flex justify-end gap-xs">
+                          <button
+                            title="Xem kỹ thuật"
+                            onClick={() => void showInstrumentTechniques(item.id)}
+                            className={actionClass}
+                          >
+                            <ListFilter className="w-4 h-4" />
+                          </button>
+                          <button
+                            title="Sửa"
+                            onClick={() => void editInstrument(item.id)}
+                            className={actionClass}
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                          <button
+                            title="Xóa"
+                            onClick={() => void deleteInstrument(item.id)}
+                            className={actionClass}
+                          >
+                            <Trash2 className="w-4 h-4 text-red-600" />
+                          </button>
+                        </div>
+                      </td>
                     </tr>
-                  ))}</tbody>
-                </table>
-              </div>
-            </>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
 
           {tab === 'skill-levels' && (
-            <>
-              <form onSubmit={submitSkillLevel} className="bg-white rounded-xl border border-outline-variant/20 p-lg space-y-md h-fit">
-                <h3 className="font-bold text-lg">{skillEditingId ? 'Sửa trình độ' : 'Thêm trình độ'}</h3>
-                <input required placeholder="Mã trình độ" value={skillForm.levelCode} onChange={(event) => setSkillForm({ ...skillForm, levelCode: event.target.value })} className={fieldClass} />
-                <input required placeholder="Tên trình độ" value={skillForm.levelName} onChange={(event) => setSkillForm({ ...skillForm, levelName: event.target.value })} className={fieldClass} />
-                <input required type="number" min="1" value={skillForm.orderIndex} onChange={(event) => setSkillForm({ ...skillForm, orderIndex: Number(event.target.value) })} className={fieldClass} />
-                <button className="w-full bg-primary text-on-primary rounded-lg py-sm font-semibold">{skillEditingId ? 'Cập nhật' : 'Thêm mới'}</button>
-              </form>
-              <div className="bg-white rounded-xl border border-outline-variant/20 overflow-x-auto">
-                <table className="w-full text-left">
-                  <thead className="bg-[#edf4ff]"><tr><th className="p-md">Thứ tự</th><th className="p-md">Mã</th><th className="p-md">Tên</th><th className="p-md text-right">Thao tác</th></tr></thead>
-                  <tbody>{skillLevels.map((item) => (
-                    <tr key={item.id} className="border-t border-outline-variant/10">
-                      <td className="p-md">{item.orderIndex}</td><td className="p-md">{item.levelCode}</td><td className="p-md font-semibold">{item.levelName}</td>
-                      <td className="p-md"><div className="flex justify-end gap-xs">
-                        <button onClick={() => void editSkillLevel(item.id)} className={actionClass}><Edit2 className="w-4 h-4" /></button>
-                        <button onClick={() => void deleteSkillLevel(item.id)} className={actionClass}><Trash2 className="w-4 h-4 text-error" /></button>
-                      </div></td>
+            <div className="bg-white rounded-xl border border-outline-variant/20 overflow-x-auto shadow-sm">
+              <table className="w-full text-left">
+                <thead className="bg-[#EDF7F2]">
+                  <tr>
+                    <th className="p-md font-semibold text-[#1D4532]">Thứ tự</th>
+                    <th className="p-md font-semibold text-[#1D4532]">Mã trình độ</th>
+                    <th className="p-md font-semibold text-[#1D4532]">Tên trình độ</th>
+                    <th className="p-md font-semibold text-[#1D4532] text-right">Thao tác</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-outline-variant/10">
+                  {skillLevels.map((item) => (
+                    <tr key={item.id} className="hover:bg-[#EDF7F2]/30 transition-colors">
+                      <td className="p-md text-sm">{item.orderIndex}</td>
+                      <td className="p-md text-sm">{item.levelCode}</td>
+                      <td className="p-md font-semibold text-[#1D4532] text-sm">{item.levelName}</td>
+                      <td className="p-md">
+                        <div className="flex justify-end gap-xs">
+                          <button
+                            title="Sửa"
+                            onClick={() => void editSkillLevel(item.id)}
+                            className={actionClass}
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                          <button
+                            title="Xóa"
+                            onClick={() => void deleteSkillLevel(item.id)}
+                            className={actionClass}
+                          >
+                            <Trash2 className="w-4 h-4 text-red-600" />
+                          </button>
+                        </div>
+                      </td>
                     </tr>
-                  ))}</tbody>
-                </table>
-              </div>
-            </>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
 
           {tab === 'techniques' && (
-            <>
-              <form onSubmit={submitTechnique} className="bg-white rounded-xl border border-outline-variant/20 p-lg space-y-md h-fit">
-                <h3 className="font-bold text-lg">{techniqueEditingId ? 'Sửa kỹ thuật' : 'Thêm kỹ thuật'}</h3>
-                <select required disabled={techniqueEditingId !== null} value={techniqueForm.instrument_id} onChange={(event) => setTechniqueForm({ ...techniqueForm, instrument_id: Number(event.target.value) })} className={fieldClass}>
-                  {instruments.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+            <div className="space-y-md">
+              <div className="bg-white rounded-xl border border-outline-variant/20 p-md flex items-center gap-sm shadow-sm max-w-md">
+                <ListFilter className="w-4 h-4 text-[#1D4532]" />
+                <select
+                  value={techniqueInstrumentFilter}
+                  onChange={(event) => void filterTechniques(Number(event.target.value))}
+                  className="bg-transparent border-none text-sm font-semibold text-[#1D4532] focus:ring-0 cursor-pointer outline-none w-full"
+                >
+                  <option value={0}>Tất cả nhạc cụ</option>
+                  {instruments.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.name}
+                    </option>
+                  ))}
                 </select>
-                <input required placeholder="Tên kỹ thuật" value={techniqueForm.name} onChange={(event) => setTechniqueForm({ ...techniqueForm, name: event.target.value })} className={fieldClass} />
-                <textarea placeholder="Mô tả" value={techniqueForm.description} onChange={(event) => setTechniqueForm({ ...techniqueForm, description: event.target.value })} className={fieldClass} />
-                <input placeholder="URL hướng dẫn" value={techniqueForm.guide_url} onChange={(event) => setTechniqueForm({ ...techniqueForm, guide_url: event.target.value })} className={fieldClass} />
-                <button className="w-full bg-primary text-on-primary rounded-lg py-sm font-semibold">{techniqueEditingId ? 'Cập nhật' : 'Thêm mới'}</button>
-              </form>
-              <div className="space-y-md">
-                <div className="bg-white rounded-xl border border-outline-variant/20 p-md flex items-center gap-sm">
-                  <ListFilter className="w-4 h-4" />
-                  <select value={techniqueInstrumentFilter} onChange={(event) => void filterTechniques(Number(event.target.value))} className={fieldClass}>
-                    <option value={0}>Tất cả nhạc cụ</option>
-                    {instruments.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-                  </select>
-                </div>
-                <div className="bg-white rounded-xl border border-outline-variant/20 overflow-x-auto">
-                  <table className="w-full text-left">
-                    <thead className="bg-[#edf4ff]"><tr><th className="p-md">Tên</th><th className="p-md">Nhạc cụ</th><th className="p-md">Hướng dẫn</th><th className="p-md text-right">Thao tác</th></tr></thead>
-                    <tbody>{techniques.map((item) => (
-                      <tr key={item.id} className="border-t border-outline-variant/10">
-                        <td className="p-md font-semibold">{item.name}</td><td className="p-md">{instruments.find((instrument) => instrument.id === item.instrument_id)?.name ?? item.instrument_id}</td>
-                        <td className="p-md">{item.guide_url ? <a href={item.guide_url} target="_blank" rel="noreferrer" className="text-primary underline">Mở hướng dẫn</a> : '—'}</td>
-                        <td className="p-md"><div className="flex justify-end gap-xs">
-                          <button onClick={() => void editTechnique(item.id)} className={actionClass}><Edit2 className="w-4 h-4" /></button>
-                          <button onClick={() => void deleteTechnique(item.id)} className={actionClass}><Trash2 className="w-4 h-4 text-error" /></button>
-                        </div></td>
-                      </tr>
-                    ))}</tbody>
-                  </table>
-                </div>
               </div>
-            </>
+              <div className="bg-white rounded-xl border border-outline-variant/20 overflow-x-auto shadow-sm">
+                <table className="w-full text-left">
+                  <thead className="bg-[#EDF7F2]">
+                    <tr>
+                      <th className="p-md font-semibold text-[#1D4532]">Tên kỹ thuật</th>
+                      <th className="p-md font-semibold text-[#1D4532]">Nhạc cụ</th>
+                      <th className="p-md font-semibold text-[#1D4532]">Hướng dẫn</th>
+                      <th className="p-md font-semibold text-[#1D4532] text-right">Thao tác</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-outline-variant/10">
+                    {techniques.map((item) => (
+                      <tr key={item.id} className="hover:bg-[#EDF7F2]/30 transition-colors">
+                        <td className="p-md font-semibold text-[#1D4532] text-sm">{item.name}</td>
+                        <td className="p-md text-sm">
+                          {instruments.find((instrument) => instrument.id === item.instrument_id)?.name ??
+                            item.instrument_id}
+                        </td>
+                        <td className="p-md text-sm text-ellipsis overflow-hidden">
+                          {item.guide_url ? (
+                            <a
+                              href={item.guide_url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-[#1D4532] underline font-medium hover:opacity-80"
+                            >
+                              Mở hướng dẫn
+                            </a>
+                          ) : (
+                            '—'
+                          )}
+                        </td>
+                        <td className="p-md">
+                          <div className="flex justify-end gap-xs">
+                            <button
+                              title="Sửa"
+                              onClick={() => void editTechnique(item.id)}
+                              className={actionClass}
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                            <button
+                              title="Xóa"
+                              onClick={() => void deleteTechnique(item.id)}
+                              className={actionClass}
+                            >
+                              <Trash2 className="w-4 h-4 text-red-600" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           )}
         </div>
       )}
+
+      {/* ── DRAWERS ────────────────────────────────────────── */}
+      <AnimatePresence>
+        {isDrawerOpen && (
+          <>
+            {/* Backdrop Blur Overlay */}
+            <motion.div
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={handleCloseDrawer}
+            />
+
+            {/* Slide-in Drawer */}
+            <motion.div
+              className="fixed top-0 right-0 h-full w-[100%] sm:w-[60%] md:w-[50%] lg:w-[40%] bg-[#fbf9f4] border-l border-outline-variant/15 shadow-2xl z-50 overflow-hidden flex flex-col"
+              initial={{ x: '100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 220 }}
+            >
+              {/* Drawer Header */}
+              <div className="px-xl py-lg border-b border-outline-variant/10 flex justify-between items-center bg-[#f5f3ee]/30">
+                <div>
+                  <h4 className="text-headline-md font-bold text-[#1D4532] font-sans">
+                    {tab === 'instruments' && (instrumentEditingId ? 'Sửa nhạc cụ' : 'Thêm nhạc cụ mới')}
+                    {tab === 'skill-levels' && (skillEditingId ? 'Sửa trình độ' : 'Thêm trình độ mới')}
+                    {tab === 'techniques' && (techniqueEditingId ? 'Sửa kỹ thuật' : 'Thêm kỹ thuật mới')}
+                  </h4>
+                  <p className="text-[12px] text-on-surface-variant mt-xs">
+                    Điền đầy đủ các thông tin dữ liệu nền cần cập nhật.
+                  </p>
+                </div>
+                <button
+                  onClick={handleCloseDrawer}
+                  className="p-md hover:bg-[#eae8e3]/80 rounded-full text-on-surface-variant hover:text-on-surface transition-colors"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              {/* Form Body for Instruments */}
+              {tab === 'instruments' && (
+                <form onSubmit={submitInstrument} className="flex-grow flex flex-col justify-between overflow-y-auto p-xl space-y-xl">
+                  <div className="bg-white/95 border border-outline-variant/10 rounded-2xl p-lg shadow-sm space-y-lg">
+                    <div className="flex flex-col gap-xs">
+                      <label className={labelClass}>Tên nhạc cụ <span className="text-red-500">*</span></label>
+                      <input
+                        required
+                        placeholder="Nhập tên nhạc cụ..."
+                        value={instrumentForm.name}
+                        onChange={(e) => setInstrumentForm({ ...instrumentForm, name: e.target.value })}
+                        className={fieldClass}
+                      />
+                    </div>
+                    <div className="flex flex-col gap-xs">
+                      <label className={labelClass}>Mô tả chi tiết</label>
+                      <textarea
+                        rows={4}
+                        placeholder="Nhập mô tả của nhạc cụ..."
+                        value={instrumentForm.description}
+                        onChange={(e) => setInstrumentForm({ ...instrumentForm, description: e.target.value })}
+                        className={`${fieldClass} resize-none`}
+                      />
+                    </div>
+                    <div className="flex flex-col gap-xs">
+                      <label className={labelClass}>URL Biểu tượng / Icon</label>
+                      <input
+                        placeholder="https://..."
+                        value={instrumentForm.iconUrl}
+                        onChange={(e) => setInstrumentForm({ ...instrumentForm, iconUrl: e.target.value })}
+                        className={fieldClass}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Drawer Footer Actions */}
+                  <div className="px-xl py-lg border-t border-outline-variant/10 bg-[#f5f3ee]/40 flex gap-md -mx-xl -mb-xl mt-xl">
+                    <button
+                      type="button"
+                      onClick={handleCloseDrawer}
+                      className="flex-1 flex items-center justify-center gap-sm bg-[#e1dfdb] text-on-surface py-lg rounded-xl font-bold hover:bg-[#c8c6c2] transition-all border border-outline-variant/30"
+                    >
+                      <X className="w-5 h-5" /> Hủy bỏ
+                    </button>
+                    <button
+                      type="submit"
+                      className="flex-1 flex items-center justify-center gap-sm bg-[#1D4532] text-white py-lg rounded-xl font-bold hover:bg-[#1D4532]/90 transition-all shadow-md"
+                    >
+                      <Check className="w-5 h-5" /> Xác nhận
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {/* Form Body for Skill Levels */}
+              {tab === 'skill-levels' && (
+                <form onSubmit={submitSkillLevel} className="flex-grow flex flex-col justify-between overflow-y-auto p-xl space-y-xl">
+                  <div className="bg-white/95 border border-outline-variant/10 rounded-2xl p-lg shadow-sm space-y-lg">
+                    <div className="flex flex-col gap-xs">
+                      <label className={labelClass}>Mã trình độ <span className="text-red-500">*</span></label>
+                      <input
+                        required
+                        placeholder="Ví dụ: SL-01, SL-02..."
+                        value={skillForm.levelCode}
+                        onChange={(e) => setSkillForm({ ...skillForm, levelCode: e.target.value })}
+                        className={fieldClass}
+                      />
+                    </div>
+                    <div className="flex flex-col gap-xs">
+                      <label className={labelClass}>Tên trình độ <span className="text-red-500">*</span></label>
+                      <input
+                        required
+                        placeholder="Ví dụ: Cơ bản, Trung cấp..."
+                        value={skillForm.levelName}
+                        onChange={(e) => setSkillForm({ ...skillForm, levelName: e.target.value })}
+                        className={fieldClass}
+                      />
+                    </div>
+                    <div className="flex flex-col gap-xs">
+                      <label className={labelClass}>Thứ tự hiển thị <span className="text-red-500">*</span></label>
+                      <input
+                        required
+                        type="number"
+                        min="1"
+                        value={skillForm.orderIndex}
+                        onChange={(e) => setSkillForm({ ...skillForm, orderIndex: Number(e.target.value) })}
+                        className={fieldClass}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Drawer Footer Actions */}
+                  <div className="px-xl py-lg border-t border-outline-variant/10 bg-[#f5f3ee]/40 flex gap-md -mx-xl -mb-xl mt-xl">
+                    <button
+                      type="button"
+                      onClick={handleCloseDrawer}
+                      className="flex-1 flex items-center justify-center gap-sm bg-[#e1dfdb] text-on-surface py-lg rounded-xl font-bold hover:bg-[#c8c6c2] transition-all border border-outline-variant/30"
+                    >
+                      <X className="w-5 h-5" /> Hủy bỏ
+                    </button>
+                    <button
+                      type="submit"
+                      className="flex-1 flex items-center justify-center gap-sm bg-[#1D4532] text-white py-lg rounded-xl font-bold hover:bg-[#1D4532]/90 transition-all shadow-md"
+                    >
+                      <Check className="w-5 h-5" /> Xác nhận
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {/* Form Body for Techniques */}
+              {tab === 'techniques' && (
+                <form onSubmit={submitTechnique} className="flex-grow flex flex-col justify-between overflow-y-auto p-xl space-y-xl">
+                  <div className="bg-white/95 border border-outline-variant/10 rounded-2xl p-lg shadow-sm space-y-lg">
+                    <div className="flex flex-col gap-xs">
+                      <label className={labelClass}>Chọn nhạc cụ <span className="text-red-500">*</span></label>
+                      <select
+                        required
+                        disabled={techniqueEditingId !== null}
+                        value={techniqueForm.instrument_id}
+                        onChange={(e) => setTechniqueForm({ ...techniqueForm, instrument_id: Number(e.target.value) })}
+                        className={`${fieldClass} cursor-pointer`}
+                      >
+                        {instruments.map((item) => (
+                          <option key={item.id} value={item.id}>
+                            {item.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="flex flex-col gap-xs">
+                      <label className={labelClass}>Tên kỹ thuật biểu diễn <span className="text-red-500">*</span></label>
+                      <input
+                        required
+                        placeholder="Ví dụ: Rung, Nhấn, Vuốt..."
+                        value={techniqueForm.name}
+                        onChange={(e) => setTechniqueForm({ ...techniqueForm, name: e.target.value })}
+                        className={fieldClass}
+                      />
+                    </div>
+                    <div className="flex flex-col gap-xs">
+                      <label className={labelClass}>Mô tả kỹ thuật</label>
+                      <textarea
+                        rows={4}
+                        placeholder="Mô tả cách thực hiện kỹ thuật..."
+                        value={techniqueForm.description}
+                        onChange={(e) => setTechniqueForm({ ...techniqueForm, description: e.target.value })}
+                        className={`${fieldClass} resize-none`}
+                      />
+                    </div>
+                    <div className="flex flex-col gap-xs">
+                      <label className={labelClass}>URL Hướng dẫn (Video / Tài liệu)</label>
+                      <input
+                        placeholder="https://youtube.com/... hoặc tài liệu khác"
+                        value={techniqueForm.guide_url}
+                        onChange={(e) => setTechniqueForm({ ...techniqueForm, guide_url: e.target.value })}
+                        className={fieldClass}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Drawer Footer Actions */}
+                  <div className="px-xl py-lg border-t border-outline-variant/10 bg-[#f5f3ee]/40 flex gap-md -mx-xl -mb-xl mt-xl">
+                    <button
+                      type="button"
+                      onClick={handleCloseDrawer}
+                      className="flex-1 flex items-center justify-center gap-sm bg-[#e1dfdb] text-on-surface py-lg rounded-xl font-bold hover:bg-[#c8c6c2] transition-all border border-outline-variant/30"
+                    >
+                      <X className="w-5 h-5" /> Hủy bỏ
+                    </button>
+                    <button
+                      type="submit"
+                      className="flex-1 flex items-center justify-center gap-sm bg-[#1D4532] text-white py-lg rounded-xl font-bold hover:bg-[#1D4532]/90 transition-all shadow-md"
+                    >
+                      <Check className="w-5 h-5" /> Xác nhận
+                    </button>
+                  </div>
+                </form>
+              )}
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
