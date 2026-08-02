@@ -65,6 +65,37 @@ export const profileApi = {
       method: 'PUT',
       body: { fullName },
     }),
+  updateAvatar: (file: File) => {
+    const formData = new FormData();
+    formData.append('avatar', file);
+    // Assume backend endpoint for avatar upload
+    return apiRequest<UserProfile>('/api/users/me/avatar', {
+      method: 'POST',
+      body: formData as any,
+    });
+  },
+};
+
+// Notification type
+export interface Notification {
+  id: number;
+  title: string;
+  message: string;
+  read: boolean;
+  createdAt: string;
+}
+
+// Notification API
+export const notificationApi = {
+  // Lấy danh sách thông báo, có thể filter bằng isRead, page, size
+  list: (options?: RequestOptions) =>
+    apiRequest<Notification[]>('/api/notifications', options),
+  // Đánh dấu một thông báo đã đọc
+  markAsRead: (id: number) =>
+    apiRequest<void>(`/api/notifications/${id}`, { method: 'PUT' }),
+  // Đánh dấu tất cả đã đọc
+  markAllAsRead: () =>
+    apiRequest<void>('/api/notifications', { method: 'PUT' }),
 };
 
 export const instrumentManagementApi = {

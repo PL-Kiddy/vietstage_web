@@ -32,6 +32,16 @@ export interface CurrentUser {
   name: string;
   role: PortalRole;
   userCode?: string;
+  avatar?: string;
+}
+
+/** Notification object returned by /api/notifications */
+export interface Notification {
+  id: number;
+  title: string;
+  message: string;
+  createdAt: string; // ISO date string
+  read: boolean;
 }
 
 export interface AuthSession extends CurrentUser {
