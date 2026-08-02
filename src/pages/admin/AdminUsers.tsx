@@ -271,7 +271,7 @@ alert('Backend hiện chưa cung cấp endpoint cập nhật thông tin người
       <div className="flex-1 flex flex-col justify-between">
         <div className="flex-grow">
         {/* ── Page Header & Filters ────────────────────────────── */}
-      <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-lg mb-10">
+      <div className="flex flex-col gap-4 mb-6">
         <div>
           <h2
             className="text-headline-lg font-bold text-[#1D4532] mb-xs"
@@ -284,7 +284,7 @@ alert('Backend hiện chưa cung cấp endpoint cập nhật thông tin người
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-md w-full xl:w-auto">
+        <div className="flex flex-wrap items-center gap-md w-full">
           {/* Search bar */}
           <div className="flex items-center gap-xs px-md py-sm bg-white border border-[#d1e4fb] rounded-lg w-full sm:w-80 shadow-sm focus-within:ring-1 focus-within:ring-[#1D4532] transition-all">
             <Search className="w-5 h-5 text-[#5e5e5b]" />

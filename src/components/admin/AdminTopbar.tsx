@@ -96,17 +96,7 @@ const AdminTopbar = ({ userName, userRole }: AdminTopbarProps) => {
   };
 
   return (
-    <header className="fixed top-0 right-0 w-[calc(100%-16rem)] z-10 flex justify-between items-center h-16 px-6 bg-white border-b border-[#E5E7EB] shadow-[0_2px_12px_rgba(0,0,0,0.04)]">
-      {/* Search */}
-      <div className="flex items-center gap-2 bg-[#F5F5F5] px-4 py-2 rounded-lg border border-[#E5E7EB] w-80 focus-within:ring-1 focus-within:ring-[#1D4532]/30 transition-all">
-        <Search className="w-4 h-4 text-[#9CA3AF]" />
-        <input
-          type="text"
-          placeholder="Tìm kiếm dữ liệu hệ thống..."
-          className="bg-transparent border-none focus:ring-0 focus:outline-none text-sm w-full placeholder:text-[#9CA3AF] text-[#374151]"
-        />
-      </div>
-
+    <header className="fixed top-0 right-0 w-[calc(100%-16rem)] z-10 flex justify-end items-center h-16 px-6 bg-white border-b border-[#E5E7EB] shadow-[0_2px_12px_rgba(0,0,0,0.04)]">
       {/* Right Actions */}
       <div className="flex items-center gap-lg">
 
