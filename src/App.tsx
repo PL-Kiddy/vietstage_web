@@ -46,9 +46,8 @@ function App() {
               <Route path="review" element={<AdminReview />} />
               <Route path="settings" element={<AdminSettings />} />
               <Route path="master-data" element={<AdminMasterData />} />
+              <Route path="profile" element={<AdminProfile />} />
             </Route>
-            {/* Profile outside layout - no sidebar/topbar */}
-            <Route path="/admin/profile" element={<AdminProfile />} />
           </Route>
 
           {/* Instructor Routes - with layout */}
@@ -59,9 +58,8 @@ function App() {
               <Route path="lessons/:lessonId/content" element={<InstructorLessonContent />} />
               <Route path="students" element={<InstructorStudents />} />
               <Route path="media" element={<InstructorMedia />} />
+              <Route path="profile" element={<InstructorProfile />} />
             </Route>
-            {/* Profile outside layout - no sidebar/topbar */}
-            <Route path="/instructor/profile" element={<InstructorProfile />} />
           </Route>
         </Routes>
       </BrowserRouter>
