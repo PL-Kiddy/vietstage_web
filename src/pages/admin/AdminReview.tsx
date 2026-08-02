@@ -307,9 +307,6 @@ const handleResetToPending = async (item: ReviewItem) => {
 
       {/* Header Section */}
       <section className="mb-4 border-b border-outline-variant/10 pb-md">
-        <span className="text-[#1D4532] font-bold text-label-md tracking-wider uppercase text-sm">
-          Phê duyệt học liệu
-        </span>
         <h2
           className="text-headline-lg font-bold text-[#1D4532] mt-xs"
           style={{ fontFamily: "'Montserrat', sans-serif" }}
@@ -463,26 +460,7 @@ const handleResetToPending = async (item: ReviewItem) => {
         </button>
       </div>
 
-      {/* Refresh + count row */}
-      <div className="flex items-center justify-between mb-lg">
-        <p className="text-sm text-[#5e5e5b]">
-          Hiển thị <strong>{filteredItems.length}</strong> / {items.length} học liệu
-        </p>
-        <button
-          onClick={() => {
-            void loadReviews();
-            setStatusFilter('all');
-            setSearchQuery('');
-            setSelectedInstrument('all');
-            setSelectedInstructor('all');
-            setCurrentPage(1);
-          }}
-          className="text-xs font-semibold text-[#1D4532] hover:underline flex items-center gap-1 border border-[#1D4532]/30 px-3 py-2 rounded-lg hover:bg-[#1D4532]/5 transition-colors"
-        >
-          <RotateCcw className="w-3.5 h-3.5" />
-          Làm mới dữ liệu
-        </button>
-      </div>
+
 
       {loadError && (
         <div className="mb-lg flex items-center justify-between gap-4 rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-red-800">
