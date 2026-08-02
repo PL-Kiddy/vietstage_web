@@ -162,23 +162,61 @@ const ProfilePage = ({
     event.preventDefault();
     setPwError('');
     setPwSuccess('');
-    if (newPassword !== confirmPassword) {
-      setPwError('Mật khẩu mới và xác nhận không khớp.');
+
+    // Frontend validation
+    if (!oldPassword.trim()) {
+      setPwError('Vui lòng nhập mật khẩu hiện tại.');
       return;
     }
     if (newPassword.length < 6) {
       setPwError('Mật khẩu mới phải có ít nhất 6 ký tự.');
       return;
     }
+    if (newPassword !== confirmPassword) {
+      setPwError('Mật khẩu mới và xác nhận không khớp.');
+      return;
+    }
+    if (newPassword === oldPassword) {
+      setPwError('Mật khẩu mới không được trùng với mật khẩu hiện tại.');
+      return;
+    }
+
     setPwSaving(true);
     try {
-      await profileApi.changePassword(oldPassword, newPassword);
+      await profileApi.changePassword(oldPassword, newPassword, confirmPassword);
       setPwSuccess('Đổi mật khẩu thành công!');
       setOldPassword('');
       setNewPassword('');
       setConfirmPassword('');
-    } catch (reason) {
-      setPwError(reason instanceof Error ? reason.message : 'Không thể đổi mật khẩu. Vui lòng kiểm tra lại mật khẩu cũ.');
+    } catch (reason: any) {
+      // Extract detailed validation error from backend
+      const msg: string = reason?.message ?? '';
+      const details = reason?.details;
+
+      // Try to parse field-level validation errors (Spring Boot format)
+      if (details && typeof details === 'object') {
+        const fieldErrors = Object.values(details).filter(Boolean).join(', ');
+        if (fieldErrors) {
+          setPwError(fieldErrors);
+          return;
+        }
+      }
+      if (Array.isArray(details) && details.length > 0) {
+        setPwError(details.map((d: any) => d?.message || d).join(', '));
+        return;
+      }
+
+      // Map common backend messages to Vietnamese
+      const lower = msg.toLowerCase();
+      if (lower.includes('incorrect') || lower.includes('wrong') || lower.includes('invalid') && lower.includes('old')) {
+        setPwError('Mật khẩu hiện tại không đúng. Vui lòng kiểm tra lại.');
+      } else if (lower.includes('validation')) {
+        setPwError('Dữ liệu không hợp lệ. Mật khẩu phải có ít nhất 6 ký tự và không được để trống.');
+      } else if (lower.includes('same') || lower.includes('identical')) {
+        setPwError('Mật khẩu mới không được trùng với mật khẩu cũ.');
+      } else {
+        setPwError(msg || 'Không thể đổi mật khẩu. Vui lòng kiểm tra lại mật khẩu hiện tại.');
+      }
     } finally {
       setPwSaving(false);
     }

@@ -78,10 +78,10 @@ export const profileApi = {
       body: { fullName: fullName || 'User', avatarUrl },
     });
   },
-  changePassword: (oldPassword: string, newPassword: string) =>
-    apiRequest<void>('/api/users/me/change-password', {
+  changePassword: (oldPassword: string, newPassword: string, confirmPassword: string) =>
+    apiRequest<void>('/api/users/me/password', {
       method: 'PUT',
-      body: { oldPassword, newPassword },
+      body: { oldPassword, newPassword, confirmPassword },
     }),
 };
 
