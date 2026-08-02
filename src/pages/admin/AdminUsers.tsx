@@ -265,7 +265,9 @@ alert('Backend hiện chưa cung cấp endpoint cập nhật thông tin người
 
   return (
     <>
-      {/* ── Page Header & Filters ────────────────────────────── */}
+      <div className="flex-1 flex flex-col justify-between">
+        <div className="flex-grow">
+        {/* ── Page Header & Filters ────────────────────────────── */}
       <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-lg mb-10">
         <div>
           <h2
@@ -510,9 +512,10 @@ alert('Backend hiện chưa cung cấp endpoint cập nhật thông tin người
           </table>
         </div>
       </div>
+    </div>
 
       {/* ── Pagination ───────────────────────────────────────── */}
-      <div className="mt-lg flex flex-col sm:flex-row justify-between items-center gap-md text-[12px] text-[#5e5e5b]">
+      <div className="mt-lg flex flex-col sm:flex-row justify-between items-center gap-md text-[12px] text-[#5e5e5b] pt-4">
         <div className="flex items-center gap-lg">
           <p>
             Hiển thị {(currentPage - 1) * perPage + 1} -{' '}
@@ -568,6 +571,7 @@ alert('Backend hiện chưa cung cấp endpoint cập nhật thông tin người
           </button>
         </div>
       </div>
+    </div>
 
       {/* ═══════════════════════════════════════════════════════
            USER DETAIL SLIDE-IN PANEL

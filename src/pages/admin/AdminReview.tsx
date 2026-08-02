@@ -278,7 +278,8 @@ const handleResetToPending = async (item: ReviewItem) => {
   );
 
   return (
-    <div className="w-full mx-auto relative min-h-screen bg-surface-bright text-on-surface font-sans p-md md:p-lg">
+    <div className="w-full mx-auto relative text-on-surface font-sans flex-1 flex flex-col justify-between">
+      <div className="flex-grow">
       {/* Zoom Sheet Music Overlay */}
       {isPreviewZoomed && selectedItem && (
         <div
@@ -589,10 +590,11 @@ const handleResetToPending = async (item: ReviewItem) => {
           </div>
         </div>
       )}
+      </div>
 
       {/* Pagination Controls */}
       {filteredItems.length > 0 && (
-        <div className="mt-lg flex flex-col sm:flex-row justify-between items-center gap-md text-[12px] text-[#5e5e5b]">
+        <div className="mt-lg flex flex-col sm:flex-row justify-between items-center gap-md text-[12px] text-[#5e5e5b] pt-4">
           <div className="flex items-center gap-lg">
             <p>
               Hiển thị {(currentPage - 1) * perPage + 1} -{' '}

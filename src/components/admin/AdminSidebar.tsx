@@ -30,7 +30,7 @@ const AdminSidebar = () => {
             className="w-full h-auto max-h-14 object-contain hover:opacity-85 transition-opacity"
           />
         </Link>
-        <p className="text-[10px] text-[#9CA3AF] uppercase tracking-widest mt-2 font-semibold text-center">
+        <p className="text-[12px] text-[#1D4532] uppercase tracking-widest mt-2.5 font-bold text-center">
           Hệ thống Quản trị
         </p>
       </div>
@@ -43,7 +43,7 @@ const AdminSidebar = () => {
             <Link
               key={item.href}
               to={item.href}
-              className={`relative flex items-center gap-3 px-4 py-2.5 rounded-lg transition-all duration-150 text-sm font-medium ${
+              className={`relative flex items-center gap-3.5 px-4 py-3 rounded-lg transition-all duration-150 text-[15px] font-medium ${
                 isActive
                   ? 'bg-[#EDF7F2] text-[#1D4532] font-semibold'
                   : 'text-[#6B7280] hover:text-[#374151] hover:bg-[#F9FAFB]'
@@ -51,9 +51,9 @@ const AdminSidebar = () => {
             >
               {/* Active red strip on left */}
               {isActive && (
-                <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-[#1D4532] rounded-r-full" />
+                <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1.2 h-7.5 bg-[#1D4532] rounded-r-full" />
               )}
-              <item.icon className={`w-4.5 h-4.5 flex-shrink-0 ${isActive ? 'text-[#1D4532]' : 'text-[#9CA3AF]'}`} />
+              <item.icon className={`w-5.5 h-5.5 flex-shrink-0 ${isActive ? 'text-[#1D4532]' : 'text-[#9CA3AF]'}`} />
               <span>{item.label}</span>
             </Link>
           );

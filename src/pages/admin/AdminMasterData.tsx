@@ -294,7 +294,8 @@ const AdminMasterData = () => {
   const pagedItems = activeData.slice((currentPage - 1) * perPage, currentPage * perPage);
 
   return (
-    <div className="max-w-[1300px] mx-auto space-y-lg">
+    <div className="w-full max-w-[1300px] mx-auto flex-1 flex flex-col justify-between">
+      <div className="flex-grow space-y-lg mb-lg">
       {/* Page Header */}
       <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-lg">
         <div>
@@ -574,66 +575,67 @@ const AdminMasterData = () => {
               </div>
             </div>
           )}
-
-          {/* ── Pagination ───────────────────────────────────────── */}
-          <div className="mt-lg flex flex-col sm:flex-row justify-between items-center gap-md text-[12px] text-[#5e5e5b]">
-            <div className="flex items-center gap-lg">
-              <p>
-                Hiển thị {activeData.length === 0 ? 0 : (currentPage - 1) * perPage + 1} -{' '}
-                {Math.min(currentPage * perPage, activeData.length)} trong tổng số{' '}
-                {activeData.length} {getTabLabel()}
-              </p>
-
-              <div className="flex items-center gap-xs">
-                <span>Số dòng mỗi trang:</span>
-                <select
-                  value={perPage}
-                  onChange={(e) => {
-                    setPerPage(Number(e.target.value));
-                    setCurrentPage(1);
-                  }}
-                  className="bg-white border border-outline-variant rounded px-2 py-1 text-label-md cursor-pointer outline-none"
-                >
-                  <option value={5}>5 dòng</option>
-                  <option value={10}>10 dòng</option>
-                  <option value={20}>20 dòng</option>
-                  <option value={50}>50 dòng</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="flex gap-xs">
-              <button
-                disabled={currentPage <= 1}
-                onClick={() => setCurrentPage((p) => p - 1)}
-                className="p-2 border border-outline-variant rounded hover:bg-[#EDF7F2] transition-colors disabled:opacity-40"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
-                <button
-                  key={p}
-                  onClick={() => setCurrentPage(p)}
-                  className={`px-3 py-1 rounded font-bold transition-colors ${
-                    p === currentPage
-                      ? 'bg-[#1D4532] text-white'
-                      : 'border border-outline-variant hover:bg-[#EDF7F2]'
-                  }`}
-                >
-                  {p}
-                </button>
-              ))}
-              <button
-                disabled={currentPage >= totalPages}
-                onClick={() => setCurrentPage((p) => p + 1)}
-                className="p-2 border border-outline-variant rounded hover:bg-[#EDF7F2] transition-colors disabled:opacity-40"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
         </div>
       )}
+      </div>
+
+      {/* ── Pagination ───────────────────────────────────────── */}
+      <div className="mt-lg flex flex-col sm:flex-row justify-between items-center gap-md text-[12px] text-[#5e5e5b] pt-4">
+        <div className="flex items-center gap-lg">
+          <p>
+            Hiển thị {activeData.length === 0 ? 0 : (currentPage - 1) * perPage + 1} -{' '}
+            {Math.min(currentPage * perPage, activeData.length)} trong tổng số{' '}
+            {activeData.length} {getTabLabel()}
+          </p>
+
+          <div className="flex items-center gap-xs">
+            <span>Số dòng mỗi trang:</span>
+            <select
+              value={perPage}
+              onChange={(e) => {
+                setPerPage(Number(e.target.value));
+                setCurrentPage(1);
+              }}
+              className="bg-white border border-outline-variant rounded px-2 py-1 text-label-md cursor-pointer outline-none"
+            >
+              <option value={5}>5 dòng</option>
+              <option value={10}>10 dòng</option>
+              <option value={20}>20 dòng</option>
+              <option value={50}>50 dòng</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="flex gap-xs">
+          <button
+            disabled={currentPage <= 1}
+            onClick={() => setCurrentPage((p) => p - 1)}
+            className="p-2 border border-outline-variant rounded hover:bg-[#EDF7F2] transition-colors disabled:opacity-40"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+          {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+            <button
+              key={p}
+              onClick={() => setCurrentPage(p)}
+              className={`px-3 py-1 rounded font-bold transition-colors ${
+                p === currentPage
+                  ? 'bg-[#1D4532] text-white'
+                  : 'border border-outline-variant hover:bg-[#EDF7F2]'
+              }`}
+            >
+              {p}
+            </button>
+          ))}
+          <button
+            disabled={currentPage >= totalPages}
+            onClick={() => setCurrentPage((p) => p + 1)}
+            className="p-2 border border-outline-variant rounded hover:bg-[#EDF7F2] transition-colors disabled:opacity-40"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
 
       {/* ── DRAWERS ────────────────────────────────────────── */}
       {createPortal(
