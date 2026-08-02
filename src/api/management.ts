@@ -68,12 +68,16 @@ export const profileApi = {
   updateAvatar: (file: File) => {
     const formData = new FormData();
     formData.append('avatar', file);
-    // Assume backend endpoint for avatar upload
     return apiRequest<UserProfile>('/api/users/me/avatar', {
       method: 'POST',
       body: formData as any,
     });
   },
+  changePassword: (oldPassword: string, newPassword: string) =>
+    apiRequest<void>('/api/users/me/change-password', {
+      method: 'PUT',
+      body: { oldPassword, newPassword },
+    }),
 };
 
 // Notification type

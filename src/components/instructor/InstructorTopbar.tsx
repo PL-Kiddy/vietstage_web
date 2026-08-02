@@ -199,7 +199,7 @@ const InstructorTopbar = () => {
                   }}
                   className="w-full text-left px-4 py-2 hover:bg-[#edf4ff] text-[14px] text-on-surface transition-colors"
                 >
-                  Profile
+                  Xem thông tin
                 </button>
                 <button
                   onClick={async () => {
