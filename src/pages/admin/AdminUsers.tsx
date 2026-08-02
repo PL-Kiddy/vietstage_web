@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, type FormEvent } from 'react';
+import { useLocation } from 'react-router-dom';
 import {
   UserPlus,
   Lock,
@@ -57,16 +58,41 @@ const getAvatarStyle = (role: string) => {
 
 /* ════════════════════════════════════════════════════════════ */
 
+const normalizeRole = (user: any): 'Admin' | 'Giảng viên' | 'Người học' => {
+  // Handle numeric roleId from database (1=Admin, 2=Instructor/Giảng viên, 3=Learner)
+  const roleId = user.roleId ?? user.role_id ?? user.RoleId;
+  if (roleId !== undefined && roleId !== null) {
+    const id = Number(roleId);
+    if (id === 1) return 'Admin';
+    if (id === 2) return 'Giảng viên';
+    if (id === 3) return 'Người học';
+  }
+
+  // Handle string role field
+  const rawRole = user.role ?? user.roleName ?? user.userRole ?? user.roleCode ?? '';
+  if (!rawRole) return 'Người học';
+  const r = String(rawRole).trim().toUpperCase();
+  if (r.includes('ADMIN')) return 'Admin';
+  if (r.includes('INSTRUCTOR') || r.includes('TEACHER') || r.includes('GIANG_VIEN') || r.includes('GIẢNG')) return 'Giảng viên';
+  if (r === 'Admin' || r === 'ADMIN') return 'Admin';
+  if (r === 'Giảng viên' || r === 'GIẢNG VIÊN') return 'Giảng viên';
+  return 'Người học';
+};
+
 const mapExtendedUser = (user: ApiAdminUser): ExtendedAdminUser => ({
   ...user,
-  name: user.name || (user as any).fullName || 'Chưa cập nhật',
-  email: user.email || '',
-  role: user.role || 'Người học',
-  id: String(user.id),
+  name: (user as any).fullName || user.name || 'Chưa cập nhật',
+  email: user.email || (user as any).emailAddress || '',
+  role: normalizeRole(user),
+  id: String((user as any).userId ?? (user as any).user_id ?? user.id),
 });
 
 const AdminUsers = () => {
+  const location = useLocation();
+  const isLearnersMode = location.pathname.includes('/learners');
+
   const [roleFilter, setRoleFilter] = useState('Tất cả');
+  const [statusFilter, setStatusFilter] = useState('Tất cả');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedUser, setSelectedUser] = useState<ExtendedAdminUser | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -109,10 +135,26 @@ const AdminUsers = () => {
     { initialData: [] },
   );
 
-  const users = useMemo(
-    () => (Array.isArray(usersData) ? usersData : (usersData as any)?.content ?? []).map(mapExtendedUser),
-    [usersData],
-  );
+  const users = useMemo(() => {
+    // usersData may be: paginated {content:[]} OR array [] depending on API
+    let rawList: any[] = [];
+    if (Array.isArray(usersData)) {
+      rawList = usersData;
+    } else if ((usersData as any)?.content) {
+      rawList = (usersData as any).content;
+    } else if ((usersData as any)?.data?.content) {
+      rawList = (usersData as any).data.content;
+    }
+    // DEBUG: log raw API response
+    if (rawList.length > 0) {
+      console.log('[AdminUsers] Total users from API:', rawList.length);
+      console.log('[AdminUsers] Sample user keys:', Object.keys(rawList[0]));
+      console.log('[AdminUsers] Sample user role field:', rawList[0].role, '| roleId:', rawList[0].roleId, '| role_id:', rawList[0].role_id);
+    } else {
+      console.log('[AdminUsers] usersData raw value:', usersData);
+    }
+    return rawList.map(mapExtendedUser);
+  }, [usersData]);
 
   useEffect(() => {
     if (usersError) {
@@ -127,8 +169,24 @@ const AdminUsers = () => {
   /* ── Filter ──────────────────────────────────────────────── */
   const filtered = useMemo(() => {
     let result = users;
+
+    if (isLearnersMode) {
+      result = result.filter((u) => u.role === 'Người học');
+    } else {
+      result = result.filter((u) => u.role === 'Admin' || u.role === 'Giảng viên');
+    }
+
     if (roleFilter !== 'Tất cả') {
       result = result.filter((u) => u.role === roleFilter);
+    }
+    if (statusFilter !== 'Tất cả') {
+      if (statusFilter === 'Hoạt động') {
+        result = result.filter((u) => u.status === 'active');
+      } else if (statusFilter === 'Đã khóa') {
+        result = result.filter((u) => u.status === 'locked');
+      } else if (statusFilter === 'Chờ kích hoạt') {
+        result = result.filter((u) => u.status === 'pending');
+      }
     }
     if (searchQuery.trim() !== '') {
       const q = searchQuery.toLowerCase();
@@ -139,7 +197,7 @@ const AdminUsers = () => {
       );
     }
     return result;
-  }, [roleFilter, searchQuery, users]);
+  }, [isLearnersMode, roleFilter, statusFilter, searchQuery, users]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / perPage));
   const pageUsers = filtered.slice(
@@ -277,10 +335,12 @@ alert('Backend hiện chưa cung cấp endpoint cập nhật thông tin người
             className="text-headline-lg font-bold text-[#1D4532] mb-xs"
             style={{ fontFamily: "'Montserrat', sans-serif" }}
           >
-            Quản lý người dùng
+            {isLearnersMode ? 'Quản lý học viên' : 'Quản lý thành viên'}
           </h2>
           <p className="text-body-md text-[#5e5e5b]">
-            Danh sách tất cả các tài khoản đang tham gia nền tảng.
+            {isLearnersMode
+              ? 'Danh sách tất cả các học viên đang tham gia học tập trên nền tảng.'
+              : 'Danh sách các tài khoản quản trị viên và giảng viên hệ thống.'}
           </p>
         </div>
 
@@ -301,31 +361,52 @@ alert('Backend hiện chưa cung cấp endpoint cập nhật thông tin người
           </div>
 
           {/* Role Filter */}
+          {!isLearnersMode && (
+            <div className="flex items-center gap-xs px-md py-sm bg-white border border-outline-variant rounded-lg shadow-sm">
+              <span className="font-label-md text-[#5e5e5b]">Vai trò:</span>
+              <select
+                value={roleFilter}
+                onChange={(e) => {
+                  setRoleFilter(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="bg-transparent border-none text-label-md font-semibold text-[#1D4532] focus:ring-0 cursor-pointer"
+              >
+                <option>Tất cả</option>
+                <option>Admin</option>
+                <option>Giảng viên</option>
+              </select>
+            </div>
+          )}
+
+          {/* Status Filter */}
           <div className="flex items-center gap-xs px-md py-sm bg-white border border-outline-variant rounded-lg shadow-sm">
-            <span className="font-label-md text-[#5e5e5b]">Vai trò:</span>
+            <span className="font-label-md text-[#5e5e5b]">Trạng thái:</span>
             <select
-              value={roleFilter}
+              value={statusFilter}
               onChange={(e) => {
-                setRoleFilter(e.target.value);
+                setStatusFilter(e.target.value);
                 setCurrentPage(1);
               }}
               className="bg-transparent border-none text-label-md font-semibold text-[#1D4532] focus:ring-0 cursor-pointer"
             >
               <option>Tất cả</option>
-              <option>Admin</option>
-              <option>Giảng viên</option>
-              <option>Người học</option>
+              <option>Hoạt động</option>
+              <option>Đã khóa</option>
+              <option>Chờ kích hoạt</option>
             </select>
           </div>
 
           {/* Add New */}
-          <button
-            onClick={handleAddUserClick}
-            className="bg-[#1D4532] text-white px-lg py-sm rounded-lg font-label-md hover:bg-[#1D4532]/95 transition-all flex items-center gap-xs shadow-md"
-          >
-            <UserPlus className="w-[18px] h-[18px]" />
-            Thêm mới
-          </button>
+          {!isLearnersMode && (
+            <button
+              onClick={handleAddUserClick}
+              className="bg-[#1D4532] text-white px-lg py-sm rounded-lg font-label-md hover:bg-[#1D4532]/95 transition-all flex items-center gap-xs shadow-md ml-auto"
+            >
+              <UserPlus className="w-[18px] h-[18px]" />
+              Thêm mới
+            </button>
+          )}
         </div>
       </div>
 

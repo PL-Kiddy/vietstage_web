@@ -48,7 +48,7 @@ export const authApi = {
 };
 
 export const usersApi = {
-  list: (options?: RequestOptions) => apiRequest<AdminUser[]>('/api/admin/users', options),
+  list: (options?: RequestOptions) => apiRequest<any>('/api/admin/users', { ...options, params: { size: 200, ...options?.params } }),
   updateStatus: (id: number, status: 'active' | 'locked') =>
     apiRequest<void>(`/api/admin/users/${id}/status`, {
       method: 'PUT',
