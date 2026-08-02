@@ -22,6 +22,50 @@ const initialsOf = (name: string) =>
     .map((part) => part[0]?.toUpperCase())
     .join('');
 
+const PasswordField = ({
+  label,
+  value,
+  onChange,
+  show,
+  onToggle,
+  placeholder,
+  isGreenTheme = false,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  show: boolean;
+  onToggle: () => void;
+  placeholder?: string;
+  isGreenTheme?: boolean;
+}) => (
+  <div className="flex flex-col gap-2">
+    <label className="text-sm font-semibold text-[#5e5e5b]">{label}</label>
+    <div className="relative">
+      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#5e5e5b]" />
+      <input
+        type={show ? 'text' : 'password'}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        required
+        placeholder={placeholder}
+        className={`w-full pl-10 pr-10 py-3 bg-[#f7f9ff] border border-[#d1e4fb] rounded-xl text-sm outline-none focus:ring-2 transition ${
+          isGreenTheme ? 'focus:ring-[#1D4532]/20' : 'focus:ring-primary/20'
+        }`}
+      />
+      <button
+        type="button"
+        onClick={onToggle}
+        className={`absolute right-3 top-1/2 -translate-y-1/2 text-[#5e5e5b] transition-colors ${
+          isGreenTheme ? 'hover:text-[#1D4532]' : 'hover:text-primary'
+        }`}
+      >
+        {show ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+      </button>
+    </div>
+  </div>
+);
+
 const ProfilePage = ({
   accentClass = 'bg-[#edf4ff]',
   roleLabel,
@@ -71,13 +115,14 @@ const ProfilePage = ({
   };
 
   const handleUploadAvatar = async () => {
-    if (!avatarFile) return;
+    if (!avatarFile || !profile) return;
     setUploadingAvatar(true);
     setProfileError('');
     try {
       const updated = await profileApi.updateAvatar(avatarFile, profile.fullName);
       setProfile(updated);
       setAvatarFile(null);
+      window.dispatchEvent(new Event('vietstage:profile-updated'));
     } catch (reason) {
       setProfileError(reason instanceof Error ? reason.message : 'Không thể cập nhật ảnh đại diện.');
     } finally {
@@ -104,6 +149,7 @@ const ProfilePage = ({
       setFullName(updated.fullName);
       setEditing(false);
       setProfileSuccess('Cập nhật thông tin thành công!');
+      window.dispatchEvent(new Event('vietstage:profile-updated'));
     } catch (reason) {
       setProfileError(reason instanceof Error ? reason.message : 'Không thể cập nhật hồ sơ.');
     } finally {
@@ -160,43 +206,7 @@ const ProfilePage = ({
 
   const avatarSrc = avatarPreview ?? (profile as any).avatarUrl ?? null;
 
-  // ─── Reusable password field ───
-  const PasswordField = ({
-    label, value, onChange, show, onToggle, placeholder,
-  }: {
-    label: string;
-    value: string;
-    onChange: (v: string) => void;
-    show: boolean;
-    onToggle: () => void;
-    placeholder?: string;
-  }) => (
-    <div className="flex flex-col gap-2">
-      <label className="text-sm font-semibold text-[#5e5e5b]">{label}</label>
-      <div className="relative">
-        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#5e5e5b]" />
-        <input
-          type={show ? 'text' : 'password'}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          required
-          placeholder={placeholder}
-          className={`w-full pl-10 pr-10 py-3 bg-[#f7f9ff] border border-[#d1e4fb] rounded-xl text-sm outline-none focus:ring-2 transition ${
-            isGreenTheme ? 'focus:ring-[#1D4532]/20' : 'focus:ring-primary/20'
-          }`}
-        />
-        <button
-          type="button"
-          onClick={onToggle}
-          className={`absolute right-3 top-1/2 -translate-y-1/2 text-[#5e5e5b] transition-colors ${
-            isGreenTheme ? 'hover:text-[#1D4532]' : 'hover:text-primary'
-          }`}
-        >
-          {show ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-        </button>
-      </div>
-    </div>
-  );
+
 
   // ─── Render ───
   return (
@@ -430,6 +440,7 @@ const ProfilePage = ({
               show={showOld}
               onToggle={() => setShowOld((v) => !v)}
               placeholder="Nhập mật khẩu hiện tại..."
+              isGreenTheme={isGreenTheme}
             />
             <PasswordField
               label="Mật khẩu mới"
@@ -438,6 +449,7 @@ const ProfilePage = ({
               show={showNew}
               onToggle={() => setShowNew((v) => !v)}
               placeholder="Ít nhất 6 ký tự..."
+              isGreenTheme={isGreenTheme}
             />
             <PasswordField
               label="Xác nhận mật khẩu mới"
@@ -446,6 +458,7 @@ const ProfilePage = ({
               show={showConfirm}
               onToggle={() => setShowConfirm((v) => !v)}
               placeholder="Nhập lại mật khẩu mới..."
+              isGreenTheme={isGreenTheme}
             />
 
             {/* Password strength */}

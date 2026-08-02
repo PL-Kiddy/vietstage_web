@@ -3,18 +3,21 @@ import { useNavigate } from 'react-router-dom';
 import { Search, Bell, CheckCheck, X } from 'lucide-react';
 import { authApi } from '../../api/services';
 import { clearAuthSession, getAuthSession } from '../../api/authStorage';
-import { notificationApi, type Notification } from '../../api/management';
+import { notificationApi, profileApi, type Notification, type UserProfile } from '../../api/management';
 
 const InstructorTopbar = () => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
 
   const session = getAuthSession();
-  const initials = (session?.name ?? 'Giảng viên')
+  const displayName = userProfile?.fullName ?? session?.name ?? 'Giảng viên';
+  const avatarUrl = userProfile?.avatarUrl;
+  const initials = displayName
     .split(/\s+/)
     .map((part) => part[0])
     .join('')
@@ -23,8 +26,24 @@ const InstructorTopbar = () => {
 
   const unread = notifications.filter((n) => !n.read).length;
 
-  // Fetch notifications on mount
+  // Fetch profile and notifications
   useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const data = await profileApi.get();
+        setUserProfile(data);
+      } catch {
+        // Ignore
+      }
+    };
+    fetchProfile();
+
+    const handleProfileUpdate = () => {
+      fetchProfile();
+    };
+
+    window.addEventListener('vietstage:profile-updated', handleProfileUpdate);
+
     const fetchNotifications = async () => {
       setLoading(true);
       try {
@@ -37,6 +56,10 @@ const InstructorTopbar = () => {
       }
     };
     fetchNotifications();
+
+    return () => {
+      window.removeEventListener('vietstage:profile-updated', handleProfileUpdate);
+    };
   }, []);
 
   // Close notif dropdown on outside click
@@ -179,9 +202,13 @@ const InstructorTopbar = () => {
         <div className="relative">
           <div
             onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-            className="w-8 h-8 rounded-full bg-secondary-container flex items-center justify-center font-bold text-primary text-xs cursor-pointer hover:opacity-85 transition-opacity"
+            className="w-8 h-8 rounded-full bg-secondary-container flex items-center justify-center font-bold text-primary text-xs cursor-pointer hover:opacity-85 transition-opacity overflow-hidden"
           >
-            {initials}
+            {avatarUrl ? (
+              <img src={avatarUrl} alt={displayName} className="w-full h-full object-cover" />
+            ) : (
+              initials
+            )}
           </div>
 
           {isDropdownOpen && (

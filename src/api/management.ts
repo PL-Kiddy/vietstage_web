@@ -20,6 +20,7 @@ export interface UserProfile {
   userCode: string;
   email: string;
   fullName: string;
+  avatarUrl?: string;
   role: string;
   active: boolean;
   createdAt: string;

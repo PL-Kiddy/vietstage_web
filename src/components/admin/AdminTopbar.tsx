@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Search, Bell, CheckCheck, X, User, LogOut } from 'lucide-react';
 import { authApi } from '../../api/services';
 import { clearAuthSession, getAuthSession } from '../../api/authStorage';
-import { notificationApi, type Notification } from '../../api/management';
+import { notificationApi, profileApi, type Notification, type UserProfile } from '../../api/management';
 
 interface AdminTopbarProps {
   userName?: string;
@@ -14,18 +14,36 @@ const AdminTopbar = ({ userName, userRole }: AdminTopbarProps) => {
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
 
   const session = getAuthSession();
-  const displayName = userName ?? session?.name ?? 'Quản trị viên';
-  const displayRole = userRole ?? 'Administrator';
+  const displayName = userName ?? userProfile?.fullName ?? session?.name ?? 'Quản trị viên';
+  const displayRole = userRole ?? userProfile?.role ?? 'Administrator';
+  const avatarUrl = userProfile?.avatarUrl;
   const navigate = useNavigate();
 
   const unread = notifications.filter((n) => !n.read).length;
 
-  // Fetch notifications on mount
+  // Fetch profile and notifications
   useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const data = await profileApi.get();
+        setUserProfile(data);
+      } catch {
+        // Fallback
+      }
+    };
+    fetchProfile();
+
+    const handleProfileUpdate = () => {
+      fetchProfile();
+    };
+
+    window.addEventListener('vietstage:profile-updated', handleProfileUpdate);
+
     const fetchNotifications = async () => {
       setLoading(true);
       try {
@@ -38,6 +56,10 @@ const AdminTopbar = ({ userName, userRole }: AdminTopbarProps) => {
       }
     };
     fetchNotifications();
+
+    return () => {
+      window.removeEventListener('vietstage:profile-updated', handleProfileUpdate);
+    };
   }, []);
 
   // Close notif dropdown on outside click
@@ -188,8 +210,12 @@ const AdminTopbar = ({ userName, userRole }: AdminTopbarProps) => {
                 {displayRole}
               </p>
             </div>
-            <div className="w-10 h-10 rounded-full border border-[#1D4532]/20 bg-[#EDF7F2] flex items-center justify-center text-[#1D4532] font-bold text-sm">
-              {displayName.charAt(0).toUpperCase()}
+            <div className="w-10 h-10 rounded-full border border-[#1D4532]/20 bg-[#EDF7F2] flex items-center justify-center text-[#1D4532] font-bold text-sm overflow-hidden">
+              {avatarUrl ? (
+                <img src={avatarUrl} alt={displayName} className="w-full h-full object-cover" />
+              ) : (
+                displayName.charAt(0).toUpperCase()
+              )}
             </div>
           </div>
 
