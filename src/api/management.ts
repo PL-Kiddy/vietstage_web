@@ -65,12 +65,16 @@ export const profileApi = {
       method: 'PUT',
       body: { fullName },
     }),
-  updateAvatar: (file: File) => {
+  updateAvatar: async (file: File, fullName?: string) => {
     const formData = new FormData();
-    formData.append('avatar', file);
-    return apiRequest<UserProfile>('/api/users/me/avatar', {
+    formData.append('file', file);
+    const avatarUrl = await apiRequest<string>('/api/upload', {
       method: 'POST',
-      body: formData as any,
+      body: formData,
+    });
+    return apiRequest<UserProfile>('/api/users/me', {
+      method: 'PUT',
+      body: { fullName: fullName || 'User', avatarUrl },
     });
   },
   changePassword: (oldPassword: string, newPassword: string) =>

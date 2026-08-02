@@ -9,6 +9,7 @@ import { useAxiosRequest } from '../../hooks/useAxiosRequest';
 interface ProfilePageProps {
   accentClass?: string;
   roleLabel: string;
+  isGreenTheme?: boolean;
 }
 
 type Tab = 'profile' | 'password';
@@ -24,6 +25,7 @@ const initialsOf = (name: string) =>
 const ProfilePage = ({
   accentClass = 'bg-[#edf4ff]',
   roleLabel,
+  isGreenTheme = false,
 }: ProfilePageProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -73,7 +75,7 @@ const ProfilePage = ({
     setUploadingAvatar(true);
     setProfileError('');
     try {
-      const updated = await profileApi.updateAvatar(avatarFile);
+      const updated = await profileApi.updateAvatar(avatarFile, profile.fullName);
       setProfile(updated);
       setAvatarFile(null);
     } catch (reason) {
@@ -179,12 +181,16 @@ const ProfilePage = ({
           onChange={(e) => onChange(e.target.value)}
           required
           placeholder={placeholder}
-          className="w-full pl-10 pr-10 py-3 bg-[#f7f9ff] border border-[#d1e4fb] rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20 transition"
+          className={`w-full pl-10 pr-10 py-3 bg-[#f7f9ff] border border-[#d1e4fb] rounded-xl text-sm outline-none focus:ring-2 transition ${
+            isGreenTheme ? 'focus:ring-[#1D4532]/20' : 'focus:ring-primary/20'
+          }`}
         />
         <button
           type="button"
           onClick={onToggle}
-          className="absolute right-3 top-1/2 -translate-y-1/2 text-[#5e5e5b] hover:text-primary transition-colors"
+          className={`absolute right-3 top-1/2 -translate-y-1/2 text-[#5e5e5b] transition-colors ${
+            isGreenTheme ? 'hover:text-[#1D4532]' : 'hover:text-primary'
+          }`}
         >
           {show ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
         </button>
@@ -196,7 +202,7 @@ const ProfilePage = ({
   return (
     <div className="space-y-6">
       {/* ─── Hero card ─── */}
-      <div className="relative rounded-3xl overflow-hidden shadow-xl bg-primary text-white">
+      <div className={`relative rounded-3xl overflow-hidden shadow-xl text-white ${isGreenTheme ? 'bg-[#1D4532]' : 'bg-primary'}`}>
         <div className="absolute inset-0 opacity-10">
           <div className="absolute -top-10 -right-10 w-48 h-48 rounded-full bg-white" />
           <div className="absolute bottom-0 left-0 w-32 h-32 rounded-full bg-white" />
@@ -209,13 +215,15 @@ const ProfilePage = ({
               {avatarSrc ? (
                 <img src={avatarSrc} alt="avatar" className="w-full h-full object-cover" />
               ) : (
-                <span className="text-primary text-3xl font-bold">{initialsOf(profile.fullName)}</span>
+                <span className={`text-3xl font-bold ${isGreenTheme ? 'text-[#1D4532]' : 'text-primary'}`}>{initialsOf(profile.fullName)}</span>
               )}
             </div>
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="absolute bottom-0 right-0 w-8 h-8 bg-white text-primary rounded-full flex items-center justify-center shadow-lg hover:scale-110 transition-transform"
+              className={`absolute bottom-0 right-0 w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-lg hover:scale-110 transition-transform ${
+                isGreenTheme ? 'text-[#1D4532]' : 'text-primary'
+              }`}
               title="Thay đổi ảnh đại diện"
             >
               <Camera className="w-4 h-4" />
@@ -267,7 +275,11 @@ const ProfilePage = ({
             onClick={() => setActiveTab('profile')}
             className={`flex-1 flex items-center justify-center gap-2 py-4 text-sm font-semibold transition-colors ${
               activeTab === 'profile'
-                ? 'text-primary border-b-2 border-primary bg-[#f0f7ff]'
+                ? isGreenTheme
+                  ? 'text-[#1D4532] border-b-2 border-[#1D4532] bg-[#EDF7F2]'
+                  : 'text-primary border-b-2 border-primary bg-[#f0f7ff]'
+                : isGreenTheme
+                ? 'text-[#5e5e5b] hover:text-[#1D4532] hover:bg-[#EDF7F2]/50'
                 : 'text-[#5e5e5b] hover:text-primary hover:bg-[#f7f9ff]'
             }`}
           >
@@ -279,7 +291,11 @@ const ProfilePage = ({
             onClick={() => setActiveTab('password')}
             className={`flex-1 flex items-center justify-center gap-2 py-4 text-sm font-semibold transition-colors ${
               activeTab === 'password'
-                ? 'text-primary border-b-2 border-primary bg-[#f0f7ff]'
+                ? isGreenTheme
+                  ? 'text-[#1D4532] border-b-2 border-[#1D4532] bg-[#EDF7F2]'
+                  : 'text-primary border-b-2 border-primary bg-[#f0f7ff]'
+                : isGreenTheme
+                ? 'text-[#5e5e5b] hover:text-[#1D4532] hover:bg-[#EDF7F2]/50'
                 : 'text-[#5e5e5b] hover:text-primary hover:bg-[#f7f9ff]'
             }`}
           >
@@ -312,7 +328,9 @@ const ProfilePage = ({
                     disabled={!editing}
                     required
                     placeholder="Nhập họ và tên..."
-                    className="w-full pl-10 pr-4 py-3 bg-[#f7f9ff] border border-[#d1e4fb] rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-70 transition"
+                    className={`w-full pl-10 pr-4 py-3 bg-[#f7f9ff] border border-[#d1e4fb] rounded-xl text-sm outline-none focus:ring-2 disabled:opacity-70 transition ${
+                      isGreenTheme ? 'focus:ring-[#1D4532]/20' : 'focus:ring-primary/20'
+                    }`}
                   />
                 </div>
               </div>
@@ -332,7 +350,7 @@ const ProfilePage = ({
 
               {/* Status */}
               <div className="flex items-center gap-3 rounded-xl bg-[#f7f9ff] border border-[#d1e4fb] px-4 py-3">
-                <Shield className="w-5 h-5 text-primary flex-shrink-0" />
+                <Shield className={`w-5 h-5 flex-shrink-0 ${isGreenTheme ? 'text-[#1D4532]' : 'text-primary'}`} />
                 <div>
                   <p className="text-xs text-[#5e5e5b]">Trạng thái</p>
                   <p className={`text-sm font-semibold ${profile.active ? 'text-green-600' : 'text-red-500'}`}>
@@ -343,7 +361,7 @@ const ProfilePage = ({
 
               {/* Created At */}
               <div className="flex items-center gap-3 rounded-xl bg-[#f7f9ff] border border-[#d1e4fb] px-4 py-3">
-                <CalendarDays className="w-5 h-5 text-primary flex-shrink-0" />
+                <CalendarDays className={`w-5 h-5 flex-shrink-0 ${isGreenTheme ? 'text-[#1D4532]' : 'text-primary'}`} />
                 <div>
                   <p className="text-xs text-[#5e5e5b]">Ngày tạo</p>
                   <p className="text-sm font-semibold text-on-surface">
@@ -368,6 +386,8 @@ const ProfilePage = ({
                 className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
                   editing
                     ? 'bg-red-50 text-red-600 hover:bg-red-100 border border-red-200'
+                    : isGreenTheme
+                    ? 'bg-[#EDF7F2] text-[#1D4532] hover:bg-[#EDF7F2]/80 border border-[#1D4532]/30'
                     : 'bg-[#edf4ff] text-primary hover:bg-[#dceeff] border border-[#d1e4fb]'
                 }`}
               >
@@ -379,7 +399,9 @@ const ProfilePage = ({
                 <button
                   type="submit"
                   disabled={saving}
-                  className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-white px-6 py-2.5 rounded-xl text-sm font-semibold transition-colors disabled:opacity-60"
+                  className={`flex items-center gap-2 text-white px-6 py-2.5 rounded-xl text-sm font-semibold transition-colors disabled:opacity-60 ${
+                    isGreenTheme ? 'bg-[#1D4532] hover:bg-[#1D4532]/90' : 'bg-primary hover:bg-primary/90'
+                  }`}
                 >
                   <Save className="w-4 h-4" />
                   {saving ? 'Đang lưu...' : 'Lưu thay đổi'}
@@ -438,7 +460,7 @@ const ProfilePage = ({
                           ? newPassword.length >= 12 ? 'bg-green-500'
                           : newPassword.length >= 9 ? 'bg-yellow-500'
                           : 'bg-orange-400'
-                          : 'bg-[#d1e4fb]'
+                          : isGreenTheme ? 'bg-[#EDF7F2]' : 'bg-[#d1e4fb]'
                       }`}
                     />
                   ))}
@@ -456,7 +478,9 @@ const ProfilePage = ({
               <button
                 type="submit"
                 disabled={pwSaving}
-                className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-white px-6 py-2.5 rounded-xl text-sm font-semibold transition-colors disabled:opacity-60"
+                className={`flex items-center gap-2 text-white px-6 py-2.5 rounded-xl text-sm font-semibold transition-colors disabled:opacity-60 ${
+                  isGreenTheme ? 'bg-[#1D4532] hover:bg-[#1D4532]/90' : 'bg-primary hover:bg-primary/90'
+                }`}
               >
                 <KeyRound className="w-4 h-4" />
                 {pwSaving ? 'Đang đổi...' : 'Đổi mật khẩu'}

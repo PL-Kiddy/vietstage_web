@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Bell, CheckCheck, X } from 'lucide-react';
+import { Search, Bell, CheckCheck, X, User, LogOut } from 'lucide-react';
 import { authApi } from '../../api/services';
 import { clearAuthSession, getAuthSession } from '../../api/authStorage';
 import { notificationApi, type Notification } from '../../api/management';
@@ -188,7 +188,7 @@ const AdminTopbar = ({ userName, userRole }: AdminTopbarProps) => {
                 {displayRole}
               </p>
             </div>
-            <div className="w-10 h-10 rounded-full border border-primary/20 bg-[#e3efff] flex items-center justify-center text-primary font-bold text-sm">
+            <div className="w-10 h-10 rounded-full border border-[#1D4532]/20 bg-[#EDF7F2] flex items-center justify-center text-[#1D4532] font-bold text-sm">
               {displayName.charAt(0).toUpperCase()}
             </div>
           </div>
@@ -200,15 +200,16 @@ const AdminTopbar = ({ userName, userRole }: AdminTopbarProps) => {
                 className="fixed inset-0 z-10"
                 onClick={() => setIsDropdownOpen(false)}
               />
-              <div className="absolute right-0 mt-2 w-48 bg-white border border-[#d1e4fb] rounded-xl shadow-lg py-1 z-20">
+              <div className="absolute right-0 mt-2 w-48 bg-white border border-[#E5E7EB] rounded-xl shadow-lg py-1 z-20">
                 <button
                   onClick={() => {
                     setIsDropdownOpen(false);
                     navigate('/admin/profile');
                   }}
-                  className="w-full text-left px-4 py-2 hover:bg-[#edf4ff] text-[14px] text-on-surface transition-colors"
+                  className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-[#EDF7F2] text-[14.5px] font-medium text-[#374151] hover:text-[#1D4532] transition-all group"
                 >
-                  Xem thông tin
+                  <User className="w-4.5 h-4.5 text-[#9CA3AF] group-hover:text-[#1D4532] transition-colors" />
+                  <span>Xem thông tin</span>
                 </button>
                 <button
                   onClick={async () => {
@@ -220,9 +221,10 @@ const AdminTopbar = ({ userName, userRole }: AdminTopbarProps) => {
                       navigate('/login');
                     }
                   }}
-                  className="w-full text-left px-4 py-2 hover:bg-[#edf4ff] text-[14px] text-red-500 transition-colors border-t border-[#d1e4fb]/40"
+                  className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-red-50 text-[14.5px] font-medium text-red-600 hover:text-red-700 transition-all border-t border-[#E5E7EB] group"
                 >
-                  Đăng xuất
+                  <LogOut className="w-4.5 h-4.5 text-red-400 group-hover:text-red-600 transition-colors" />
+                  <span>Đăng xuất</span>
                 </button>
               </div>
             </>
