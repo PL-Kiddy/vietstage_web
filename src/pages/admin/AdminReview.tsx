@@ -306,11 +306,11 @@ const handleResetToPending = async (item: ReviewItem) => {
 
       {/* Header Section */}
       <section className="mb-lg border-b border-outline-variant/10 pb-md">
-        <span className="text-[#8b0000] font-bold text-label-md tracking-wider uppercase text-sm">
+        <span className="text-[#1D4532] font-bold text-label-md tracking-wider uppercase text-sm">
           Phê duyệt học liệu
         </span>
         <h2
-          className="text-headline-lg font-bold text-[#8b0000] mt-xs"
+          className="text-headline-lg font-bold text-[#1D4532] mt-xs"
           style={{ fontFamily: "'Montserrat', sans-serif" }}
         >
           Kiểm duyệt học liệu
@@ -329,8 +329,8 @@ const handleResetToPending = async (item: ReviewItem) => {
           }}
           className={`px-lg py-sm rounded-t-lg font-label-md text-label-md transition-all border-b-2 ${
             statusFilter === 'all'
-              ? 'border-primary text-primary bg-[#edf4ff] font-bold'
-              : 'border-transparent text-[#5e5e5b] hover:bg-[#edf4ff]/50'
+              ? 'border-[#1D4532] text-[#1D4532] bg-[#EDF7F2] font-bold'
+              : 'border-transparent text-[#5e5e5b] hover:bg-[#EDF7F2]/50'
           }`}
         >
           Tất cả ({items.length})
@@ -403,7 +403,7 @@ const handleResetToPending = async (item: ReviewItem) => {
       {/* Search and dropdown filters */}
       <div className="flex flex-wrap items-center gap-md mb-lg">
         {/* Search Bar */}
-        <div className="flex items-center gap-xs px-md py-sm bg-white border border-[#d1e4fb] rounded-lg w-full sm:w-80 shadow-sm focus-within:ring-1 focus-within:ring-primary transition-all">
+        <div className="flex items-center gap-xs px-md py-sm bg-white border border-[#d1e4fb] rounded-lg w-full sm:w-80 shadow-sm focus-within:ring-1 focus-within:ring-[#1D4532] transition-all">
           <Search className="w-5 h-5 text-[#5e5e5b]" />
           <input
             type="text"
@@ -426,7 +426,7 @@ const handleResetToPending = async (item: ReviewItem) => {
               setSelectedInstrument(e.target.value);
               setCurrentPage(1);
             }}
-            className="bg-transparent border-none text-label-md font-semibold text-primary focus:ring-0 cursor-pointer outline-none"
+            className="bg-transparent border-none text-label-md font-semibold text-[#1D4532] focus:ring-0 cursor-pointer outline-none"
           >
             <option value="all">Tất cả nhạc cụ</option>
             {instrumentOptions.map((ins) => (
@@ -446,7 +446,7 @@ const handleResetToPending = async (item: ReviewItem) => {
               setSelectedInstructor(e.target.value);
               setCurrentPage(1);
             }}
-            className="bg-transparent border-none text-label-md font-semibold text-primary focus:ring-0 cursor-pointer outline-none"
+            className="bg-transparent border-none text-label-md font-semibold text-[#1D4532] focus:ring-0 cursor-pointer outline-none"
           >
             <option value="all">Tất cả giảng viên</option>
             {Array.from(new Set(items.map((i) => i.instructor))).map((instructor) => (
@@ -467,7 +467,7 @@ const handleResetToPending = async (item: ReviewItem) => {
             setSelectedInstructor('all');
             setCurrentPage(1);
           }}
-          className="ml-auto text-xs font-semibold text-[#8b0000] hover:underline flex items-center gap-1 border border-[#8b0000]/30 px-3 py-2 rounded-lg hover:bg-[#8b0000]/5 transition-colors"
+          className="ml-auto text-xs font-semibold text-[#1D4532] hover:underline flex items-center gap-1 border border-[#1D4532]/30 px-3 py-2 rounded-lg hover:bg-[#1D4532]/5 transition-colors"
         >
           <RotateCcw className="w-3.5 h-3.5" />
           Làm mới dữ liệu
@@ -483,7 +483,7 @@ const handleResetToPending = async (item: ReviewItem) => {
       {/* Table Section */}
       {isLoading ? (
         <div className="bg-white rounded-xl border border-outline-variant/10 p-xxl text-center shadow-sm">
-          <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
+          <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-2 border-[#1D4532]/20 border-t-primary" />
           <p className="text-body-md text-on-surface-variant">Đang tải danh sách kiểm duyệt...</p>
         </div>
       ) : filteredItems.length === 0 ? (
@@ -523,10 +523,10 @@ const handleResetToPending = async (item: ReviewItem) => {
                   <tr
                     key={item.id}
                     onClick={() => openDrawer(item)}
-                    className="hover:bg-[#edf4ff] transition-colors cursor-pointer"
+                    className="hover:bg-[#EDF7F2] transition-colors cursor-pointer"
                   >
                     <td className="px-xl py-lg">
-                      <div className="font-body-md font-bold text-[#8b0000]">
+                      <div className="font-body-md font-bold text-[#1D4532]">
                         {item.title}
                       </div>
                       <div className="text-[12px] text-on-surface-variant">
@@ -574,8 +574,8 @@ const handleResetToPending = async (item: ReviewItem) => {
                         onClick={() => openDrawer(item)}
                         className={`inline-flex items-center gap-xs px-lg py-sm rounded-lg font-label-sm text-label-sm transition-all active:scale-95 shadow-sm whitespace-nowrap ${
                           item.status === 'pending'
-                            ? 'bg-[#8b0000] text-white hover:bg-[#8b0000]/90'
-                            : 'border border-primary text-primary hover:bg-[#edf4ff]'
+                            ? 'bg-[#1D4532] text-white hover:bg-[#1D4532]/90'
+                            : 'border border-[#1D4532] text-[#1D4532] hover:bg-[#EDF7F2]'
                         }`}
                       >
                         <Eye className="w-4 h-4" />
@@ -632,7 +632,7 @@ const handleResetToPending = async (item: ReviewItem) => {
                 onClick={() => setCurrentPage(p)}
                 className={`px-3 py-1 rounded font-bold transition-colors ${
                   p === currentPage
-                    ? 'bg-primary text-on-primary'
+                    ? 'bg-[#1D4532] text-white'
                     : 'border border-outline-variant hover:bg-[#e3efff]'
                 }`}
               >
@@ -674,7 +674,7 @@ const handleResetToPending = async (item: ReviewItem) => {
               {/* Drawer Header */}
               <div className="px-xl py-lg border-b border-outline-variant/10 flex justify-between items-center bg-[#f5f3ee]/30">
                 <div>
-                  <h4 className="text-headline-md font-bold text-[#8b0000] font-sans">
+                  <h4 className="text-headline-md font-bold text-[#1D4532] font-sans">
                     Trình xem trước học liệu
                   </h4>
                   <p className="text-[12px] text-on-surface-variant mt-xs">
@@ -707,7 +707,7 @@ const handleResetToPending = async (item: ReviewItem) => {
                       <div className="absolute inset-0 bg-black/15 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                         <button
                           onClick={() => setIsPreviewZoomed(true)}
-                          className="bg-white text-[#8b0000] px-lg py-md rounded-full shadow-lg font-label-md flex items-center gap-xs hover:scale-105 active:scale-95 transition-transform"
+                          className="bg-white text-[#1D4532] px-lg py-md rounded-full shadow-lg font-label-md flex items-center gap-xs hover:scale-105 active:scale-95 transition-transform"
                         >
                           <ZoomIn className="w-5 h-5" />
                           Phóng to ảnh
@@ -726,7 +726,7 @@ const handleResetToPending = async (item: ReviewItem) => {
                         <span className="text-label-sm font-bold text-on-surface truncate max-w-[200px]">
                           preview_audio_{selectedItem.id}.mp3
                         </span>
-                        <span className="text-label-sm font-bold text-[#8b0000]">
+                        <span className="text-label-sm font-bold text-[#1D4532]">
                           {formatTime(currentTime)} / {selectedItem.duration}
                         </span>
                       </div>
@@ -745,7 +745,7 @@ const handleResetToPending = async (item: ReviewItem) => {
                             <div
                               key={index}
                               className={`w-full rounded-full transition-all duration-300 ${
-                                isPlayed ? 'bg-[#8b0000]' : 'bg-[#8b0000]/25'
+                                isPlayed ? 'bg-[#1D4532]' : 'bg-[#1D4532]/25'
                               }`}
                               style={{
                                 height: isPlaying
@@ -760,7 +760,7 @@ const handleResetToPending = async (item: ReviewItem) => {
                       <div className="flex justify-center">
                         <button
                           onClick={() => setIsPlaying(!isPlaying)}
-                          className="w-12 h-12 bg-[#8b0000] text-white rounded-full flex items-center justify-center shadow-md hover:scale-105 active:scale-95 transition-transform"
+                          className="w-12 h-12 bg-[#1D4532] text-white rounded-full flex items-center justify-center shadow-md hover:scale-105 active:scale-95 transition-transform"
                         >
                           {isPlaying ? (
                             <Pause className="w-5 h-5 text-white fill-white" />
@@ -804,7 +804,7 @@ const handleResetToPending = async (item: ReviewItem) => {
                             setFeedback(e.target.value);
                             if (e.target.value.trim() !== '') setFeedbackError('');
                           }}
-                          className={`w-full bg-[#fbf9f4] border rounded-xl p-md text-body-md focus:border-[#8b0000] focus:ring-1 focus:ring-[#8b0000] h-28 transition-all outline-none ${
+                          className={`w-full bg-[#fbf9f4] border rounded-xl p-md text-body-md focus:border-[#1D4532] focus:ring-1 focus:ring-[#1D4532] h-28 transition-all outline-none ${
                             feedbackError ? 'border-error ring-1 ring-error' : 'border-outline-variant/30'
                           }`}
                           placeholder="Bắt buộc phải nhập lý do chi tiết khi từ chối học liệu..."
@@ -899,7 +899,7 @@ const handleResetToPending = async (item: ReviewItem) => {
             <div className="flex justify-end gap-md mt-lg">
               <button
                 onClick={() => setRevokeModalItem(null)}
-                className="bg-white hover:bg-[#edf4ff] text-[#5e5e5b] border border-[#d1e4fb] font-semibold px-lg py-md rounded-lg transition-colors text-sm"
+                className="bg-white hover:bg-[#EDF7F2] text-[#5e5e5b] border border-[#d1e4fb] font-semibold px-lg py-md rounded-lg transition-colors text-sm"
               >
                 Hủy
               </button>

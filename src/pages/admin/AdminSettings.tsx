@@ -152,11 +152,11 @@ const AdminSettings = () => {
       {/* Page Header (Sticky to keep save button visible) */}
       <div className="sticky top-16 z-30 bg-[#f7f9ff] py-md flex justify-between items-end border-b border-[#d1e4fb] mb-lg">
         <div>
-          <span className="text-primary font-label-md text-label-md uppercase tracking-widest text-sm">
+          <span className="text-[#1D4532] font-label-md text-label-md uppercase tracking-widest text-sm">
             System Configuration
           </span>
           <h3
-            className="text-headline-lg font-bold text-primary mt-xs"
+            className="text-headline-lg font-bold text-[#1D4532] mt-xs"
             style={{ fontFamily: "'Montserrat', sans-serif" }}
           >
             Cấu hình Hệ thống
@@ -166,8 +166,8 @@ const AdminSettings = () => {
           onClick={handleSaveChanges}
           className={`relative px-lg py-md rounded-lg font-label-md text-label-md transition-all active:scale-95 shadow-md flex items-center gap-2 ${
             isDirty 
-              ? 'bg-primary text-on-primary hover:bg-primary/95 cursor-pointer' 
-              : 'bg-primary/40 text-on-primary/60 cursor-not-allowed'
+              ? 'bg-[#1D4532] text-white hover:bg-[#1D4532]/95 cursor-pointer' 
+              : 'bg-[#1D4532]/40 text-white/60 cursor-not-allowed'
           }`}
           disabled={!isDirty}
         >
@@ -184,7 +184,7 @@ const AdminSettings = () => {
         <section className="col-span-12 lg:col-span-7 bg-white p-lg rounded-xl border border-outline/10 shadow-sm">
           <div className="flex items-center justify-between mb-lg flex-wrap gap-md">
             <div className="flex items-center gap-sm">
-              <BrainCircuit className="w-6 h-6 text-primary" />
+              <BrainCircuit className="w-6 h-6 text-[#1D4532]" />
               <h4
                 className="text-headline-md font-bold text-on-surface"
                 style={{ fontFamily: "'Montserrat', sans-serif" }}
@@ -199,7 +199,7 @@ const AdminSettings = () => {
               <select
                 value={selectedInstrument}
                 onChange={(e) => setSelectedInstrument(e.target.value)}
-                className="bg-[#edf4ff] border border-outline/20 rounded-lg py-1 px-3 focus:ring-1 focus:ring-primary outline-none text-body-md font-semibold text-primary"
+                className="bg-[#EDF7F2] border border-outline/20 rounded-lg py-1 px-3 focus:ring-1 focus:ring-[#1D4532] outline-none text-body-md font-semibold text-[#1D4532]"
               >
                 <option value="global">Cấu hình chung</option>
                 <option value="dan_bau">Đàn Bầu</option>
@@ -216,7 +216,7 @@ const AdminSettings = () => {
                 <label className="font-body-md font-semibold text-on-surface">
                   Độ nhạy nhận diện cao độ (Pitch Detection)
                 </label>
-                <span className="bg-primary-fixed text-on-primary-fixed px-sm py-xs rounded font-label-md font-semibold">
+                <span className="bg-[#1D4532]-fixed text-white-fixed px-sm py-xs rounded font-label-md font-semibold">
                   {currentConfig.pitch}%
                 </span>
               </div>
@@ -242,7 +242,7 @@ const AdminSettings = () => {
                       if (val > 100) val = 100;
                       updateCurrentConfig('pitch', val);
                     }}
-                    className="w-16 bg-[#edf4ff] border border-outline/20 rounded px-2 py-1 text-center font-bold text-primary outline-none"
+                    className="w-16 bg-[#EDF7F2] border border-outline/20 rounded px-2 py-1 text-center font-bold text-[#1D4532] outline-none"
                   />
                   <span className="text-on-surface-variant font-semibold">%</span>
                 </div>
@@ -255,7 +255,7 @@ const AdminSettings = () => {
 
               <p className="text-[12px] text-[#5e5e5b]">
                 Điều chỉnh mức độ nhạy của thuật toán AI khi phân tích âm thanh từ{' '}
-                <span className="font-bold text-primary">{getInstrumentLabel(selectedInstrument)}</span>. Mức cao sẽ nhạy với các nốt nhỏ nhưng dễ bị nhiễu.
+                <span className="font-bold text-[#1D4532]">{getInstrumentLabel(selectedInstrument)}</span>. Mức cao sẽ nhạy với các nốt nhỏ nhưng dễ bị nhiễu.
               </p>
             </div>
 
@@ -265,7 +265,7 @@ const AdminSettings = () => {
                 <label className="font-body-md font-semibold text-on-surface">
                   Ngưỡng sai số nhịp điệu (Rhythm Tolerance)
                 </label>
-                <span className="bg-primary-fixed text-on-primary-fixed px-sm py-xs rounded font-label-md font-semibold">
+                <span className="bg-[#1D4532]-fixed text-white-fixed px-sm py-xs rounded font-label-md font-semibold">
                   {currentConfig.rhythm}ms
                 </span>
               </div>
@@ -291,7 +291,7 @@ const AdminSettings = () => {
                       if (val > 250) val = 250;
                       updateCurrentConfig('rhythm', val);
                     }}
-                    className="w-16 bg-[#edf4ff] border border-outline/20 rounded px-2 py-1 text-center font-bold text-primary outline-none"
+                    className="w-16 bg-[#EDF7F2] border border-outline/20 rounded px-2 py-1 text-center font-bold text-[#1D4532] outline-none"
                   />
                   <span className="text-on-surface-variant font-semibold">ms</span>
                 </div>
@@ -304,7 +304,7 @@ const AdminSettings = () => {
 
               <p className="text-[12px] text-[#5e5e5b]">
                 Khoảng thời gian tối đa cho phép (latency) giữa nốt đánh thực tế của{' '}
-                <span className="font-bold text-primary">{getInstrumentLabel(selectedInstrument)}</span> và nhịp chuẩn. Phù hợp cho người mới bắt đầu hoặc chuyên nghiệp.
+                <span className="font-bold text-[#1D4532]">{getInstrumentLabel(selectedInstrument)}</span> và nhịp chuẩn. Phù hợp cho người mới bắt đầu hoặc chuyên nghiệp.
               </p>
             </div>
           </div>
@@ -312,7 +312,7 @@ const AdminSettings = () => {
           <div className="mt-xl pt-lg border-t border-outline/10 flex justify-between items-center flex-wrap gap-md">
             <button
               onClick={handleRestoreDefaults}
-              className="flex items-center gap-2 border border-outline text-[#5a403c] font-label-md text-label-md px-4 py-2 rounded-lg hover:bg-[#edf4ff] transition-colors active:scale-95"
+              className="flex items-center gap-2 border border-outline text-[#5a403c] font-label-md text-label-md px-4 py-2 rounded-lg hover:bg-[#EDF7F2] transition-colors active:scale-95"
             >
               <RotateCcw className="w-4 h-4" />
               Khôi phục mặc định
@@ -328,7 +328,7 @@ const AdminSettings = () => {
               <div
                 onClick={() => updateCurrentConfig('optimize', !currentConfig.optimize)}
                 className={`relative inline-flex h-6 w-11 items-center rounded-full p-1 cursor-pointer transition-colors ${
-                  currentConfig.optimize ? 'bg-primary' : 'bg-[#e3efff]'
+                  currentConfig.optimize ? 'bg-[#1D4532]' : 'bg-[#e3efff]'
                 }`}
               >
                 <span
@@ -344,7 +344,7 @@ const AdminSettings = () => {
         {/* Storage Management */}
         <section className="col-span-12 lg:col-span-5 bg-white p-lg rounded-xl border border-outline/10 shadow-sm flex flex-col">
           <div className="flex items-center gap-sm mb-lg">
-            <CloudLightning className="w-6 h-6 text-primary" />
+            <CloudLightning className="w-6 h-6 text-[#1D4532]" />
             <h4
               className="text-headline-md font-bold text-on-surface"
               style={{ fontFamily: "'Montserrat', sans-serif" }}
@@ -363,7 +363,7 @@ const AdminSettings = () => {
               }}
             >
               <div className="w-32 h-32 bg-white rounded-full flex flex-col items-center justify-center shadow-inner text-center">
-                <span className="text-3xl font-bold text-primary">72%</span>
+                <span className="text-3xl font-bold text-[#1D4532]">72%</span>
                 <span className="text-[10px] text-[#5e5e5b] font-bold">720 GB / 1 TB</span>
                 <span className="text-[9px] text-[#5e5e5b]/70 uppercase tracking-tighter mt-1 block">
                   Đã dùng
@@ -374,7 +374,7 @@ const AdminSettings = () => {
             <div className="mt-xl w-full space-y-md">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-xs">
-                  <div className="w-3 h-3 rounded-full bg-primary" />
+                  <div className="w-3 h-3 rounded-full bg-[#1D4532]" />
                   <span className="font-body-md text-on-surface">
                     Âm thanh (WAV/MP3)
                   </span>
@@ -408,7 +408,7 @@ const AdminSettings = () => {
             </div>
           </div>
 
-          <button className="mt-auto w-full border border-primary text-primary font-label-md text-label-md py-md rounded hover:bg-primary/5 transition-colors">
+          <button className="mt-auto w-full border border-[#1D4532] text-[#1D4532] font-label-md text-label-md py-md rounded hover:bg-[#1D4532]/5 transition-colors">
             NÂNG CẤP DUNG LƯỢNG
           </button>
         </section>
@@ -416,7 +416,7 @@ const AdminSettings = () => {
         {/* Security & API */}
         <section className="col-span-12 lg:col-span-8 bg-white p-lg rounded-xl border border-outline/10 shadow-sm">
           <div className="flex items-center gap-sm mb-lg">
-            <ShieldAlert className="w-6 h-6 text-primary" />
+            <ShieldAlert className="w-6 h-6 text-[#1D4532]" />
             <h4
               className="text-headline-md font-bold text-on-surface"
               style={{ fontFamily: "'Montserrat', sans-serif" }}
@@ -434,7 +434,7 @@ const AdminSettings = () => {
               <select
                 value={sessionTime}
                 onChange={(e) => { setSessionTime(e.target.value); setIsDirty(true); }}
-                className="w-full bg-[#edf4ff] border border-outline/20 rounded-lg p-md focus:ring-1 focus:ring-primary outline-none text-body-md"
+                className="w-full bg-[#EDF7F2] border border-outline/20 rounded-lg p-md focus:ring-1 focus:ring-[#1D4532] outline-none text-body-md"
               >
                 <option value="30">30 phút (Khuyên dùng)</option>
                 <option value="60">60 phút</option>
@@ -466,7 +466,7 @@ const AdminSettings = () => {
                 </div>
                 <button
                   onClick={() => alert('Chức năng cấu hình 2FA hiện đang bảo trì. Vui lòng thử lại sau!')}
-                  className="bg-white border border-outline text-on-surface px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-[#edf4ff] transition-colors"
+                  className="bg-white border border-outline text-on-surface px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-[#EDF7F2] transition-colors"
                 >
                   Cấu hình lại
                 </button>
@@ -480,7 +480,7 @@ const AdminSettings = () => {
               Quản lý API Key (Production)
             </label>
             <div className="flex items-center gap-md">
-              <div className="flex-1 bg-[#edf4ff] border border-outline/20 rounded-lg p-md font-mono text-sm overflow-hidden whitespace-nowrap relative flex items-center justify-between h-[48px]">
+              <div className="flex-1 bg-[#EDF7F2] border border-outline/20 rounded-lg p-md font-mono text-sm overflow-hidden whitespace-nowrap relative flex items-center justify-between h-[48px]">
                 <span className="select-all">
                   {showApiKey ? apiKey : `vs_live_••••••••••••••••••••••••${apiKey.slice(-4)}`}
                 </span>
@@ -517,7 +517,7 @@ const AdminSettings = () => {
         </section>
 
         {/* System Info Card */}
-        <section className="col-span-12 lg:col-span-4 bg-primary text-on-primary p-lg rounded-xl flex flex-col relative overflow-hidden shadow-lg justify-between">
+        <section className="col-span-12 lg:col-span-4 bg-[#1D4532] text-white p-lg rounded-xl flex flex-col relative overflow-hidden shadow-lg justify-between">
           <div className="relative z-10">
             <div className="flex items-center gap-sm mb-lg opacity-80">
               <Info className="w-5 h-5" />
@@ -527,7 +527,7 @@ const AdminSettings = () => {
             </div>
             <div className="space-y-xl">
               <div>
-                <span className="text-on-primary/60 text-[12px]">
+                <span className="text-white/60 text-[12px]">
                   Server Latency
                 </span>
                 <div className="flex items-baseline gap-xs">
@@ -537,11 +537,11 @@ const AdminSettings = () => {
               </div>
               <div className="grid grid-cols-2 gap-md">
                 <div>
-                  <span className="text-on-primary/60 text-[12px]">Uptime</span>
+                  <span className="text-white/60 text-[12px]">Uptime</span>
                   <p className="font-label-md font-semibold">99.98%</p>
                 </div>
                 <div>
-                  <span className="text-on-primary/60 text-[12px]">Khu vực</span>
+                  <span className="text-white/60 text-[12px]">Khu vực</span>
                   <p className="font-label-md font-semibold">Asia (VN)</p>
                 </div>
               </div>

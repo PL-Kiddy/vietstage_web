@@ -37,21 +37,21 @@ const INSTRUMENT_OPTIONS = [
 
 /* ── Role badge colours ───────────────────────────────────── */
 const roleBadge: Record<string, string> = {
-  Admin: 'bg-primary/10 text-primary',
+  Admin: 'bg-[#1D4532]/10 text-[#1D4532]',
   'Giảng viên': 'bg-[#ffe088] text-[#241a00]',
-  'Người học': 'bg-[#d1e4fb] text-primary',
+  'Người học': 'bg-[#d1e4fb] text-[#1D4532]',
 };
 
 const getAvatarStyle = (role: string) => {
   switch (role) {
     case 'Admin':
-      return 'bg-primary/15 text-primary border border-primary/30';
+      return 'bg-[#1D4532]/15 text-[#1D4532] border border-[#1D4532]/30';
     case 'Giảng viên':
       return 'bg-[#ffe088]/30 text-[#8c6700] border border-[#ffe088]';
     case 'Người học':
-      return 'bg-[#d1e4fb]/40 text-primary border border-[#d1e4fb]';
+      return 'bg-[#d1e4fb]/40 text-[#1D4532] border border-[#d1e4fb]';
     default:
-      return 'bg-[#ffb4a8]/30 text-primary border border-outline-variant';
+      return 'bg-[#ffb4a8]/30 text-[#1D4532] border border-outline-variant';
   }
 };
 
@@ -269,7 +269,7 @@ alert('Backend hiện chưa cung cấp endpoint cập nhật thông tin người
       <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-lg mb-10">
         <div>
           <h2
-            className="text-headline-lg font-bold text-primary mb-xs"
+            className="text-headline-lg font-bold text-[#1D4532] mb-xs"
             style={{ fontFamily: "'Montserrat', sans-serif" }}
           >
             Quản lý người dùng
@@ -281,7 +281,7 @@ alert('Backend hiện chưa cung cấp endpoint cập nhật thông tin người
 
         <div className="flex flex-wrap items-center gap-md w-full xl:w-auto">
           {/* Search bar */}
-          <div className="flex items-center gap-xs px-md py-sm bg-white border border-[#d1e4fb] rounded-lg w-full sm:w-80 shadow-sm focus-within:ring-1 focus-within:ring-primary transition-all">
+          <div className="flex items-center gap-xs px-md py-sm bg-white border border-[#d1e4fb] rounded-lg w-full sm:w-80 shadow-sm focus-within:ring-1 focus-within:ring-[#1D4532] transition-all">
             <Search className="w-5 h-5 text-[#5e5e5b]" />
             <input
               type="text"
@@ -304,7 +304,7 @@ alert('Backend hiện chưa cung cấp endpoint cập nhật thông tin người
                 setRoleFilter(e.target.value);
                 setCurrentPage(1);
               }}
-              className="bg-transparent border-none text-label-md font-semibold text-primary focus:ring-0 cursor-pointer"
+              className="bg-transparent border-none text-label-md font-semibold text-[#1D4532] focus:ring-0 cursor-pointer"
             >
               <option>Tất cả</option>
               <option>Admin</option>
@@ -316,7 +316,7 @@ alert('Backend hiện chưa cung cấp endpoint cập nhật thông tin người
           {/* Add New */}
           <button
             onClick={handleAddUserClick}
-            className="bg-primary text-on-primary px-lg py-sm rounded-lg font-label-md hover:bg-primary/95 transition-all flex items-center gap-xs shadow-md"
+            className="bg-[#1D4532] text-white px-lg py-sm rounded-lg font-label-md hover:bg-[#1D4532]/95 transition-all flex items-center gap-xs shadow-md"
           >
             <UserPlus className="w-[18px] h-[18px]" />
             Thêm mới
@@ -363,7 +363,7 @@ alert('Backend hiện chưa cung cấp endpoint cập nhật thông tin người
                   <tr
                     key={user.id}
                     onClick={() => setSelectedUser(user)}
-                    className="hover:bg-[#edf4ff] transition-colors cursor-pointer"
+                    className="hover:bg-[#EDF7F2] transition-colors cursor-pointer"
                   >
                     {/* Name + Avatar */}
                     <td className="px-lg py-md">
@@ -407,7 +407,7 @@ alert('Backend hiện chưa cung cấp endpoint cập nhật thông tin người
                         </span>
                       )}
                       {user.status === 'locked' && (
-                        <span className="flex items-center gap-1 text-[12px] font-semibold text-[#8b0000]">
+                        <span className="flex items-center gap-1 text-[12px] font-semibold text-[#1D4532]">
                           <span className="w-2.5 h-2.5 rounded-full bg-error" />
                           Bị khóa
                         </span>
@@ -424,7 +424,7 @@ alert('Backend hiện chưa cung cấp endpoint cập nhật thông tin người
                     <td className="px-lg py-md text-right relative" onClick={(e) => e.stopPropagation()}>
                       <button
                         onClick={() => setOpenActionMenuUserId(openActionMenuUserId === user.id ? null : user.id)}
-                        className="p-2 hover:bg-[#edf4ff] rounded-full transition-colors text-on-surface-variant hover:text-on-surface"
+                        className="p-2 hover:bg-[#EDF7F2] rounded-full transition-colors text-on-surface-variant hover:text-on-surface"
                       >
                         <MoreVertical className="w-5 h-5" />
                       </button>
@@ -439,9 +439,9 @@ alert('Backend hiện chưa cung cấp endpoint cập nhật thông tin người
                                 setOpenActionMenuUserId(null);
                                 setSelectedUser(user);
                               }}
-                              className="w-full flex items-center gap-xs px-4 py-2 hover:bg-[#edf4ff] text-[13px] text-on-surface transition-colors"
+                              className="w-full flex items-center gap-xs px-4 py-2 hover:bg-[#EDF7F2] text-[13px] text-on-surface transition-colors"
                             >
-                              <UserCheck className="w-4 h-4 text-primary" />
+                              <UserCheck className="w-4 h-4 text-[#1D4532]" />
                               Xem chi tiết
                             </button>
                             <button
@@ -449,9 +449,9 @@ alert('Backend hiện chưa cung cấp endpoint cập nhật thông tin người
                                 setOpenActionMenuUserId(null);
                                 handleEditUserClick(user);
                               }}
-                              className="w-full flex items-center gap-xs px-4 py-2 hover:bg-[#edf4ff] text-[13px] text-on-surface transition-colors"
+                              className="w-full flex items-center gap-xs px-4 py-2 hover:bg-[#EDF7F2] text-[13px] text-on-surface transition-colors"
                             >
-                              <Edit2 className="w-4 h-4 text-primary" />
+                              <Edit2 className="w-4 h-4 text-[#1D4532]" />
                               Sửa thông tin
                             </button>
                             <button
@@ -459,7 +459,7 @@ alert('Backend hiện chưa cung cấp endpoint cập nhật thông tin người
                                 setOpenActionMenuUserId(null);
                                 triggerConfirmModal('reset_password', user);
                               }}
-                              className="w-full flex items-center gap-xs px-4 py-2 hover:bg-[#edf4ff] text-[13px] text-on-surface transition-colors"
+                              className="w-full flex items-center gap-xs px-4 py-2 hover:bg-[#EDF7F2] text-[13px] text-on-surface transition-colors"
                             >
                               <Key className="w-4 h-4 text-[#5e5e5b]" />
                               Đặt lại mật khẩu
@@ -552,7 +552,7 @@ alert('Backend hiện chưa cung cấp endpoint cập nhật thông tin người
               onClick={() => setCurrentPage(p)}
               className={`px-3 py-1 rounded font-bold transition-colors ${
                 p === currentPage
-                  ? 'bg-primary text-on-primary'
+                  ? 'bg-[#1D4532] text-white'
                   : 'border border-outline-variant hover:bg-[#e3efff]'
               }`}
             >
@@ -589,7 +589,7 @@ alert('Backend hiện chưa cung cấp endpoint cập nhật thông tin người
                 </div>
                 <div>
                   <h3
-                    className="text-headline-md font-bold text-primary"
+                    className="text-headline-md font-bold text-[#1D4532]"
                     style={{ fontFamily: "'Montserrat', sans-serif" }}
                   >
                     {selectedUser.name}
@@ -611,7 +611,7 @@ alert('Backend hiện chưa cung cấp endpoint cập nhật thông tin người
             {/* Modal Content */}
             <div className="flex-1 overflow-y-auto p-lg space-y-10 custom-scrollbar">
               {/* Status Header Badge */}
-              <div className="flex justify-between items-center bg-[#edf4ff] p-md rounded-lg border border-[#d1e4fb]/40">
+              <div className="flex justify-between items-center bg-[#EDF7F2] p-md rounded-lg border border-[#d1e4fb]/40">
                 <span className="text-body-md font-semibold text-on-surface">Trạng thái hệ thống:</span>
                 {selectedUser.status === 'active' && (
                   <span className="bg-emerald-100 text-emerald-800 px-lg py-sm rounded-full text-xs font-bold flex items-center gap-1">
@@ -653,7 +653,7 @@ alert('Backend hiện chưa cung cấp endpoint cập nhật thông tin người
                     <div className="text-[12px] text-[#5e5e5b] mb-1">
                       {s.label}
                     </div>
-                    <div className="text-headline-md font-bold text-primary">
+                    <div className="text-headline-md font-bold text-[#1D4532]">
                       {s.value}
                     </div>
                   </div>
@@ -664,8 +664,8 @@ alert('Backend hiện chưa cung cấp endpoint cập nhật thông tin người
               {selectedUser.activities && selectedUser.activities.length > 0 && (
                 <section>
                   <div className="flex items-center gap-sm mb-md">
-                    <span className="w-1 h-6 bg-primary rounded-full" />
-                    <h4 className="font-label-md text-primary uppercase tracking-wider">
+                    <span className="w-1 h-6 bg-[#1D4532] rounded-full" />
+                    <h4 className="font-label-md text-[#1D4532] uppercase tracking-wider">
                       Lịch sử hoạt động
                     </h4>
                   </div>
@@ -701,8 +701,8 @@ alert('Backend hiện chưa cung cấp endpoint cập nhật thông tin người
                 selectedUser.instruments.length > 0 && (
                   <section>
                     <div className="flex items-center gap-sm mb-md">
-                      <span className="w-1 h-6 bg-primary rounded-full" />
-                      <h4 className="font-label-md text-primary uppercase tracking-wider">
+                      <span className="w-1 h-6 bg-[#1D4532] rounded-full" />
+                      <h4 className="font-label-md text-[#1D4532] uppercase tracking-wider">
                         Nhạc cụ chuyên môn / quan tâm
                       </h4>
                     </div>
@@ -710,7 +710,7 @@ alert('Backend hiện chưa cung cấp endpoint cập nhật thông tin người
                       {selectedUser.instruments.map((inst) => (
                         <span
                           key={inst}
-                          className="px-md py-sm bg-white border border-outline-variant rounded-full text-label-md text-primary flex items-center gap-xs"
+                          className="px-md py-sm bg-white border border-outline-variant rounded-full text-label-md text-[#1D4532] flex items-center gap-xs"
                         >
                           <Music className="w-[18px] h-[18px]" />
                           {inst}
@@ -722,13 +722,13 @@ alert('Backend hiện chưa cung cấp endpoint cập nhật thông tin người
             </div>
 
             {/* Modal Actions */}
-            <div className="p-lg border-t border-[#d1e4fb] bg-[#edf4ff] flex gap-md justify-end">
+            <div className="p-lg border-t border-[#d1e4fb] bg-[#EDF7F2] flex gap-md justify-end">
               <button
                 onClick={() => {
                   setSelectedUser(null);
                   handleEditUserClick(selectedUser);
                 }}
-                className="px-lg py-sm border border-primary text-primary font-label-md rounded-lg hover:bg-primary/5 transition-colors"
+                className="px-lg py-sm border border-[#1D4532] text-[#1D4532] font-label-md rounded-lg hover:bg-[#1D4532]/5 transition-colors"
               >
                 Sửa thông tin
               </button>
@@ -780,7 +780,7 @@ alert('Backend hiện chưa cung cấp endpoint cập nhật thông tin người
               {/* Drawer Header */}
               <div className="px-xl py-lg border-b border-outline-variant/10 flex justify-between items-center bg-[#f5f3ee]/30">
                 <div>
-                  <h4 className="text-headline-md font-bold text-[#8b0000] font-sans">
+                  <h4 className="text-headline-md font-bold text-[#1D4532] font-sans">
                     Thêm thành viên mới
                   </h4>
                   <p className="text-[12px] text-on-surface-variant mt-xs">
@@ -808,7 +808,7 @@ alert('Backend hiện chưa cung cấp endpoint cập nhật thông tin người
                       required
                       value={newUserName}
                       onChange={(e) => handleNameChange(e.target.value)}
-                      className="w-full bg-[#fbf9f4] border border-outline-variant/30 rounded-xl p-md text-body-md focus:border-[#8b0000] focus:ring-1 focus:ring-[#8b0000] transition-all outline-none text-on-surface"
+                      className="w-full bg-[#fbf9f4] border border-outline-variant/30 rounded-xl p-md text-body-md focus:border-[#1D4532] focus:ring-1 focus:ring-[#1D4532] transition-all outline-none text-on-surface"
                       placeholder="Nhập đầy đủ họ và tên..."
                     />
                   </div>
@@ -829,7 +829,7 @@ alert('Backend hiện chưa cung cấp endpoint cập nhật thông tin người
                       className={`w-full bg-[#fbf9f4] border rounded-xl p-md text-body-md transition-all outline-none text-on-surface ${
                         newUserEmail && !isEmailValid(newUserEmail) 
                           ? 'border-error focus:border-error focus:ring-error' 
-                          : 'border-outline-variant/30 focus:border-[#8b0000] focus:ring-1 focus:ring-[#8b0000]'
+                          : 'border-outline-variant/30 focus:border-[#1D4532] focus:ring-1 focus:ring-[#1D4532]'
                       }`}
                       placeholder="Nhập email đăng nhập..."
                     />
@@ -843,7 +843,7 @@ alert('Backend hiện chưa cung cấp endpoint cập nhật thông tin người
                     <select
                       value={newUserRole}
                       onChange={(e) => setNewUserRole(e.target.value as 'Admin' | 'Giảng viên')}
-                      className="w-full bg-[#fbf9f4] border border-outline-variant/30 rounded-xl p-md text-body-md focus:border-[#8b0000] focus:ring-1 focus:ring-[#8b0000] transition-all outline-none text-on-surface cursor-pointer font-medium"
+                      className="w-full bg-[#fbf9f4] border border-outline-variant/30 rounded-xl p-md text-body-md focus:border-[#1D4532] focus:ring-1 focus:ring-[#1D4532] transition-all outline-none text-on-surface cursor-pointer font-medium"
                     >
                       <option value="Giảng viên">Giảng viên (Instructor)</option>
                       <option value="Admin">Admin (Quản trị viên)</option>
@@ -859,7 +859,7 @@ alert('Backend hiện chưa cung cấp endpoint cập nhật thông tin người
                       <select
                         value={newInstrument}
                         onChange={(e) => setNewInstrument(e.target.value)}
-                        className="w-full bg-[#fbf9f4] border border-outline-variant/30 rounded-xl p-md text-body-md focus:border-[#8b0000] focus:ring-1 focus:ring-[#8b0000] transition-all outline-none text-on-surface cursor-pointer font-medium"
+                        className="w-full bg-[#fbf9f4] border border-outline-variant/30 rounded-xl p-md text-body-md focus:border-[#1D4532] focus:ring-1 focus:ring-[#1D4532] transition-all outline-none text-on-surface cursor-pointer font-medium"
                       >
                         {instrumentOptions.map((inst) => (
                           <option key={inst} value={inst}>{inst}</option>
@@ -880,7 +880,7 @@ alert('Backend hiện chưa cung cấp endpoint cập nhật thông tin người
                           name="authMethod"
                           checked={authMethod === 'invite'}
                           onChange={() => setAuthMethod('invite')}
-                          className="accent-[#8b0000]"
+                          className="accent-[#1D4532]"
                         />
                         <span>Gửi liên kết kích hoạt qua Email</span>
                       </label>
@@ -890,7 +890,7 @@ alert('Backend hiện chưa cung cấp endpoint cập nhật thông tin người
                           name="authMethod"
                           checked={authMethod === 'password'}
                           onChange={() => setAuthMethod('password')}
-                          className="accent-[#8b0000]"
+                          className="accent-[#1D4532]"
                         />
                         <span>Đặt mật khẩu khởi tạo tạm thời</span>
                       </label>
@@ -907,12 +907,12 @@ alert('Backend hiện chưa cung cấp endpoint cập nhật thông tin người
                           value={newPassword}
                           onChange={(e) => setNewPassword(e.target.value)}
                           placeholder="Nhập mật khẩu cho tài khoản..."
-                          className="w-full bg-[#fbf9f4] border border-outline-variant/30 rounded-xl p-md text-body-md focus:border-[#8b0000] focus:ring-1 focus:ring-[#8b0000] transition-all outline-none text-on-surface"
+                          className="w-full bg-[#fbf9f4] border border-outline-variant/30 rounded-xl p-md text-body-md focus:border-[#1D4532] focus:ring-1 focus:ring-[#1D4532] transition-all outline-none text-on-surface"
                         />
                       </div>
                     )}
 
-                    <div className="bg-[#edf4ff] p-md rounded-xl text-[11px] text-primary/80 flex items-start gap-xs">
+                    <div className="bg-[#EDF7F2] p-md rounded-xl text-[11px] text-[#1D4532]/80 flex items-start gap-xs">
                       <Mail className="w-4 h-4 mt-0.5 flex-shrink-0" />
                       {authMethod === 'invite' ? (
                         <p>
@@ -942,8 +942,8 @@ alert('Backend hiện chưa cung cấp endpoint cập nhật thông tin người
                     disabled={!isAddFormValid}
                     className={`flex-1 flex items-center justify-center gap-sm py-lg rounded-xl font-bold active:scale-[0.98] transition-all shadow-md ${
                       isAddFormValid 
-                        ? 'bg-primary text-on-primary hover:bg-primary/95 cursor-pointer' 
-                        : 'bg-primary/40 text-on-primary/60 cursor-not-allowed'
+                        ? 'bg-[#1D4532] text-white hover:bg-[#1D4532]/95 cursor-pointer' 
+                        : 'bg-[#1D4532]/40 text-white/60 cursor-not-allowed'
                     }`}
                   >
                     <Check className="w-5 h-5" />
@@ -983,7 +983,7 @@ alert('Backend hiện chưa cung cấp endpoint cập nhật thông tin người
               {/* Drawer Header */}
               <div className="px-xl py-lg border-b border-outline-variant/10 flex justify-between items-center bg-[#f5f3ee]/30">
                 <div>
-                  <h4 className="text-headline-md font-bold text-primary font-sans">
+                  <h4 className="text-headline-md font-bold text-[#1D4532] font-sans">
                     Sửa thông tin thành viên
                   </h4>
                   <p className="text-[12px] text-on-surface-variant mt-xs">
@@ -1024,7 +1024,7 @@ alert('Backend hiện chưa cung cấp endpoint cập nhật thông tin người
                       required
                       value={editName}
                       onChange={(e) => setEditName(e.target.value)}
-                      className="w-full bg-[#fbf9f4] border border-outline-variant/30 rounded-xl p-md text-body-md focus:border-[#8b0000] focus:ring-1 focus:ring-[#8b0000] transition-all outline-none text-on-surface"
+                      className="w-full bg-[#fbf9f4] border border-outline-variant/30 rounded-xl p-md text-body-md focus:border-[#1D4532] focus:ring-1 focus:ring-[#1D4532] transition-all outline-none text-on-surface"
                       placeholder="Nhập họ và tên..."
                     />
                   </div>
@@ -1045,7 +1045,7 @@ alert('Backend hiện chưa cung cấp endpoint cập nhật thông tin người
                       className={`w-full bg-[#fbf9f4] border rounded-xl p-md text-body-md transition-all outline-none text-on-surface ${
                         editEmail && !isEmailValid(editEmail) 
                           ? 'border-error focus:border-error focus:ring-error' 
-                          : 'border-outline-variant/30 focus:border-[#8b0000] focus:ring-1 focus:ring-[#8b0000]'
+                          : 'border-outline-variant/30 focus:border-[#1D4532] focus:ring-1 focus:ring-[#1D4532]'
                       }`}
                       placeholder="Nhập email đăng nhập..."
                     />
@@ -1073,7 +1073,7 @@ alert('Backend hiện chưa cung cấp endpoint cập nhật thông tin người
                       <select
                         value={editInstrument}
                         onChange={(e) => setEditInstrument(e.target.value)}
-                        className="w-full bg-[#fbf9f4] border border-outline-variant/30 rounded-xl p-md text-body-md focus:border-[#8b0000] focus:ring-1 focus:ring-[#8b0000] transition-all outline-none text-on-surface cursor-pointer font-medium"
+                        className="w-full bg-[#fbf9f4] border border-outline-variant/30 rounded-xl p-md text-body-md focus:border-[#1D4532] focus:ring-1 focus:ring-[#1D4532] transition-all outline-none text-on-surface cursor-pointer font-medium"
                       >
                         {instrumentOptions.map((inst) => (
                           <option key={inst} value={inst}>{inst}</option>
@@ -1098,8 +1098,8 @@ alert('Backend hiện chưa cung cấp endpoint cập nhật thông tin người
                     disabled={!isEditFormValid}
                     className={`flex-1 flex items-center justify-center gap-sm py-lg rounded-xl font-bold active:scale-[0.98] transition-all shadow-md ${
                       isEditFormValid 
-                        ? 'bg-primary text-on-primary hover:bg-primary/95 cursor-pointer' 
-                        : 'bg-primary/40 text-on-primary/60 cursor-not-allowed'
+                        ? 'bg-[#1D4532] text-white hover:bg-[#1D4532]/95 cursor-pointer' 
+                        : 'bg-[#1D4532]/40 text-white/60 cursor-not-allowed'
                     }`}
                   >
                     <Check className="w-5 h-5" />
@@ -1122,7 +1122,7 @@ alert('Backend hiện chưa cung cấp endpoint cập nhật thông tin người
               <div className={`p-md rounded-full flex-shrink-0 ${
                 confirmModalData.type === 'lock'
                   ? 'bg-error/10 text-error'
-                  : 'bg-primary/10 text-primary'
+                  : 'bg-[#1D4532]/10 text-[#1D4532]'
               }`}>
                 <AlertTriangle className="w-6 h-6" />
               </div>
@@ -1161,7 +1161,7 @@ alert('Backend hiện chưa cung cấp endpoint cập nhật thông tin người
                 className={`text-white font-label-md px-lg py-md rounded-lg transition-colors ${
                   confirmModalData.type === 'lock'
                     ? 'bg-[#ba1a1a] hover:bg-[#a61717]'
-                    : 'bg-primary hover:bg-primary/95'
+                    : 'bg-[#1D4532] hover:bg-[#1D4532]/95'
                 }`}
               >
                 Xác nhận
