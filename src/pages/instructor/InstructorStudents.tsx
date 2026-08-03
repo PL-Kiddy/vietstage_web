@@ -1,20 +1,47 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAxiosRequest } from '../../hooks/useAxiosRequest';
 import { instructorStudentsApi } from '../../api/services';
 import type { AdminUser, PracticeAttempt } from '../../api/types';
-import { Volume2, Send, Save, History } from 'lucide-react';
+import { Volume2, Send, Save, History, Search, X } from 'lucide-react';
 
 const InstructorStudents = () => {
-  const [selectedIdx, setSelectedIdx] = useState(0);
+  const [selectedStudentId, setSelectedStudentId] = useState<number | null>(null);
   const [activeAttemptIdx, setActiveAttemptIdx] = useState(0);
   const [feedbackText, setFeedbackText] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
 
   // 1. Fetch users
   const fetchUsers = () => instructorStudentsApi.listStudents();
   const { data: users } = useAxiosRequest<AdminUser[]>(fetchUsers, { auto: true });
 
-    const students = (users || []).filter((u: any) => u.role === 'Người học' || u.role === 'LEARNER' || u.role === 'learner' || u.role === 'Learner');
-  const student = students[selectedIdx] || null;
+  const allStudents = useMemo(() => {
+    return (users || []).filter(
+      (u: any) =>
+        u.role === 'Người học' ||
+        u.role === 'LEARNER' ||
+        u.role === 'learner' ||
+        u.role === 'Learner'
+    );
+  }, [users]);
+
+  const filteredStudents = useMemo(() => {
+    if (!searchQuery.trim()) return allStudents;
+    const query = searchQuery.toLowerCase();
+    return allStudents.filter(
+      (s: any) =>
+        (s.name && s.name.toLowerCase().includes(query)) ||
+        (s.email && s.email.toLowerCase().includes(query)) ||
+        (s.userCode && s.userCode.toLowerCase().includes(query))
+    );
+  }, [allStudents, searchQuery]);
+
+  // Selected student
+  const student = useMemo(() => {
+    if (selectedStudentId !== null) {
+      return allStudents.find((s: any) => s.id === selectedStudentId) || filteredStudents[0] || null;
+    }
+    return filteredStudents[0] || null;
+  }, [allStudents, filteredStudents, selectedStudentId]);
 
   // 2. Fetch attempts
   const fetchAttempts = () => {
@@ -54,8 +81,8 @@ const InstructorStudents = () => {
     alert(`Đã lưu nháp nhận xét lượt thực hành của ${student?.name || ''}`);
   };
 
-  const handleStudentChange = (idx: number) => {
-    setSelectedIdx(idx);
+  const handleStudentSelect = (id: number) => {
+    setSelectedStudentId(id);
     setActiveAttemptIdx(0);
     setFeedbackText('');
   };
@@ -89,40 +116,72 @@ const InstructorStudents = () => {
 
       <div className="grid grid-cols-12 gap-gutter">
         <section className="col-span-12 lg:col-span-3 flex flex-col gap-md">
-          <h3 className="font-label-md text-label-md uppercase tracking-widest text-[#1D4532] px-base text-xs font-semibold">
-            Danh sách Học viên
-          </h3>
-          <div className="flex flex-col gap-sm overflow-y-auto max-h-[calc(100vh-320px)] pr-2">
-            {students.map((st, idx) => {
-              const isSelected = idx === selectedIdx;
-              return (
-                <div
-                  key={st.id}
-                  onClick={() => handleStudentChange(idx)}
-                  className={`p-md rounded-xl border transition-all flex items-center gap-md cursor-pointer ${
-                    isSelected
-                      ? 'bg-[#EDF7F2] border-[#1D4532]/30 shadow-sm border-l-4 border-l-[#1D4532]'
-                      : 'bg-white hover:bg-[#EDF7F2]/30 border-outline-variant/10'
-                  }`}
-                >
-                  <div className="w-12 h-12 rounded-full bg-[#1D4532]/10 text-[#1D4532] font-bold flex items-center justify-center">
-                    {st.name?.charAt(0) || 'U'}
+          <div className="flex items-center justify-between px-base">
+            <h3 className="font-label-md text-label-md uppercase tracking-widest text-[#1D4532] text-xs font-semibold">
+              Danh sách Học viên
+            </h3>
+            <span className="text-[11px] font-semibold text-on-surface-variant/70">
+              ({filteredStudents.length})
+            </span>
+          </div>
+
+          {/* Search Bar for Students */}
+          <div className="flex items-center gap-xs px-md py-2 bg-white border border-[#d1e4fb] rounded-xl shadow-xs focus-within:ring-1 focus-within:ring-[#1D4532] transition-all">
+            <Search className="w-4 h-4 text-[#5e5e5b] flex-shrink-0" />
+            <input
+              type="text"
+              placeholder="Tìm học viên..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="bg-transparent border-none outline-none text-xs w-full text-on-surface focus:ring-0 placeholder:text-[#5e5e5b]/50"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="text-[#5e5e5b] hover:text-error transition-colors"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+
+          <div className="flex flex-col gap-sm overflow-y-auto max-h-[calc(100vh-360px)] pr-1 custom-scrollbar">
+            {filteredStudents.length === 0 ? (
+              <p className="text-xs text-on-surface-variant italic px-base py-md text-center">
+                Không tìm thấy học viên phù hợp.
+              </p>
+            ) : (
+              filteredStudents.map((st: any) => {
+                const isSelected = student?.id === st.id;
+                return (
+                  <div
+                    key={st.id}
+                    onClick={() => handleStudentSelect(st.id)}
+                    className={`p-md rounded-xl border transition-all flex items-center gap-md cursor-pointer ${
+                      isSelected
+                        ? 'bg-[#EDF7F2] border-[#1D4532]/30 shadow-sm border-l-4 border-l-[#1D4532]'
+                        : 'bg-white hover:bg-[#EDF7F2]/30 border-outline-variant/10'
+                    }`}
+                  >
+                    <div className="w-12 h-12 rounded-full bg-[#1D4532]/10 text-[#1D4532] font-bold flex items-center justify-center">
+                      {st.name?.charAt(0) || 'U'}
+                    </div>
+                    <div>
+                      <h4
+                        className={`font-label-md text-label-md font-bold ${
+                          isSelected ? 'text-[#1D4532]' : 'text-on-surface'
+                        }`}
+                      >
+                        {st.name}
+                      </h4>
+                      <p className="font-label-sm text-label-sm text-on-surface-variant text-[12px]">
+                        {(st as any).userCode || 'Chưa phân lớp'}
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <h4
-                      className={`font-label-md text-label-md font-bold ${
-                        isSelected ? 'text-[#1D4532]' : 'text-on-surface'
-                      }`}
-                    >
-                      {st.name}
-                    </h4>
-                    <p className="font-label-sm text-label-sm text-on-surface-variant text-[12px]">
-                      {(st as any).userCode || 'Chưa phân lớp'}
-                    </p>
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })
+            )}
           </div>
         </section>
 
