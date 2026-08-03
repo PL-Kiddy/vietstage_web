@@ -1,30 +1,53 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAxiosRequest } from '../../hooks/useAxiosRequest';
-import { instructorStudentsApi, learnerProgressApi } from '../../api/services';
-import type { AdminUser, PracticeAttempt } from '../../api/types';
-import { Volume2, Send, Save, History, Search, X, Award, CheckCircle2, Flame } from 'lucide-react';
+import { usersApi, lessonsApi, learnerProgressApi } from '../../api/services';
+import { Search, X, Star, CheckCircle2, XCircle, BookOpen, ChevronRight, Users, Loader2 } from 'lucide-react';
+
+// ─── Types ─────────────────────────────────────────────────────────────────────
+interface LessonProgress {
+  lessonId: number;
+  stars: number;
+  completed: boolean;
+  totalPracticeAttempts: number;
+  bestPracticeScore: number;
+  totalQuizAttempts: number;
+  loading: boolean;
+  error: boolean;
+}
+
+const StarDisplay = ({ count }: { count: number }) => (
+  <div className="flex gap-0.5">
+    {[1, 2, 3].map((i) => (
+      <Star
+        key={i}
+        className={`w-3.5 h-3.5 ${i <= count ? 'text-amber-400 fill-amber-400' : 'text-gray-200 fill-gray-200'}`}
+      />
+    ))}
+  </div>
+);
 
 const InstructorStudents = () => {
   const [selectedStudentId, setSelectedStudentId] = useState<number | null>(null);
-  const [activeAttemptIdx, setActiveAttemptIdx] = useState(0);
-  const [feedbackText, setFeedbackText] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [instrumentFilter, setInstrumentFilter] = useState('ALL');
+  const [lessonProgressMap, setLessonProgressMap] = useState<Record<number, LessonProgress>>({});
 
-  // 1. Fetch users
-  const fetchUsers = () => instructorStudentsApi.listStudents();
-  const { data: users } = useAxiosRequest<AdminUser[]>(fetchUsers, { auto: true });
+  // 1. Fetch all users (learner list) with abort signal
+  const { data: usersRaw, loading: usersLoading, error: usersError } = useAxiosRequest(
+    (signal) => usersApi.list({ signal, params: { size: 200 } }),
+    { auto: true }
+  );
 
   const allStudents = useMemo(() => {
     let rawList: any[] = [];
-    if (Array.isArray(users)) {
-      rawList = users;
-    } else if ((users as any)?.content) {
-      rawList = (users as any).content;
-    } else if ((users as any)?.data?.content) {
-      rawList = (users as any).data.content;
-    } else if ((users as any)?.data) {
-      rawList = Array.isArray((users as any).data) ? (users as any).data : [];
+    if (Array.isArray(usersRaw)) {
+      rawList = usersRaw;
+    } else if ((usersRaw as any)?.content) {
+      rawList = (usersRaw as any).content;
+    } else if ((usersRaw as any)?.data?.content) {
+      rawList = (usersRaw as any).data.content;
+    } else if ((usersRaw as any)?.data) {
+      rawList = Array.isArray((usersRaw as any).data) ? (usersRaw as any).data : [];
     }
 
     const mapped = rawList.map((u: any) => ({
@@ -46,7 +69,7 @@ const InstructorStudents = () => {
     );
 
     return learnersOnly.length > 0 ? learnersOnly : mapped;
-  }, [users]);
+  }, [usersRaw]);
 
   const filteredStudents = useMemo(() => {
     return allStudents.filter((s: any) => {
@@ -63,90 +86,91 @@ const InstructorStudents = () => {
     });
   }, [allStudents, searchQuery, instrumentFilter]);
 
-  // Selected student (defaults to null if not explicitly clicked to support Empty Selection state)
-  const student = useMemo(() => {
-    if (selectedStudentId !== null) {
-      return allStudents.find((s: any) => s.id === selectedStudentId) || null;
-    }
-    return null;
-  }, [allStudents, selectedStudentId]);
+  // Selected student
+  const selectedStudent = useMemo(
+    () => (selectedStudentId !== null ? allStudents.find((s: any) => s.id === selectedStudentId) ?? null : null),
+    [allStudents, selectedStudentId]
+  );
 
-  // 2. Fetch student attempts & progress summary (specifically passing learnerId)
-  const fetchAttempts = () => {
-    if (student) {
-      return instructorStudentsApi.getAttempts(student.id);
-    }
-    return Promise.resolve({ content: [] } as any);
-  };
-  const { data: attemptsData, execute: doFetchAttempts } = useAxiosRequest<any>(fetchAttempts, { auto: false });
+  // 2. Fetch instructor's lesson list
+  const lessonParams = useMemo(() => {
+    const p = new URLSearchParams();
+    p.set('page', '0');
+    p.set('size', '50');
+    return p;
+  }, []);
 
-  // 3. Fetch progress summary per selected learnerId (passing student.id explicitly)
-  const fetchProgressSummary = () => {
-    if (student) {
-      return learnerProgressApi.getLearnerProgressSummary(student.id);
-    }
-    return Promise.resolve({
-      total_stars: 0,
-      completed_lessons: 0,
-      current_streak: 0,
-      longest_streak: 0,
-      total_points: 0,
-      adaptive_difficulty: 1,
-    });
-  };
-  const { data: progressSummary, execute: doFetchSummary } = useAxiosRequest<any>(fetchProgressSummary, { auto: false });
+  const { data: lessonsRaw, loading: lessonsLoading } = useAxiosRequest(
+    (signal) => lessonsApi.list(lessonParams, { signal }),
+    { auto: true }
+  );
 
-  const attempts: PracticeAttempt[] = (attemptsData as any)?.content || [];
-  const attempt = attempts[activeAttemptIdx] || null;
+  const lessons = useMemo(() => {
+    const raw = lessonsRaw as any;
+    if (Array.isArray(raw)) return raw;
+    if (Array.isArray(raw?.content)) return raw.content;
+    return [];
+  }, [lessonsRaw]);
+
+  // 3. Fetch per-lesson progress for selected learner
+  const fetchLessonProgress = useCallback(
+    async (learnerId: number, lessonId: number) => {
+      setLessonProgressMap((prev) => ({
+        ...prev,
+        [lessonId]: { lessonId, stars: 0, completed: false, totalPracticeAttempts: 0, bestPracticeScore: 0, totalQuizAttempts: 0, loading: true, error: false },
+      }));
+      try {
+        const result = await learnerProgressApi.getLessonLearnerProgress(lessonId, learnerId);
+        setLessonProgressMap((prev) => ({
+          ...prev,
+          [lessonId]: {
+            lessonId,
+            stars: (result as any)?.stars ?? 0,
+            completed: (result as any)?.completed ?? false,
+            totalPracticeAttempts: (result as any)?.totalPracticeAttempts ?? 0,
+            bestPracticeScore: (result as any)?.bestPracticeScore ?? 0,
+            totalQuizAttempts: (result as any)?.totalQuizAttempts ?? 0,
+            loading: false,
+            error: false,
+          },
+        }));
+      } catch {
+        setLessonProgressMap((prev) => ({
+          ...prev,
+          [lessonId]: { lessonId, stars: 0, completed: false, totalPracticeAttempts: 0, bestPracticeScore: 0, totalQuizAttempts: 0, loading: false, error: true },
+        }));
+      }
+    },
+    []
+  );
 
   useEffect(() => {
-    if (student) {
-      doFetchAttempts();
-      doFetchSummary();
-      setActiveAttemptIdx(0);
-      setFeedbackText('');
-    }
-  }, [student?.id]);
-
-  const handleSendFeedback = async () => {
-    if (!feedbackText.trim()) {
-      alert('Vui lòng nhập nội dung nhận xét trước khi gửi.');
+    if (!selectedStudentId || lessons.length === 0) {
+      setLessonProgressMap({});
       return;
     }
-    if (!attempt) return;
-    try {
-      await instructorStudentsApi.sendFeedback(attempt.id, feedbackText.trim(), 'INSTRUCTOR');
-      alert(`Đã gửi nhận xét cho học viên ${student?.name}!`);
-    } catch (e: any) {
-      alert(e.message || 'Lỗi gửi nhận xét');
-    }
-  };
+    lessons.forEach((lesson: any) => {
+      fetchLessonProgress(selectedStudentId, lesson.id);
+    });
+  }, [selectedStudentId, lessons, fetchLessonProgress]);
 
-  const handleSaveDraft = () => {
-    alert(`Đã lưu nháp nhận xét lượt thực hành của ${student?.name || ''}`);
-  };
+  // Summary stats aggregated from lesson progress
+  const summaryStats = useMemo(() => {
+    const rows = Object.values(lessonProgressMap).filter((r) => !r.loading && !r.error);
+    return {
+      completed: rows.filter((r) => r.completed).length,
+      totalStars: rows.reduce((acc, r) => acc + (r.stars || 0), 0),
+      totalLessons: lessons.length,
+      avgScore: rows.length > 0
+        ? ((rows.reduce((acc, r) => acc + (r.bestPracticeScore || 0), 0) / rows.length) * 100).toFixed(0)
+        : null,
+    };
+  }, [lessonProgressMap, lessons.length]);
 
-  const handleStudentSelect = (id: number) => {
-    setSelectedStudentId(id);
-    setActiveAttemptIdx(0);
-    setFeedbackText('');
-  };
-
-  // Safe coordinates helper for radar chart polygon
-  const getRadarPoint = (val: number, angle: number, scale = 120) => {
-    const scoreVal = val / 10;
-    const x = 150 + scale * scoreVal * Math.cos(angle);
-    const y = 150 + scale * scoreVal * Math.sin(angle);
-    return `${x},${y}`;
-  };
-
-  const points = attempt
-    ? [
-        getRadarPoint((attempt?.pitch_score || 0), -Math.PI / 2),
-        getRadarPoint((attempt?.rhythm_score || 0), Math.PI / 6),
-        getRadarPoint((attempt?.technique_score || 0), (5 * Math.PI) / 6),
-      ].join(' ')
-    : '';
+  const progressRows = useMemo(
+    () => lessons.map((lesson: any) => ({ id: lesson.id, title: lesson.title, progress: lessonProgressMap[lesson.id] ?? null })),
+    [lessons, lessonProgressMap]
+  );
 
   return (
     <div className="max-w-[1400px] mx-auto">
@@ -205,17 +229,25 @@ const InstructorStudents = () => {
           </div>
 
           <div className="flex flex-col gap-sm overflow-y-auto max-h-[calc(100vh-360px)] pr-1 custom-scrollbar">
-            {filteredStudents.length === 0 ? (
+            {usersLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="w-5 h-5 animate-spin text-[#1D4532]" />
+              </div>
+            ) : usersError ? (
+              <p className="text-xs text-rose-500 italic px-base py-md text-center">
+                Lỗi tải danh sách: {usersError}
+              </p>
+            ) : filteredStudents.length === 0 ? (
               <p className="text-xs text-on-surface-variant italic px-base py-md text-center">
                 Không tìm thấy học viên phù hợp.
               </p>
             ) : (
               filteredStudents.map((st: any) => {
-                const isSelected = student?.id === st.id;
+                const isSelected = selectedStudentId === st.id;
                 return (
                   <div
                     key={st.id}
-                    onClick={() => handleStudentSelect(st.id)}
+                    onClick={() => setSelectedStudentId(st.id)}
                     className={`p-md rounded-xl border transition-all flex items-center justify-between cursor-pointer ${
                       isSelected
                         ? 'bg-[#EDF7F2] border-[#1D4532]/30 shadow-sm border-l-4 border-l-[#1D4532]'
@@ -227,21 +259,13 @@ const InstructorStudents = () => {
                         {st.name?.charAt(0) || 'H'}
                       </div>
                       <div>
-                        <h4
-                          className={`font-label-md text-sm font-bold ${
-                            isSelected ? 'text-[#1D4532]' : 'text-on-surface'
-                          }`}
-                        >
+                        <h4 className={`font-label-md text-sm font-bold ${isSelected ? 'text-[#1D4532]' : 'text-on-surface'}`}>
                           {st.name}
                         </h4>
-                        <p className="font-label-sm text-xs text-on-surface-variant">
-                          {st.userCode}
-                        </p>
+                        <p className="font-label-sm text-xs text-on-surface-variant">{st.userCode}</p>
                       </div>
                     </div>
-                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-[#1D4532]/10 text-[#1D4532]">
-                      {st.instrument}
-                    </span>
+                    <ChevronRight className={`w-3.5 h-3.5 flex-shrink-0 ${isSelected ? 'text-[#1D4532]' : 'text-on-surface-variant/30'}`} />
                   </div>
                 );
               })
@@ -249,220 +273,153 @@ const InstructorStudents = () => {
           </div>
         </section>
 
-        {/* Right Details Container (Empty Selection State or Selected Student Details) */}
-        {!student ? (
+        {/* Right Details Container */}
+        {!selectedStudent ? (
           <section className="col-span-12 lg:col-span-9 bg-white rounded-2xl p-12 shadow-sm border border-outline-variant/10 flex flex-col items-center justify-center text-center min-h-[420px]">
             <div className="w-20 h-20 rounded-full bg-[#EDF7F2] flex items-center justify-center text-[#1D4532] mb-4 shadow-inner">
-              <Search className="w-10 h-10 opacity-70" />
+              <Users className="w-10 h-10 opacity-70" />
             </div>
             <h3 className="text-xl font-bold text-[#1D4532] mb-2">
               Vui lòng chọn học viên từ danh sách
             </h3>
             <p className="text-sm text-[#5e5e5b] max-w-md">
-              Chọn một học viên ở cột bên trái để xem báo cáo tiến trình học tập, biểu đồ năng lực biểu diễn và duyệt các bài thực hành ghi âm.
+              Chọn một học viên ở cột bên trái để xem tiến độ học tập theo từng bài giảng.
             </p>
           </section>
         ) : (
-          <>
-            <section className="col-span-12 lg:col-span-5 bg-white rounded-xl p-xl shadow-sm border border-outline-variant/5">
-              <div className="flex justify-between items-center mb-xl">
-                <h3 className="text-headline-md font-bold text-[#1D4532]">
-                  Biểu đồ Năng lực
-                </h3>
-                <span className="px-3 py-1 rounded-full bg-[#EDF7F2] text-[#1D4532] font-label-sm text-label-sm font-semibold">
-                  Điểm số: {attempt ? (attempt.overall_score || 0) : 0}/10
-                </span>
+          <section className="col-span-12 lg:col-span-9 flex flex-col gap-lg">
+            {/* Student Info Banner */}
+            <div className="bg-[#1D4532] rounded-2xl p-lg text-white flex flex-wrap items-center gap-lg shadow-lg">
+              <div className="w-14 h-14 rounded-full bg-white/20 flex items-center justify-center text-2xl font-bold flex-shrink-0">
+                {selectedStudent.name?.charAt(0) || 'H'}
               </div>
-
-          {attempt ? (
-            <div className="flex flex-col items-center">
-              <div className="relative w-[300px] h-[300px] bg-[#EDF7F2]/20 rounded-full border border-outline-variant/10 shadow-inner flex items-center justify-center">
-                <svg className="absolute inset-0 w-full h-full">
-                  <circle cx="150" cy="150" r="120" fill="none" stroke="#eae8e3" strokeDasharray="3" />
-                  <circle cx="150" cy="150" r="80" fill="none" stroke="#eae8e3" strokeDasharray="3" />
-                  <circle cx="150" cy="150" r="40" fill="none" stroke="#eae8e3" strokeDasharray="3" />
-
-                  <line x1="150" y1="150" x2="150" y2="30" stroke="#eae8e3" />
-                  <line x1="150" y1="150" x2={150 + 120 * Math.cos(Math.PI / 6)} y2={150 + 120 * Math.sin(Math.PI / 6)} stroke="#eae8e3" />
-                  <line x1="150" y1="150" x2={150 + 120 * Math.cos((5 * Math.PI) / 6)} y2={150 + 120 * Math.sin((5 * Math.PI) / 6)} stroke="#eae8e3" />
-
-                  <polygon points={points} fill="rgba(29, 69, 50, 0.25)" stroke="#1D4532" strokeWidth="2.5" />
-
-                  <circle cx="150" cy={150 - 12 * (attempt.pitch_score || 0)} r="5" fill="#1D4532" stroke="white" strokeWidth="1.5" />
-                  <circle cx={150 + 12 * (attempt.rhythm_score || 0) * Math.cos(Math.PI / 6)} cy={150 + 12 * (attempt.rhythm_score || 0) * Math.sin(Math.PI / 6)} r="5" fill="#1D4532" stroke="white" strokeWidth="1.5" />
-                  <circle cx={150 + 12 * (attempt.technique_score || 0) * Math.cos((5 * Math.PI) / 6)} cy={150 + 12 * (attempt.technique_score || 0) * Math.sin((5 * Math.PI) / 6)} r="5" fill="#1D4532" stroke="white" strokeWidth="1.5" />
-                </svg>
-
-                <div className="absolute top-2 left-1/2 -translate-x-1/2 flex flex-col items-center">
-                  <span className="text-[11px] uppercase tracking-wider text-on-surface-variant font-bold">Cao độ</span>
-                  <span className="text-body-sm font-bold text-[#1D4532]">{(attempt.pitch_score || 0)}/10</span>
-                </div>
-                <div className="absolute bottom-6 right-2 flex flex-col items-end">
-                  <span className="text-[11px] uppercase tracking-wider text-on-surface-variant font-bold">Nhịp điệu</span>
-                  <span className="text-body-sm font-bold text-[#1D4532]">{(attempt.rhythm_score || 0)}/10</span>
-                </div>
-                <div className="absolute bottom-6 left-2 flex flex-col items-start">
-                  <span className="text-[11px] uppercase tracking-wider text-on-surface-variant font-bold">Kỹ thuật</span>
-                  <span className="text-body-sm font-bold text-[#1D4532]">{(attempt.technique_score || 0)}/10</span>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-sm w-full mt-xl">
-                {[
-                  { label: 'Pitch Precision', val: (attempt.pitch_score || 0) * 10, suffix: '%' },
-                  { label: 'Rhythm Sync', val: (attempt.rhythm_score || 0) * 10, suffix: '%' },
-                  { label: 'Technique Score', val: (attempt.technique_score || 0) * 10, suffix: '%' },
-                ].map((stat, i) => (
-                  <div key={i} className="bg-[#EDF7F2]/40 p-md rounded-lg border border-[#1D4532]/10 text-center">
-                    <span className="text-[11px] text-on-surface-variant block font-medium uppercase tracking-wider leading-none mb-1">
-                      {stat.label}
-                    </span>
-                    <span className="text-body-md font-bold text-[#1D4532]">
-                      {stat.val.toFixed(0)}{stat.suffix}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : (
-            <p className="text-center text-on-surface-variant py-xxl italic">
-              Không có lượt thực hành nào của học viên này.
-            </p>
-          )}
-
-          {/* Student Overall Progress Summary API metrics */}
-          <div className="mt-xl pt-lg border-t border-outline-variant/10">
-            <h4 className="font-label-md text-xs font-semibold uppercase tracking-wider text-[#1D4532] mb-md">
-              Tổng quan tiến độ tích lũy học viên
-            </h4>
-            <div className="grid grid-cols-3 gap-sm">
-              <div className="bg-[#EDF7F2]/30 p-md rounded-xl border border-[#1D4532]/10 flex flex-col items-center text-center">
-                <Award className="w-5 h-5 text-[#1D4532] mb-1" />
-                <span className="text-[11px] text-on-surface-variant font-medium">Tổng sao</span>
-                <span className="text-body-md font-bold text-[#1D4532] mt-0.5">
-                  {progressSummary?.total_stars ?? 0} ⭐
-                </span>
-              </div>
-              <div className="bg-[#EDF7F2]/30 p-md rounded-xl border border-[#1D4532]/10 flex flex-col items-center text-center">
-                <CheckCircle2 className="w-5 h-5 text-[#1D4532] mb-1" />
-                <span className="text-[11px] text-on-surface-variant font-medium">Bài hoàn thành</span>
-                <span className="text-body-md font-bold text-[#1D4532] mt-0.5">
-                  {progressSummary?.completed_lessons ?? 0} bài
-                </span>
-              </div>
-              <div className="bg-[#EDF7F2]/30 p-md rounded-xl border border-[#1D4532]/10 flex flex-col items-center text-center">
-                <Flame className="w-5 h-5 text-[#1D4532] mb-1" />
-                <span className="text-[11px] text-on-surface-variant font-medium">Chuỗi học tập</span>
-                <span className="text-body-md font-bold text-[#1D4532] mt-0.5">
-                  {progressSummary?.current_streak ?? 0} ngày
-                </span>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section className="col-span-12 lg:col-span-4 flex flex-col gap-lg">
-          <div className="bg-white rounded-xl p-lg shadow-sm border border-outline-variant/5 flex-grow">
-            <div className="flex items-center gap-xs mb-lg">
-              <History className="w-5 h-5 text-[#1D4532]" />
-              <h3 className="text-headline-md font-bold text-[#1D4532]">
-                Lịch sử thực hành
-              </h3>
-            </div>
-
-            <div className="space-y-sm max-h-48 overflow-y-auto custom-scrollbar pr-1">
-              {attempts.length === 0 ? (
-                <p className="text-xs text-on-surface-variant italic py-lg text-center">
-                  Học viên chưa thực hiện lượt thực hành nào.
+              <div className="flex-1 min-w-0">
+                <h2 className="text-lg font-bold truncate">{selectedStudent.name}</h2>
+                <p className="text-sm text-white/70 mt-0.5">
+                  {selectedStudent.userCode} {selectedStudent.email ? `• ${selectedStudent.email}` : ''}
                 </p>
+              </div>
+              <div className="flex gap-xl ml-auto flex-shrink-0 flex-wrap">
+                <div className="text-center">
+                  <p className="text-2xl font-bold">{summaryStats.completed}/{summaryStats.totalLessons}</p>
+                  <p className="text-[10px] text-white/60 uppercase tracking-wider">Bài hoàn thành</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-2xl font-bold">{summaryStats.totalStars} ⭐</p>
+                  <p className="text-[10px] text-white/60 uppercase tracking-wider">Tổng sao</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-2xl font-bold">{summaryStats.avgScore ?? '—'}%</p>
+                  <p className="text-[10px] text-white/60 uppercase tracking-wider">Điểm TB</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Lesson Progress Table */}
+            <div className="bg-white rounded-2xl shadow-sm border border-outline-variant/10 overflow-hidden">
+              <div className="px-lg py-md border-b border-outline-variant/10 flex items-center gap-sm">
+                <BookOpen className="w-4 h-4 text-[#1D4532]" />
+                <h3 className="text-sm font-bold text-[#1D4532]">Tiến độ theo Bài giảng</h3>
+                <code className="text-[10px] text-on-surface-variant ml-auto bg-[#EDF7F2] px-2 py-0.5 rounded">
+                  GET /api/lessons/{'{id}'}/learners/{'{id}'}/progress
+                </code>
+              </div>
+
+              {lessonsLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="w-6 h-6 animate-spin text-[#1D4532]" />
+                </div>
+              ) : progressRows.length === 0 ? (
+                <div className="flex flex-col items-center py-12">
+                  <BookOpen className="w-8 h-8 text-[#1D4532]/30 mb-2" />
+                  <p className="text-sm text-on-surface-variant">Bạn chưa có bài giảng nào.</p>
+                </div>
               ) : (
-                attempts.map((att, aIdx) => {
-                  const isActive = aIdx === activeAttemptIdx;
-                  return (
-                    <div
-                      key={att.id}
-                      onClick={() => {
-                        setActiveAttemptIdx(aIdx);
-                        setFeedbackText(att.feedback_data || '');
-                      }}
-                      className={`p-md rounded-lg border cursor-pointer transition-all flex justify-between items-center ${
-                        isActive
-                          ? 'bg-[#EDF7F2] border-[#1D4532]/30 shadow-xs'
-                          : 'bg-white hover:bg-[#EDF7F2]/30 border-outline-variant/5'
-                      }`}
-                    >
-                      <div>
-                        <h4 className="font-label-md text-label-md font-bold text-[#1D4532]">
-                          {att.lessonName || 'Bài thực hành'}
-                        </h4>
-                        <p className="text-[12px] text-on-surface-variant mt-xs">
-                          {att.createdAt ? new Date(att.createdAt).toLocaleDateString('vi-VN') : ''} • {att.duration || '0:00'}
-                        </p>
-                      </div>
-                      <span
-                        className={`text-body-md font-bold ${
-                          (att.overall_score || 0) >= 8.0 ? 'text-[#1D4532]' : 'text-on-surface'
-                        }`}
-                      >
-                        {att.overall_score || 0}/10
-                      </span>
-                    </div>
-                  );
-                })
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-[#F8FAF9] text-xs text-[#5e5e5b] uppercase tracking-wider border-b border-outline-variant/10">
+                        <th className="text-left px-lg py-md font-semibold">Tên bài giảng</th>
+                        <th className="text-center px-md py-md font-semibold">Hoàn thành</th>
+                        <th className="text-center px-md py-md font-semibold">Sao đạt được</th>
+                        <th className="text-center px-md py-md font-semibold">Lượt thực hành</th>
+                        <th className="text-center px-md py-md font-semibold">Điểm tốt nhất</th>
+                        <th className="text-center px-md py-md font-semibold">Lượt Quiz</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-outline-variant/5">
+                      {progressRows.map((row: { id: number; title: string; progress: LessonProgress | null }) => {
+                        const p = row.progress;
+                        return (
+                          <tr key={row.id} className="hover:bg-[#EDF7F2]/30 transition-colors">
+                            <td className="px-lg py-md">
+                              <p className="font-medium text-on-surface text-xs">{row.title}</p>
+                            </td>
+                            <td className="px-md py-md text-center">
+                              {!p || p.loading ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin text-[#1D4532]/40 mx-auto" />
+                              ) : p.error ? (
+                                <span className="text-[10px] text-on-surface-variant/40">—</span>
+                              ) : p.completed ? (
+                                <CheckCircle2 className="w-4 h-4 text-emerald-500 mx-auto" />
+                              ) : (
+                                <XCircle className="w-4 h-4 text-rose-400 mx-auto" />
+                              )}
+                            </td>
+                            <td className="px-md py-md">
+                              <div className="flex justify-center">
+                                {!p || p.loading ? (
+                                  <div className="flex gap-0.5">
+                                    {[1,2,3].map((i) => <Star key={i} className="w-3.5 h-3.5 text-gray-200 fill-gray-200" />)}
+                                  </div>
+                                ) : (
+                                  <StarDisplay count={p?.stars ?? 0} />
+                                )}
+                              </div>
+                            </td>
+                            <td className="px-md py-md text-center">
+                              {!p || p.loading ? (
+                                <span className="text-on-surface-variant/30 text-xs">—</span>
+                              ) : p.error ? (
+                                <span className="text-on-surface-variant/40 text-xs">—</span>
+                              ) : (
+                                <span className="text-xs font-semibold text-on-surface">{p.totalPracticeAttempts}</span>
+                              )}
+                            </td>
+                            <td className="px-md py-md text-center">
+                              {!p || p.loading ? (
+                                <span className="text-on-surface-variant/30 text-xs">—</span>
+                              ) : p.error ? (
+                                <span className="text-on-surface-variant/40 text-xs">—</span>
+                              ) : (
+                                <span className={`text-xs font-bold ${
+                                  p.bestPracticeScore >= 0.8 ? 'text-emerald-600'
+                                  : p.bestPracticeScore >= 0.5 ? 'text-amber-600'
+                                  : 'text-rose-500'
+                                }`}>
+                                  {(p.bestPracticeScore * 100).toFixed(0)}%
+                                </span>
+                              )}
+                            </td>
+                            <td className="px-md py-md text-center">
+                              {!p || p.loading ? (
+                                <span className="text-on-surface-variant/30 text-xs">—</span>
+                              ) : p.error ? (
+                                <span className="text-on-surface-variant/40 text-xs">—</span>
+                              ) : (
+                                <span className="text-xs font-semibold text-on-surface">{p.totalQuizAttempts}</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               )}
             </div>
-          </div>
-
-          {attempt && (
-            <div className="bg-white rounded-xl p-lg shadow-sm border border-[#1D4532]/20 flex flex-col gap-md">
-              <h4 className="font-label-md text-[#1D4532] font-bold">
-                Bản ghi âm &amp; Phê duyệt phản hồi
-              </h4>
-
-              <div className="bg-[#EDF7F2]/30 p-md rounded-xl border border-[#1D4532]/10 flex items-center gap-md">
-                <button className="w-10 h-10 rounded-full bg-[#1D4532] text-white flex items-center justify-center shadow-md active:scale-95 transition-transform hover:opacity-95 shrink-0">
-                  <Volume2 className="w-5 h-5 text-white fill-white ml-[1px]" />
-                </button>
-                <div className="flex-grow">
-                  <div className="flex justify-between items-center text-[12px] text-on-surface-variant font-medium">
-                    <span>Lượt ghi âm #{attempt.id}</span>
-                    <span>0:00 / {attempt.duration || '0:00'}</span>
-                  </div>
-                  <div className="h-1 w-full bg-[#eae8e3] rounded-full overflow-hidden mt-sm">
-                    <div className="bg-[#1D4532] h-full" style={{ width: '35%' }} />
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-sm">
-                <textarea
-                  value={feedbackText}
-                  onChange={(e) => setFeedbackText(e.target.value)}
-                  className="w-full bg-white border border-[#1D4532]/20 rounded-xl p-md text-body-md focus:border-[#1D4532] focus:ring-1 focus:ring-[#1D4532] h-20 outline-none transition-all resize-none placeholder:text-on-surface-variant/40"
-                  placeholder="Nhập nhận xét..."
-                />
-                <div className="flex gap-sm">
-                  <button
-                    onClick={handleSaveDraft}
-                    className="flex-1 bg-white border border-outline text-on-surface-variant py-md rounded-lg font-label-md hover:bg-[#EDF7F2] transition-all flex items-center justify-center gap-xs"
-                  >
-                    <Save className="w-4 h-4" />
-                    Lưu nháp
-                  </button>
-                  <button
-                    onClick={handleSendFeedback}
-                    className="flex-1 bg-[#1D4532] text-white py-md rounded-lg font-label-md hover:bg-[#1D4532]/95 transition-all flex items-center justify-center gap-xs shadow-md"
-                  >
-                    <Send className="w-4 h-4" />
-                    Gửi nhận xét
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-        </section>
-        </>
-      )}
+          </section>
+        )}
       </div>
     </div>
   );
