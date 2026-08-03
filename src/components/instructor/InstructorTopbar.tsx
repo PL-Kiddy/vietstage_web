@@ -1,11 +1,16 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bell, CheckCheck, X } from 'lucide-react';
+import { Bell, CheckCheck, X, User, LogOut } from 'lucide-react';
 import { authApi } from '../../api/services';
 import { clearAuthSession, getAuthSession } from '../../api/authStorage';
 import { notificationApi, profileApi, type Notification, type UserProfile } from '../../api/management';
 
-const InstructorTopbar = () => {
+interface InstructorTopbarProps {
+  userName?: string;
+  userRole?: string;
+}
+
+const InstructorTopbar = ({ userName, userRole }: InstructorTopbarProps) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -15,14 +20,9 @@ const InstructorTopbar = () => {
   const navigate = useNavigate();
 
   const session = getAuthSession();
-  const displayName = userProfile?.fullName ?? session?.name ?? 'Giảng viên';
+  const displayName = userName ?? userProfile?.fullName ?? session?.name ?? 'Giảng viên';
+  const displayRole = userRole ?? userProfile?.role ?? 'Giảng viên';
   const avatarUrl = userProfile?.avatarUrl;
-  const initials = displayName
-    .split(/\s+/)
-    .map((part) => part[0])
-    .join('')
-    .slice(-2)
-    .toUpperCase();
 
   const unread = notifications.filter((n) => !n.read).length;
 
@@ -98,12 +98,12 @@ const InstructorTopbar = () => {
   return (
     <header className="flex justify-end items-center h-16 px-6 fixed top-0 right-0 left-64 bg-white border-b border-[#E5E7EB] shadow-[0_2px_12px_rgba(0,0,0,0.04)] z-40">
       {/* Right Actions */}
-      <div className="flex items-center gap-md">
+      <div className="flex items-center gap-lg">
 
         {/* Bell Notification */}
         <div className="relative" ref={notifRef}>
           <button
-            className="relative p-2 text-on-surface-variant hover:text-primary hover:bg-surface-container-high rounded-full transition-colors"
+            className="relative p-2 text-[#5e5e5b] hover:text-[#1D4532] hover:bg-[#EDF7F2] rounded-full transition-colors"
             onClick={() => setIsNotifOpen((prev) => !prev)}
             aria-label="Thông báo"
           >
@@ -127,7 +127,7 @@ const InstructorTopbar = () => {
                   {unread > 0 && (
                     <button
                       onClick={handleMarkAllAsRead}
-                      className="flex items-center gap-1 text-xs text-primary hover:underline"
+                      className="flex items-center gap-1 text-xs text-[#1D4532] hover:underline"
                       title="Đánh dấu tất cả đã đọc"
                     >
                       <CheckCheck className="w-3.5 h-3.5" />
@@ -147,7 +147,7 @@ const InstructorTopbar = () => {
               <div className="max-h-72 overflow-y-auto">
                 {loading ? (
                   <div className="flex items-center justify-center py-8 text-sm text-[#5e5e5b]">
-                    <div className="animate-spin w-4 h-4 border-2 border-primary border-t-transparent rounded-full mr-2" />
+                    <div className="animate-spin w-4 h-4 border-2 border-[#1D4532] border-t-transparent rounded-full mr-2" />
                     Đang tải...
                   </div>
                 ) : notifications.length === 0 ? (
@@ -160,13 +160,13 @@ const InstructorTopbar = () => {
                     <button
                       key={n.id}
                       onClick={() => handleMarkAsRead(n.id)}
-                      className={`w-full text-left px-4 py-3 hover:bg-[#edf4ff] transition-colors border-b border-[#d1e4fb]/30 last:border-0 ${
-                        !n.read ? 'bg-[#f0f7ff]' : ''
+                      className={`w-full text-left px-4 py-3 hover:bg-[#EDF7F2] transition-colors border-b border-[#d1e4fb]/30 last:border-0 ${
+                        !n.read ? 'bg-[#EDF7F2]/40' : ''
                       }`}
                     >
                       <div className="flex items-start gap-2">
                         {!n.read && (
-                          <span className="mt-1.5 w-2 h-2 bg-primary rounded-full flex-shrink-0" />
+                          <span className="mt-1.5 w-2 h-2 bg-[#1D4532] rounded-full flex-shrink-0" />
                         )}
                         <div className={!n.read ? '' : 'ml-4'}>
                           <div className="font-medium text-sm text-on-surface leading-tight">{n.title}</div>
@@ -184,37 +184,48 @@ const InstructorTopbar = () => {
           )}
         </div>
 
-        <div className="w-px h-6 bg-outline-variant/30 mx-2" />
+        <div className="h-8 w-px bg-[#d1e4fb]" />
 
-        {/* User Profile Dropdown */}
+        {/* User Profile */}
         <div className="relative">
           <div
             onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-            className="w-8 h-8 rounded-full bg-secondary-container flex items-center justify-center font-bold text-primary text-xs cursor-pointer hover:opacity-85 transition-opacity overflow-hidden"
+            className="flex items-center gap-sm cursor-pointer hover:opacity-85 transition-opacity"
           >
-            {avatarUrl ? (
-              <img src={avatarUrl} alt={displayName} className="w-full h-full object-cover" />
-            ) : (
-              initials
-            )}
+            <div className="text-right">
+              <p className="font-label-md text-label-md text-on-surface">
+                {displayName}
+              </p>
+              <p className="text-[10px] text-[#5e5e5b] uppercase tracking-widest">
+                {displayRole}
+              </p>
+            </div>
+            <div className="w-10 h-10 rounded-full border border-[#1D4532]/20 bg-[#EDF7F2] flex items-center justify-center text-[#1D4532] font-bold text-sm overflow-hidden">
+              {avatarUrl ? (
+                <img src={avatarUrl} alt={displayName} className="w-full h-full object-cover" />
+              ) : (
+                displayName.charAt(0).toUpperCase()
+              )}
+            </div>
           </div>
 
+          {/* Dropdown Menu */}
           {isDropdownOpen && (
             <>
-              {/* Backdrop */}
               <div
                 className="fixed inset-0 z-10"
                 onClick={() => setIsDropdownOpen(false)}
               />
-              <div className="absolute right-0 mt-2 w-48 bg-white border border-[#d1e4fb] rounded-xl shadow-lg py-1 z-20">
+              <div className="absolute right-0 mt-2 w-48 bg-white border border-[#E5E7EB] rounded-xl shadow-lg py-1 z-20">
                 <button
                   onClick={() => {
                     setIsDropdownOpen(false);
                     navigate('/instructor/profile');
                   }}
-                  className="w-full text-left px-4 py-2 hover:bg-[#edf4ff] text-[14px] text-on-surface transition-colors"
+                  className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-[#EDF7F2] text-[14.5px] font-medium text-[#374151] hover:text-[#1D4532] transition-all group"
                 >
-                  Xem thông tin
+                  <User className="w-4.5 h-4.5 text-[#9CA3AF] group-hover:text-[#1D4532] transition-colors" />
+                  <span>Xem thông tin</span>
                 </button>
                 <button
                   onClick={async () => {
@@ -226,9 +237,10 @@ const InstructorTopbar = () => {
                       navigate('/login');
                     }
                   }}
-                  className="w-full text-left px-4 py-2 hover:bg-[#edf4ff] text-[14px] text-red-500 transition-colors border-t border-[#d1e4fb]/40"
+                  className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-red-50 text-[14.5px] font-medium text-red-600 hover:text-red-700 transition-all border-t border-[#E5E7EB] group"
                 >
-                  Đăng xuất
+                  <LogOut className="w-4.5 h-4.5 text-red-400 group-hover:text-red-600 transition-colors" />
+                  <span>Đăng xuất</span>
                 </button>
               </div>
             </>

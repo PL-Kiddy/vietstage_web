@@ -114,9 +114,11 @@ export const notificationApi = {
   // Lấy danh sách thông báo — backend trả về { data: [...], page, size, total, unread_count }
   list: async (options?: RequestOptions): Promise<Notification[]> => {
     const raw = await apiRequest<any>('/api/notifications', options);
-    // Handle both direct array and nested { data: [...] } envelope
+    // Handle direct array, single nested { data: [...] }, or double nested { data: { data: [...] } } envelope
     const arr: any[] = Array.isArray(raw)
       ? raw
+      : Array.isArray(raw?.data?.data)
+      ? raw.data.data
       : Array.isArray(raw?.data)
       ? raw.data
       : [];
