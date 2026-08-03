@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Bell, CheckCheck, X } from 'lucide-react';
+import { Bell, CheckCheck, X } from 'lucide-react';
 import { authApi } from '../../api/services';
 import { clearAuthSession, getAuthSession } from '../../api/authStorage';
 import { notificationApi, profileApi, type Notification, type UserProfile } from '../../api/management';
@@ -96,19 +96,7 @@ const InstructorTopbar = () => {
   };
 
   return (
-    <header className="flex justify-between items-center h-16 px-6 ml-64 fixed top-0 right-0 left-0 bg-white border-b border-[#E5E7EB] shadow-[0_2px_12px_rgba(0,0,0,0.04)] z-40">
-      {/* Search */}
-      <div className="flex items-center gap-lg w-full max-w-xl">
-        <div className="relative w-full group">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9CA3AF]" />
-          <input
-            type="text"
-            placeholder="Tìm kiếm bài giảng, học viên..."
-            className="w-full pl-9 pr-4 py-2 bg-[#F5F5F5] border border-[#E5E7EB] rounded-lg text-sm text-[#374151] placeholder:text-[#9CA3AF] outline-none focus:ring-1 focus:ring-[#1D4532]/30 transition"
-          />
-        </div>
-      </div>
-
+    <header className="flex justify-end items-center h-16 px-6 fixed top-0 right-0 left-64 bg-white border-b border-[#E5E7EB] shadow-[0_2px_12px_rgba(0,0,0,0.04)] z-40">
       {/* Right Actions */}
       <div className="flex items-center gap-md">
 
