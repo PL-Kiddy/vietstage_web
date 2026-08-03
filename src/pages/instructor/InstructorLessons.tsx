@@ -373,20 +373,14 @@ const InstructorLessons = () => {
               <table className="w-full min-w-[1080px] border-collapse">
                 <thead>
                   <tr className="bg-[#EDF7F2]/60">
-                    <th className="text-left whitespace-nowrap py-md px-xl font-label-sm text-label-sm text-[#1D4532] font-semibold border-b border-outline-variant/10">
-                      Thứ tự giáo trình
+                    <th className="text-center whitespace-nowrap py-md px-xl font-label-sm text-label-sm text-[#1D4532] font-semibold border-b border-outline-variant/10">
+                      STT
                     </th>
                     <th className="text-left whitespace-nowrap py-md px-xl font-label-sm text-label-sm text-[#1D4532] font-semibold border-b border-outline-variant/10">
                       Tên bài giảng
                     </th>
                     <th className="text-left whitespace-nowrap py-md px-md font-label-sm text-label-sm text-[#1D4532] font-semibold border-b border-outline-variant/10">
                       Nhạc cụ
-                    </th>
-                    <th className="text-left whitespace-nowrap py-md px-md font-label-sm text-label-sm text-[#1D4532] font-semibold border-b border-outline-variant/10">
-                      Ngưỡng đạt (Scoring)
-                    </th>
-                    <th className="text-left whitespace-nowrap py-md px-md font-label-sm text-label-sm text-[#1D4532] font-semibold border-b border-outline-variant/10">
-                      Bài tập nhỏ
                     </th>
                     <th className="text-left whitespace-nowrap py-md px-md font-label-sm text-label-sm text-[#1D4532] font-semibold border-b border-outline-variant/10">
                       Ngày cập nhật
@@ -402,14 +396,14 @@ const InstructorLessons = () => {
                 <tbody className="divide-y divide-outline-variant/10">
                   {isLoading ? (
                     <tr>
-                      <td colSpan={8} className="px-xl py-14 text-center">
+                      <td colSpan={6} className="px-xl py-14 text-center">
                         <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-2 border-[#1D4532]/20 border-t-[#1D4532]" />
                         <p className="text-on-surface-variant">Đang tải danh sách bài giảng...</p>
                       </td>
                     </tr>
                   ) : sortedLessons.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="px-xl py-16 text-center">
+                      <td colSpan={6} className="px-xl py-16 text-center">
                         <div className="mx-auto flex max-w-md flex-col items-center">
                           <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#1D4532]/10 text-[#1D4532]">
                             <BookOpen className="h-7 w-7" />
@@ -437,23 +431,21 @@ const InstructorLessons = () => {
                           <span className="font-label-md text-label-md text-[#1D4532] font-bold">
                             {lesson.title}
                           </span>
-                          <span className="text-label-sm text-on-surface-variant text-[12px] line-clamp-1 max-w-xs">
-                            {lesson.description || 'Chưa có mô tả kỹ thuật.'}
-                          </span>
+                          <div className="flex items-center gap-2 text-label-sm text-on-surface-variant text-[12px] mt-0.5">
+                            <span className="line-clamp-1 max-w-xs">
+                              {lesson.description || 'Chưa có mô tả kỹ thuật.'}
+                            </span>
+                            <span className="text-[#1D4532]/30">•</span>
+                            <span className="text-[#1D4532] font-medium whitespace-nowrap">
+                              {lesson.exercises ? lesson.exercises.length : 0} bài tập
+                            </span>
+                          </div>
                         </div>
                       </td>
                       <td className="py-lg px-md">
                         <span className="px-md py-xs bg-[#ffe088]/20 text-[#574500] rounded-full text-label-sm font-semibold">
                           {lesson.instrument}
                         </span>
-                      </td>
-                      <td className="py-lg px-md">
-                        <span className="font-semibold text-secondary">
-                          &ge; {lesson.passingThreshold || 80}%
-                        </span>
-                      </td>
-                      <td className="py-lg px-md text-on-surface-variant font-label-md text-[13px]">
-                        {lesson.exercises ? lesson.exercises.length : 0} bài tập
                       </td>
                       <td className="py-lg px-md text-on-surface-variant font-label-md">
                         {lesson.updatedAt}
