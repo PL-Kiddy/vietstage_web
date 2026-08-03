@@ -25,7 +25,7 @@ const AdminSidebar = () => {
   }, [location.pathname, isUsersRoute]);
 
   return (
-    <aside className="h-screen w-64 fixed left-0 top-0 bg-white text-[#374151] border-r border-[#E5E7EB] shadow-[2px_0_12px_rgba(0,0,0,0.04)] z-20 flex flex-col py-8">
+    <aside className="h-screen w-64 fixed left-0 top-0 bg-white/75 backdrop-blur-xl text-[#374151] border-r border-white/50 shadow-[4px_0_24px_rgba(0,0,0,0.06)] z-20 flex flex-col py-8">
       {/* Branding */}
       <div className="px-6 mb-8">
         <Link to="/" className="block">

@@ -18,7 +18,7 @@ const InstructorSidebar = () => {
   const location = useLocation();
 
   return (
-    <aside className="hidden md:flex flex-col h-screen fixed left-0 top-0 py-8 w-64 bg-white text-[#374151] border-r border-[#E5E7EB] shadow-[2px_0_12px_rgba(0,0,0,0.04)] z-50">
+    <aside className="hidden md:flex flex-col h-screen fixed left-0 top-0 py-8 w-64 bg-white/75 backdrop-blur-xl text-[#374151] border-r border-white/50 shadow-[4px_0_24px_rgba(0,0,0,0.06)] z-50">
       {/* Brand Header */}
       <div className="px-6 mb-8">
         <Link to="/" className="block">
@@ -58,10 +58,6 @@ const InstructorSidebar = () => {
         })}
       </nav>
 
-      {/* Bottom label */}
-      <div className="px-6 pt-4 border-t border-[#F3F4F6]">
-        <p className="text-[10px] text-[#D1D5DB] text-center">VietStage © 2024</p>
-      </div>
     </aside>
   );
 };

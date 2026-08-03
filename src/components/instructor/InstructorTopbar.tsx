@@ -96,7 +96,7 @@ const InstructorTopbar = ({ userName, userRole }: InstructorTopbarProps) => {
   };
 
   return (
-    <header className="flex justify-end items-center h-16 px-6 fixed top-0 right-0 left-64 bg-white border-b border-[#E5E7EB] shadow-[0_2px_12px_rgba(0,0,0,0.04)] z-40">
+    <header className="flex justify-end items-center h-16 px-6 fixed top-0 right-0 left-64 bg-white/75 backdrop-blur-xl border-b border-white/50 shadow-[0_4px_24px_rgba(0,0,0,0.04)] z-40">
       {/* Right Actions */}
       <div className="flex items-center gap-lg">
 

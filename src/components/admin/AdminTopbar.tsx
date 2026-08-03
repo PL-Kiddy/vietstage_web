@@ -96,7 +96,7 @@ const AdminTopbar = ({ userName, userRole }: AdminTopbarProps) => {
   };
 
   return (
-    <header className="fixed top-0 right-0 w-[calc(100%-16rem)] z-10 flex justify-end items-center h-16 px-6 bg-white border-b border-[#E5E7EB] shadow-[0_2px_12px_rgba(0,0,0,0.04)]">
+    <header className="fixed top-0 right-0 w-[calc(100%-16rem)] z-10 flex justify-end items-center h-16 px-6 bg-white/75 backdrop-blur-xl border-b border-white/50 shadow-[0_4px_24px_rgba(0,0,0,0.04)]">
       {/* Right Actions */}
       <div className="flex items-center gap-lg">
 
