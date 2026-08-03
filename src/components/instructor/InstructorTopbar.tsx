@@ -96,7 +96,7 @@ const InstructorTopbar = ({ userName, userRole }: InstructorTopbarProps) => {
   };
 
   return (
-    <header className="flex justify-end items-center h-16 px-6 fixed top-0 right-0 left-64 bg-white/75 backdrop-blur-xl border-b border-white/50 shadow-[0_4px_24px_rgba(0,0,0,0.04)] z-40">
+    <header className="flex justify-end items-center h-16 px-6 fixed top-0 right-0 left-64 bg-white/75 backdrop-blur-xl border-b border-white/50 shadow-[0_4px_24px_rgba(0,0,0,0.04)] z-20">
       {/* Right Actions */}
       <div className="flex items-center gap-lg">
 
@@ -160,9 +160,8 @@ const InstructorTopbar = ({ userName, userRole }: InstructorTopbarProps) => {
                     <button
                       key={n.id}
                       onClick={() => handleMarkAsRead(n.id)}
-                      className={`w-full text-left px-4 py-3 hover:bg-[#EDF7F2] transition-colors border-b border-[#d1e4fb]/30 last:border-0 ${
-                        !n.read ? 'bg-[#EDF7F2]/40' : ''
-                      }`}
+                      className={`w-full text-left px-4 py-3 hover:bg-[#EDF7F2] transition-colors border-b border-[#d1e4fb]/30 last:border-0 ${!n.read ? 'bg-[#EDF7F2]/40' : ''
+                        }`}
                     >
                       <div className="flex items-start gap-2">
                         {!n.read && (

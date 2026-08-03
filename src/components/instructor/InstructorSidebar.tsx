@@ -18,7 +18,7 @@ const InstructorSidebar = () => {
   const location = useLocation();
 
   return (
-    <aside className="hidden md:flex flex-col h-screen fixed left-0 top-0 py-8 w-64 bg-white/75 backdrop-blur-xl text-[#374151] border-r border-white/50 shadow-[4px_0_24px_rgba(0,0,0,0.06)] z-50">
+    <aside className="hidden md:flex flex-col h-screen fixed left-0 top-0 py-8 w-64 bg-white/75 backdrop-blur-xl text-[#374151] border-r border-white/50 shadow-[4px_0_24px_rgba(0,0,0,0.06)] z-20">
       {/* Brand Header */}
       <div className="px-6 mb-8">
         <Link to="/" className="block">
@@ -41,11 +41,10 @@ const InstructorSidebar = () => {
             <Link
               key={item.href}
               to={item.href}
-              className={`relative flex items-center gap-3 px-3.5 h-11 rounded-lg transition-all duration-150 text-[14px] font-medium ${
-                isActive
+              className={`relative flex items-center gap-3 px-3.5 h-11 rounded-lg transition-all duration-150 text-[14px] font-medium ${isActive
                   ? 'bg-[#EDF7F2] text-[#1D4532] font-semibold'
                   : 'text-[#6B7280] hover:text-[#374151] hover:bg-[#F9FAFB]'
-              }`}
+                }`}
             >
               {/* Active green strip on left */}
               {isActive && (
