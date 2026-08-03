@@ -102,6 +102,23 @@ export const lessonsApi = {
   remove: (id: number) => apiRequest<void>(`/api/lessons/${id}`, { method: 'DELETE' }),
 };
 
+export interface ExerciseInput {
+  title: string;
+  description?: string;
+  beatMapAssetId?: number;
+  passThreshold?: number; // e.g. 100
+  orderIndex?: number;
+}
+
+export const exercisesApi = {
+  // POST /api/lessons/{id}/exercises
+  create: (lessonId: number, body: ExerciseInput) =>
+    apiRequest<{ id: number; lessonId: number; title: string; description: string; beatMapAssetId: number; passThreshold: number; orderIndex: number }>(
+      `/api/lessons/${lessonId}/exercises`,
+      { method: 'POST', body }
+    ),
+};
+
 export const reviewsApi = {
   list: (options?: RequestOptions) => apiRequest<ReviewItem[]>('/api/admin/reviews', options),
   approve: (id: number) =>
