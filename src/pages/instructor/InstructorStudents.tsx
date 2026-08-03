@@ -1,8 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useAxiosRequest } from '../../hooks/useAxiosRequest';
-import { instructorStudentsApi } from '../../api/services';
+import { instructorStudentsApi, learnerProgressApi } from '../../api/services';
 import type { AdminUser, PracticeAttempt } from '../../api/types';
-import { Volume2, Send, Save, History, Search, X } from 'lucide-react';
+import { Volume2, Send, Save, History, Search, X, Award, CheckCircle2, Flame } from 'lucide-react';
 
 const InstructorStudents = () => {
   const [selectedStudentId, setSelectedStudentId] = useState<number | null>(null);
@@ -43,7 +43,7 @@ const InstructorStudents = () => {
     return filteredStudents[0] || null;
   }, [allStudents, filteredStudents, selectedStudentId]);
 
-  // 2. Fetch attempts
+  // 2. Fetch student attempts & progress summary
   const fetchAttempts = () => {
     if (student) {
       return instructorStudentsApi.getAttempts(student.id);
@@ -52,12 +52,17 @@ const InstructorStudents = () => {
   };
   const { data: attemptsData, execute: doFetchAttempts } = useAxiosRequest<any>(fetchAttempts, { auto: false });
 
+  // 3. Fetch progress summary metrics
+  const fetchProgressSummary = () => learnerProgressApi.getMyProgressSummary();
+  const { data: progressSummary, execute: doFetchSummary } = useAxiosRequest<any>(fetchProgressSummary, { auto: false });
+
   const attempts: PracticeAttempt[] = (attemptsData as any)?.content || [];
   const attempt = attempts[activeAttemptIdx] || null;
 
   useEffect(() => {
     if (student) {
       doFetchAttempts();
+      doFetchSummary();
       setActiveAttemptIdx(0);
       setFeedbackText('');
     }
@@ -250,6 +255,36 @@ const InstructorStudents = () => {
               Không có lượt thực hành nào của học viên này.
             </p>
           )}
+
+          {/* Student Overall Progress Summary API metrics */}
+          <div className="mt-xl pt-lg border-t border-outline-variant/10">
+            <h4 className="font-label-md text-xs font-semibold uppercase tracking-wider text-[#1D4532] mb-md">
+              Tổng quan tiến độ tích lũy học viên
+            </h4>
+            <div className="grid grid-cols-3 gap-sm">
+              <div className="bg-[#EDF7F2]/30 p-md rounded-xl border border-[#1D4532]/10 flex flex-col items-center text-center">
+                <Award className="w-5 h-5 text-[#1D4532] mb-1" />
+                <span className="text-[11px] text-on-surface-variant font-medium">Tổng sao</span>
+                <span className="text-body-md font-bold text-[#1D4532] mt-0.5">
+                  {progressSummary?.total_stars ?? 0} ⭐
+                </span>
+              </div>
+              <div className="bg-[#EDF7F2]/30 p-md rounded-xl border border-[#1D4532]/10 flex flex-col items-center text-center">
+                <CheckCircle2 className="w-5 h-5 text-[#1D4532] mb-1" />
+                <span className="text-[11px] text-on-surface-variant font-medium">Bài hoàn thành</span>
+                <span className="text-body-md font-bold text-[#1D4532] mt-0.5">
+                  {progressSummary?.completed_lessons ?? 0} bài
+                </span>
+              </div>
+              <div className="bg-[#EDF7F2]/30 p-md rounded-xl border border-[#1D4532]/10 flex flex-col items-center text-center">
+                <Flame className="w-5 h-5 text-[#1D4532] mb-1" />
+                <span className="text-[11px] text-on-surface-variant font-medium">Chuỗi học tập</span>
+                <span className="text-body-md font-bold text-[#1D4532] mt-0.5">
+                  {progressSummary?.current_streak ?? 0} ngày
+                </span>
+              </div>
+            </div>
+          </div>
         </section>
 
         <section className="col-span-12 lg:col-span-4 flex flex-col gap-lg">

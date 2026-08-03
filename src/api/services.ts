@@ -113,6 +113,43 @@ export const reviewsApi = {
     }),
 };
 
+export const learnerProgressApi = {
+  // GET /api/lessons/{id}/learners/{learner_id}/progress
+  getLessonLearnerProgress: (lessonId: number, learnerId: number, options?: RequestOptions) =>
+    apiRequest<{
+      lessonId: number;
+      learnerId: number;
+      stars: number;
+      completed: boolean;
+      totalPracticeAttempts: number;
+      bestPracticeScore: number;
+      totalQuizAttempts: number;
+    }>(`/api/lessons/${lessonId}/learners/${learnerId}/progress`, options),
+
+  // GET /api/users/me/progress
+  getMyProgress: (instrumentId?: number, skillLevelId?: number, options?: RequestOptions) => {
+    const params = new URLSearchParams();
+    if (instrumentId) params.append('instrument_id', String(instrumentId));
+    if (skillLevelId) params.append('skill_level_id', String(skillLevelId));
+    const query = params.toString();
+    return apiRequest<{ lessonId: number; title: string; stars: number; completed: boolean }[]>(
+      `/api/users/me/progress${query ? `?${query}` : ''}`,
+      options
+    );
+  },
+
+  // GET /api/users/me/progress/summary
+  getMyProgressSummary: (options?: RequestOptions) =>
+    apiRequest<{
+      total_stars: number;
+      completed_lessons: number;
+      current_streak: number;
+      longest_streak: number;
+      total_points: number;
+      adaptive_difficulty: number;
+    }>('/api/users/me/progress/summary', options),
+};
+
 export const instructorStudentsApi = {
   // Using Admin endpoint as placeholder for now, assuming frontend will filter by role='LEARNER'
   listStudents: (options?: RequestOptions) => apiRequest<AdminUser[]>('/api/admin/users', options),
