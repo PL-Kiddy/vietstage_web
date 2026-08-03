@@ -20,7 +20,7 @@ const InstructorSidebar = () => {
   return (
     <aside className="hidden md:flex flex-col h-screen fixed left-0 top-0 py-8 w-64 bg-white text-[#374151] border-r border-[#E5E7EB] shadow-[2px_0_12px_rgba(0,0,0,0.04)] z-50">
       {/* Brand Header */}
-      <div className="px-6 mb-10">
+      <div className="px-6 mb-8">
         <Link to="/" className="block">
           <img
             src={logo}
@@ -28,7 +28,7 @@ const InstructorSidebar = () => {
             className="w-full h-auto max-h-14 object-contain hover:opacity-85 transition-opacity"
           />
         </Link>
-        <p className="text-[10px] text-[#9CA3AF] uppercase tracking-widest mt-2 font-semibold">
+        <p className="text-[12px] text-[#1D4532] uppercase tracking-widest mt-2.5 font-bold text-center">
           Cổng thông tin giảng viên
         </p>
       </div>

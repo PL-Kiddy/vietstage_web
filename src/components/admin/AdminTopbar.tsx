@@ -147,7 +147,7 @@ const AdminTopbar = ({ userName, userRole }: AdminTopbarProps) => {
               <div className="max-h-72 overflow-y-auto">
                 {loading ? (
                   <div className="flex items-center justify-center py-8 text-sm text-[#5e5e5b]">
-                    <div className="animate-spin w-4 h-4 border-2 border-primary border-t-transparent rounded-full mr-2" />
+                    <div className="animate-spin w-4 h-4 border-2 border-[#1D4532] border-t-transparent rounded-full mr-2" />
                     Đang tải...
                   </div>
                 ) : notifications.length === 0 ? (
