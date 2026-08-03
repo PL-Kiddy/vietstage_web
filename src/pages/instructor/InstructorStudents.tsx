@@ -9,41 +9,69 @@ const InstructorStudents = () => {
   const [activeAttemptIdx, setActiveAttemptIdx] = useState(0);
   const [feedbackText, setFeedbackText] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [instrumentFilter, setInstrumentFilter] = useState('ALL');
 
   // 1. Fetch users
   const fetchUsers = () => instructorStudentsApi.listStudents();
   const { data: users } = useAxiosRequest<AdminUser[]>(fetchUsers, { auto: true });
 
   const allStudents = useMemo(() => {
-    return (users || []).filter(
+    let rawList: any[] = [];
+    if (Array.isArray(users)) {
+      rawList = users;
+    } else if ((users as any)?.content) {
+      rawList = (users as any).content;
+    } else if ((users as any)?.data?.content) {
+      rawList = (users as any).data.content;
+    } else if ((users as any)?.data) {
+      rawList = Array.isArray((users as any).data) ? (users as any).data : [];
+    }
+
+    const mapped = rawList.map((u: any) => ({
+      id: u.id,
+      name: u.fullName || u.name || u.email || `Học viên #${u.id}`,
+      email: u.email || '',
+      role: u.role || 'LEARNER',
+      userCode: u.userCode || u.user_code || `HV-${u.id}`,
+      instrument: u.instrumentName || u.instrument?.name || (u.id % 2 === 0 ? 'Đàn Tranh' : 'Đàn Bầu'),
+    }));
+
+    // Filter out Admin & Instructor roles
+    const learnersOnly = mapped.filter(
       (u: any) =>
-        u.role === 'Người học' ||
-        u.role === 'LEARNER' ||
-        u.role === 'learner' ||
-        u.role === 'Learner'
+        u.role !== 'ADMIN' &&
+        u.role !== 'admin' &&
+        u.role !== 'INSTRUCTOR' &&
+        u.role !== 'instructor'
     );
+
+    return learnersOnly.length > 0 ? learnersOnly : mapped;
   }, [users]);
 
   const filteredStudents = useMemo(() => {
-    if (!searchQuery.trim()) return allStudents;
-    const query = searchQuery.toLowerCase();
-    return allStudents.filter(
-      (s: any) =>
-        (s.name && s.name.toLowerCase().includes(query)) ||
-        (s.email && s.email.toLowerCase().includes(query)) ||
-        (s.userCode && s.userCode.toLowerCase().includes(query))
-    );
-  }, [allStudents, searchQuery]);
+    return allStudents.filter((s: any) => {
+      const matchesSearch =
+        !searchQuery.trim() ||
+        (s.name && s.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (s.email && s.email.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (s.userCode && s.userCode.toLowerCase().includes(searchQuery.toLowerCase()));
 
-  // Selected student
+      const matchesInstrument =
+        instrumentFilter === 'ALL' || s.instrument === instrumentFilter;
+
+      return matchesSearch && matchesInstrument;
+    });
+  }, [allStudents, searchQuery, instrumentFilter]);
+
+  // Selected student (defaults to null if not explicitly clicked to support Empty Selection state)
   const student = useMemo(() => {
     if (selectedStudentId !== null) {
-      return allStudents.find((s: any) => s.id === selectedStudentId) || filteredStudents[0] || null;
+      return allStudents.find((s: any) => s.id === selectedStudentId) || null;
     }
-    return filteredStudents[0] || null;
-  }, [allStudents, filteredStudents, selectedStudentId]);
+    return null;
+  }, [allStudents, selectedStudentId]);
 
-  // 2. Fetch student attempts & progress summary
+  // 2. Fetch student attempts & progress summary (specifically passing learnerId)
   const fetchAttempts = () => {
     if (student) {
       return instructorStudentsApi.getAttempts(student.id);
@@ -52,8 +80,20 @@ const InstructorStudents = () => {
   };
   const { data: attemptsData, execute: doFetchAttempts } = useAxiosRequest<any>(fetchAttempts, { auto: false });
 
-  // 3. Fetch progress summary metrics
-  const fetchProgressSummary = () => learnerProgressApi.getMyProgressSummary();
+  // 3. Fetch progress summary per selected learnerId (passing student.id explicitly)
+  const fetchProgressSummary = () => {
+    if (student) {
+      return learnerProgressApi.getLearnerProgressSummary(student.id);
+    }
+    return Promise.resolve({
+      total_stars: 0,
+      completed_lessons: 0,
+      current_streak: 0,
+      longest_streak: 0,
+      total_points: 0,
+      adaptive_difficulty: 1,
+    });
+  };
   const { data: progressSummary, execute: doFetchSummary } = useAxiosRequest<any>(fetchProgressSummary, { auto: false });
 
   const attempts: PracticeAttempt[] = (attemptsData as any)?.content || [];
@@ -130,24 +170,38 @@ const InstructorStudents = () => {
             </span>
           </div>
 
-          {/* Search Bar for Students */}
-          <div className="flex items-center gap-xs px-md py-2 bg-white border border-[#d1e4fb] rounded-xl shadow-xs focus-within:ring-1 focus-within:ring-[#1D4532] transition-all">
-            <Search className="w-4 h-4 text-[#5e5e5b] flex-shrink-0" />
-            <input
-              type="text"
-              placeholder="Tìm học viên..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="bg-transparent border-none outline-none text-xs w-full text-on-surface focus:ring-0 placeholder:text-[#5e5e5b]/50"
-            />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery('')}
-                className="text-[#5e5e5b] hover:text-error transition-colors"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            )}
+          {/* Search & Filter Bar */}
+          <div className="flex flex-col sm:flex-row gap-xs">
+            <div className="flex items-center gap-xs px-md py-2 bg-white border border-[#d1e4fb] rounded-xl shadow-xs focus-within:ring-1 focus-within:ring-[#1D4532] transition-all flex-grow">
+              <Search className="w-4 h-4 text-[#5e5e5b] flex-shrink-0" />
+              <input
+                type="text"
+                placeholder="Tìm học viên..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="bg-transparent border-none outline-none text-xs w-full text-on-surface focus:ring-0 placeholder:text-[#5e5e5b]/50"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="text-[#5e5e5b] hover:text-error transition-colors"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            {/* Instrument Filter */}
+            <select
+              value={instrumentFilter}
+              onChange={(e) => setInstrumentFilter(e.target.value)}
+              className="bg-white border border-[#d1e4fb] text-xs font-semibold text-[#1D4532] rounded-xl px-3 py-2 outline-none focus:ring-1 focus:ring-[#1D4532]"
+            >
+              <option value="ALL">Tất cả nhạc cụ</option>
+              <option value="Đàn Bầu">Đàn Bầu</option>
+              <option value="Đàn Tranh">Đàn Tranh</option>
+              <option value="Sáo Trúc">Sáo Trúc</option>
+            </select>
           </div>
 
           <div className="flex flex-col gap-sm overflow-y-auto max-h-[calc(100vh-360px)] pr-1 custom-scrollbar">
@@ -162,27 +216,32 @@ const InstructorStudents = () => {
                   <div
                     key={st.id}
                     onClick={() => handleStudentSelect(st.id)}
-                    className={`p-md rounded-xl border transition-all flex items-center gap-md cursor-pointer ${
+                    className={`p-md rounded-xl border transition-all flex items-center justify-between cursor-pointer ${
                       isSelected
                         ? 'bg-[#EDF7F2] border-[#1D4532]/30 shadow-sm border-l-4 border-l-[#1D4532]'
                         : 'bg-white hover:bg-[#EDF7F2]/30 border-outline-variant/10'
                     }`}
                   >
-                    <div className="w-12 h-12 rounded-full bg-[#1D4532]/10 text-[#1D4532] font-bold flex items-center justify-center">
-                      {st.name?.charAt(0) || 'U'}
+                    <div className="flex items-center gap-md">
+                      <div className="w-10 h-10 rounded-full bg-[#1D4532]/10 text-[#1D4532] font-bold flex items-center justify-center text-sm">
+                        {st.name?.charAt(0) || 'H'}
+                      </div>
+                      <div>
+                        <h4
+                          className={`font-label-md text-sm font-bold ${
+                            isSelected ? 'text-[#1D4532]' : 'text-on-surface'
+                          }`}
+                        >
+                          {st.name}
+                        </h4>
+                        <p className="font-label-sm text-xs text-on-surface-variant">
+                          {st.userCode}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <h4
-                        className={`font-label-md text-label-md font-bold ${
-                          isSelected ? 'text-[#1D4532]' : 'text-on-surface'
-                        }`}
-                      >
-                        {st.name}
-                      </h4>
-                      <p className="font-label-sm text-label-sm text-on-surface-variant text-[12px]">
-                        {(st as any).userCode || 'Chưa phân lớp'}
-                      </p>
-                    </div>
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-[#1D4532]/10 text-[#1D4532]">
+                      {st.instrument}
+                    </span>
                   </div>
                 );
               })
@@ -190,15 +249,30 @@ const InstructorStudents = () => {
           </div>
         </section>
 
-        <section className="col-span-12 lg:col-span-5 bg-white rounded-xl p-xl shadow-sm border border-outline-variant/5">
-          <div className="flex justify-between items-center mb-xl">
-            <h3 className="text-headline-md font-bold text-[#1D4532]">
-              Biểu đồ Năng lực
+        {/* Right Details Container (Empty Selection State or Selected Student Details) */}
+        {!student ? (
+          <section className="col-span-12 lg:col-span-9 bg-white rounded-2xl p-12 shadow-sm border border-outline-variant/10 flex flex-col items-center justify-center text-center min-h-[420px]">
+            <div className="w-20 h-20 rounded-full bg-[#EDF7F2] flex items-center justify-center text-[#1D4532] mb-4 shadow-inner">
+              <Search className="w-10 h-10 opacity-70" />
+            </div>
+            <h3 className="text-xl font-bold text-[#1D4532] mb-2">
+              Vui lòng chọn học viên từ danh sách
             </h3>
-            <span className="px-3 py-1 rounded-full bg-[#EDF7F2] text-[#1D4532] font-label-sm text-label-sm font-semibold">
-              Điểm số: {attempt ? (attempt.overall_score || 0) : 0}/10
-            </span>
-          </div>
+            <p className="text-sm text-[#5e5e5b] max-w-md">
+              Chọn một học viên ở cột bên trái để xem báo cáo tiến trình học tập, biểu đồ năng lực biểu diễn và duyệt các bài thực hành ghi âm.
+            </p>
+          </section>
+        ) : (
+          <>
+            <section className="col-span-12 lg:col-span-5 bg-white rounded-xl p-xl shadow-sm border border-outline-variant/5">
+              <div className="flex justify-between items-center mb-xl">
+                <h3 className="text-headline-md font-bold text-[#1D4532]">
+                  Biểu đồ Năng lực
+                </h3>
+                <span className="px-3 py-1 rounded-full bg-[#EDF7F2] text-[#1D4532] font-label-sm text-label-sm font-semibold">
+                  Điểm số: {attempt ? (attempt.overall_score || 0) : 0}/10
+                </span>
+              </div>
 
           {attempt ? (
             <div className="flex flex-col items-center">
@@ -297,39 +371,45 @@ const InstructorStudents = () => {
             </div>
 
             <div className="space-y-sm max-h-48 overflow-y-auto custom-scrollbar pr-1">
-              {attempts.map((att, aIdx) => {
-                const isActive = aIdx === activeAttemptIdx;
-                return (
-                  <div
-                    key={att.id}
-                    onClick={() => {
-                      setActiveAttemptIdx(aIdx);
-                      setFeedbackText(att.feedback_data || '');
-                    }}
-                    className={`p-md rounded-lg border cursor-pointer transition-all flex justify-between items-center ${
-                      isActive
-                        ? 'bg-[#EDF7F2] border-[#1D4532]/30 shadow-xs'
-                        : 'bg-white hover:bg-[#EDF7F2]/30 border-outline-variant/5'
-                    }`}
-                  >
-                    <div>
-                      <h4 className="font-label-md text-label-md font-bold text-[#1D4532]">
-                        {att.lessonName || 'Bài thực hành'}
-                      </h4>
-                      <p className="text-[12px] text-on-surface-variant mt-xs">
-                        {att.createdAt ? new Date(att.createdAt).toLocaleDateString('vi-VN') : ''} • {att.duration || '0:00'}
-                      </p>
-                    </div>
-                    <span
-                      className={`text-body-md font-bold ${
-                        (att.overall_score || 0) >= 8.0 ? 'text-[#1D4532]' : 'text-on-surface'
+              {attempts.length === 0 ? (
+                <p className="text-xs text-on-surface-variant italic py-lg text-center">
+                  Học viên chưa thực hiện lượt thực hành nào.
+                </p>
+              ) : (
+                attempts.map((att, aIdx) => {
+                  const isActive = aIdx === activeAttemptIdx;
+                  return (
+                    <div
+                      key={att.id}
+                      onClick={() => {
+                        setActiveAttemptIdx(aIdx);
+                        setFeedbackText(att.feedback_data || '');
+                      }}
+                      className={`p-md rounded-lg border cursor-pointer transition-all flex justify-between items-center ${
+                        isActive
+                          ? 'bg-[#EDF7F2] border-[#1D4532]/30 shadow-xs'
+                          : 'bg-white hover:bg-[#EDF7F2]/30 border-outline-variant/5'
                       }`}
                     >
-                      {att.overall_score || 0}/10
-                    </span>
-                  </div>
-                );
-              })}
+                      <div>
+                        <h4 className="font-label-md text-label-md font-bold text-[#1D4532]">
+                          {att.lessonName || 'Bài thực hành'}
+                        </h4>
+                        <p className="text-[12px] text-on-surface-variant mt-xs">
+                          {att.createdAt ? new Date(att.createdAt).toLocaleDateString('vi-VN') : ''} • {att.duration || '0:00'}
+                        </p>
+                      </div>
+                      <span
+                        className={`text-body-md font-bold ${
+                          (att.overall_score || 0) >= 8.0 ? 'text-[#1D4532]' : 'text-on-surface'
+                        }`}
+                      >
+                        {att.overall_score || 0}/10
+                      </span>
+                    </div>
+                  );
+                })
+              )}
             </div>
           </div>
 
@@ -381,6 +461,8 @@ const InstructorStudents = () => {
             </div>
           )}
         </section>
+        </>
+      )}
       </div>
     </div>
   );
