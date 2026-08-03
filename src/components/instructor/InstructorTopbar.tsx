@@ -202,7 +202,12 @@ const InstructorTopbar = ({ userName, userRole }: InstructorTopbarProps) => {
             </div>
             <div className="w-10 h-10 rounded-full border border-[#1D4532]/20 bg-[#EDF7F2] flex items-center justify-center text-[#1D4532] font-bold text-sm overflow-hidden">
               {avatarUrl ? (
-                <img src={avatarUrl} alt={displayName} className="w-full h-full object-cover" />
+                <img
+                  src={avatarUrl}
+                  alt={displayName}
+                  className="w-full h-full object-cover rounded-full"
+                  style={{ imageRendering: 'auto', WebkitBackfaceVisibility: 'hidden' }}
+                />
               ) : (
                 displayName.charAt(0).toUpperCase()
               )}

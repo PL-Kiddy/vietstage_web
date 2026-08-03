@@ -20,13 +20,20 @@ import InstructorStudents from './pages/instructor/InstructorStudents';
 import InstructorMedia from './pages/instructor/InstructorMedia';
 import InstructorProfile from './pages/instructor/InstructorProfile';
 
+import { getAuthSession } from './api/authStorage';
+
 function App() {
   // Show loading screen for 2.5s on initial app load
   const { isLoading } = useLoading({ autoStart: true, minDuration: 2500 });
 
   // Silent background wake-up ping for Render backend cold-start
   useEffect(() => {
-    fetch('/api/instruments').catch(() => {});
+    const session = getAuthSession();
+    const headers: Record<string, string> = {};
+    if (session?.accessToken) {
+      headers['Authorization'] = `Bearer ${session.accessToken}`;
+    }
+    fetch('/api/instruments', { headers }).catch(() => {});
   }, []);
 
   return (

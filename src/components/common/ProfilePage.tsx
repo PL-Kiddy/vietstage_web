@@ -87,6 +87,7 @@ const ProfilePage = ({
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [isViewAvatarOpen, setIsViewAvatarOpen] = useState(false);
 
   // ── Password tab state ──
   const [oldPassword, setOldPassword] = useState('');
@@ -244,8 +245,6 @@ const ProfilePage = ({
 
   const avatarSrc = avatarPreview ?? (profile as any).avatarUrl ?? null;
 
-
-
   // ─── Render ───
   return (
     <div className="space-y-6">
@@ -258,14 +257,39 @@ const ProfilePage = ({
 
         <div className="relative p-8 flex flex-col sm:flex-row items-center gap-6">
           {/* Avatar */}
-          <div className="relative flex-shrink-0">
-            <div className={`w-28 h-28 rounded-full border-4 border-white/30 shadow-xl overflow-hidden ${accentClass} flex items-center justify-center`}>
+          <div className="relative flex-shrink-0 group">
+            <div
+              onClick={() => avatarSrc && setIsViewAvatarOpen(true)}
+              className={`w-32 h-32 rounded-full border-4 border-white/40 shadow-xl overflow-hidden ${accentClass} flex items-center justify-center ${
+                avatarSrc ? 'cursor-pointer hover:opacity-90 transition-opacity' : ''
+              }`}
+              title={avatarSrc ? 'Bấm để xem ảnh đại diện lớn' : ''}
+            >
               {avatarSrc ? (
-                <img src={avatarSrc} alt="avatar" className="w-full h-full object-cover" />
+                <img
+                  src={avatarSrc}
+                  alt="avatar"
+                  className="w-full h-full object-cover rounded-full"
+                  style={{ imageRendering: 'auto', WebkitBackfaceVisibility: 'hidden' }}
+                />
               ) : (
-                <span className={`text-3xl font-bold ${isGreenTheme ? 'text-[#1D4532]' : 'text-primary'}`}>{initialsOf(profile.fullName)}</span>
+                <span className={`text-4xl font-bold ${isGreenTheme ? 'text-[#1D4532]' : 'text-primary'}`}>{initialsOf(profile.fullName)}</span>
               )}
             </div>
+
+            {avatarSrc && (
+              <button
+                type="button"
+                onClick={() => setIsViewAvatarOpen(true)}
+                className={`absolute top-0 right-0 w-8 h-8 bg-white/90 rounded-full flex items-center justify-center shadow-lg hover:scale-110 transition-transform ${
+                  isGreenTheme ? 'text-[#1D4532]' : 'text-primary'
+                }`}
+                title="Xem ảnh đại diện"
+              >
+                <Eye className="w-4 h-4" />
+              </button>
+            )}
+
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
@@ -540,6 +564,35 @@ const ProfilePage = ({
           </form>
         )}
       </div>
+
+      {/* ─── Full-screen Avatar Modal ─── */}
+      {isViewAvatarOpen && avatarSrc && (
+        <div
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={() => setIsViewAvatarOpen(false)}
+        >
+          <div
+            className="relative max-w-xl w-full flex flex-col items-center justify-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setIsViewAvatarOpen(false)}
+              className="absolute -top-12 right-0 text-white/80 hover:text-white transition-colors bg-white/10 hover:bg-white/20 p-2 rounded-full"
+              title="Đóng (Esc)"
+            >
+              <X className="w-6 h-6" />
+            </button>
+            <img
+              src={avatarSrc}
+              alt="Avatar Full"
+              className="max-h-[80vh] max-w-full rounded-2xl object-contain shadow-2xl border-2 border-white/20"
+            />
+            <p className="text-white/80 text-sm font-medium mt-3">
+              Ảnh đại diện của {profile.fullName}
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
