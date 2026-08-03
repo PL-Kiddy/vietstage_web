@@ -3,7 +3,6 @@ import {
   Users,
   BookOpen,
   AlertTriangle,
-  Plus,
 } from 'lucide-react';
 import { useAxiosRequest } from '../../hooks/useAxiosRequest';
 import {
@@ -55,7 +54,7 @@ const InstructorDashboard = () => {
   const statsList = [
     {
       icon: Users,
-      iconBg: 'bg-primary/5 text-primary',
+      iconBg: 'bg-[#1D4532]/10 text-[#1D4532]',
       label: 'Tổng số học viên',
       value: String(totalStudents),
       badge: '+4%',
@@ -63,13 +62,13 @@ const InstructorDashboard = () => {
     },
     {
       icon: BookOpen,
-      iconBg: 'bg-secondary/10 text-secondary',
+      iconBg: 'bg-[#1D4532]/10 text-[#1D4532]',
       label: 'Tổng bài giảng',
       value: String(totalLessons),
     },
     {
       icon: AlertTriangle,
-      iconBg: 'bg-error/5 text-error',
+      iconBg: 'bg-[#1D4532]/10 text-[#1D4532]',
       label: 'Bài tập chờ nhận xét',
       value: String(pendingReviews),
       highlightBorder: true,
@@ -95,7 +94,7 @@ const InstructorDashboard = () => {
     <>
       {/* Dashboard Header */}
       <header className="mb-xl">
-        <h2 className="text-headline-lg font-bold text-primary mb-xs">
+        <h2 className="text-headline-lg font-bold text-[#1D4532] mb-xs">
           Chào buổi sáng, Giảng viên
         </h2>
         <p className="text-body-md text-on-surface-variant">
@@ -125,10 +124,10 @@ const InstructorDashboard = () => {
               <p className="font-label-md text-[11px] text-on-surface-variant uppercase tracking-wider">
                 {s.label}
               </p>
-              <p className="text-headline-lg font-bold text-primary">{s.value}</p>
+              <p className="text-headline-lg font-bold text-[#1D4532]">{s.value}</p>
             </div>
             {s.highlightBorder && (
-              <div className="absolute bottom-0 right-0 w-16 h-1 bg-error/20" />
+              <div className="absolute bottom-0 right-0 w-16 h-1 bg-[#1D4532]/30" />
             )}
           </div>
         ))}
@@ -137,10 +136,10 @@ const InstructorDashboard = () => {
       {/* Weekly Trend Chart */}
       <section className="bg-white p-xl rounded-xl shadow-sm border border-outline-variant/5 mb-xl">
         <div className="flex justify-between items-center mb-xl">
-          <h3 className="text-headline-md font-bold text-primary">
+          <h3 className="text-headline-md font-bold text-[#1D4532]">
             Xu hướng học tập trong tuần
           </h3>
-          <select className="bg-surface-container border-none text-label-md font-label-md rounded-lg focus:ring-secondary py-1 px-3 outline-none cursor-pointer">
+          <select className="bg-surface-container border-none text-label-md font-label-md rounded-lg focus:ring-[#1D4532] py-1 px-3 outline-none cursor-pointer">
             <option>7 ngày qua</option>
             <option>30 ngày qua</option>
           </select>
@@ -158,7 +157,7 @@ const InstructorDashboard = () => {
             <path
               d="M0,220 C100,200 150,260 250,180 S400,100 500,140 S650,40 800,80"
               fill="none"
-              stroke="#610000"
+              stroke="#1D4532"
               strokeLinecap="round"
               strokeWidth="4"
             />
@@ -167,20 +166,20 @@ const InstructorDashboard = () => {
             <path
               d="M0,220 C100,200 150,260 250,180 S400,100 500,140 S650,40 800,80 V300 H0 Z"
               fill="url(#grad1)"
-              opacity="0.1"
+              opacity="0.15"
             />
 
             <defs>
               <linearGradient id="grad1" x1="0%" x2="0%" y1="0%" y2="100%">
-                <stop offset="0%" style={{ stopColor: '#610000', stopOpacity: 1 }} />
-                <stop offset="100%" style={{ stopColor: '#610000', stopOpacity: 0 }} />
+                <stop offset="0%" style={{ stopColor: '#1D4532', stopOpacity: 1 }} />
+                <stop offset="100%" style={{ stopColor: '#1D4532', stopOpacity: 0 }} />
               </linearGradient>
             </defs>
 
             {/* Data dots */}
-            <circle cx="250" cy="180" fill="#610000" r="6" stroke="white" strokeWidth="2" />
-            <circle cx="500" cy="140" fill="#610000" r="6" stroke="white" strokeWidth="2" />
-            <circle cx="800" cy="80" fill="#610000" r="6" stroke="white" strokeWidth="2" />
+            <circle cx="250" cy="180" fill="#1D4532" r="6" stroke="white" strokeWidth="2" />
+            <circle cx="500" cy="140" fill="#1D4532" r="6" stroke="white" strokeWidth="2" />
+            <circle cx="800" cy="80" fill="#1D4532" r="6" stroke="white" strokeWidth="2" />
           </svg>
 
           {/* X-Axis Labels */}
@@ -199,12 +198,12 @@ const InstructorDashboard = () => {
       {/* Latest Activities Table */}
       <section className="mt-xl bg-white rounded-xl shadow-sm border border-outline-variant/5 overflow-hidden">
         <div className="p-xl border-b border-outline-variant/10 flex justify-between items-center">
-          <h3 className="text-headline-md font-bold text-primary">
+          <h3 className="text-headline-md font-bold text-[#1D4532]">
             Hoạt động mới nhất
           </h3>
           <button 
             onClick={() => window.location.href = '/instructor/students'}
-            className="flex items-center gap-xs text-secondary font-label-md text-label-md hover:underline font-semibold"
+            className="flex items-center gap-xs text-[#1D4532] font-label-md text-label-md hover:underline font-semibold"
           >
             Xem toàn bộ →
           </button>
@@ -213,20 +212,20 @@ const InstructorDashboard = () => {
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead>
-              <tr className="bg-surface-container-low">
-                <th className="px-xl py-md font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider text-[12px]">
+              <tr className="bg-[#EDF7F2]">
+                <th className="px-xl py-md font-label-sm text-label-sm text-[#1D4532] uppercase tracking-wider text-[12px] font-semibold">
                   Người thực hiện
                 </th>
-                <th className="px-xl py-md font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider text-[12px]">
+                <th className="px-xl py-md font-label-sm text-label-sm text-[#1D4532] uppercase tracking-wider text-[12px] font-semibold">
                   Tên yêu cầu / Bài học
                 </th>
-                <th className="px-xl py-md font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider text-center text-[12px]">
+                <th className="px-xl py-md font-label-sm text-label-sm text-[#1D4532] uppercase tracking-wider text-center text-[12px] font-semibold">
                   Trạng thái
                 </th>
-                <th className="px-xl py-md font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider text-[12px]">
+                <th className="px-xl py-md font-label-sm text-label-sm text-[#1D4532] uppercase tracking-wider text-[12px] font-semibold">
                   Thời gian
                 </th>
-                <th className="px-xl py-md font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider"></th>
+                <th className="px-xl py-md font-label-sm text-label-sm text-[#1D4532] uppercase tracking-wider"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-outline-variant/10">
@@ -244,9 +243,9 @@ const InstructorDashboard = () => {
                 </tr>
               ) : (
                 activities.map((act, idx) => (
-                  <tr key={idx} className="hover:bg-surface-container-low/50 transition-colors">
+                  <tr key={idx} className="hover:bg-[#EDF7F2]/40 transition-colors">
                     <td className="px-xl py-lg flex items-center gap-md">
-                      <div className="w-8 h-8 rounded-full bg-primary/10 font-bold text-primary flex items-center justify-center text-xs">
+                      <div className="w-8 h-8 rounded-full bg-[#1D4532]/10 font-bold text-[#1D4532] flex items-center justify-center text-xs">
                         {act.name.charAt(0)}
                       </div>
                       <span className="font-label-md text-label-md font-semibold text-on-surface">
@@ -267,7 +266,7 @@ const InstructorDashboard = () => {
                     <td className="px-xl py-lg text-right">
                       <button 
                         onClick={() => window.location.href = `/instructor/students`}
-                        className="text-primary hover:text-primary-container font-semibold"
+                        className="text-[#1D4532] hover:text-[#1D4532]/80 font-semibold"
                       >
                         Xem chi tiết
                       </button>
@@ -280,13 +279,6 @@ const InstructorDashboard = () => {
         </div>
       </section>
 
-      {/* Floating Action Button */}
-      <button 
-        onClick={() => window.location.href = '/instructor/lessons'}
-        className="fixed bottom-xl right-xl w-14 h-14 bg-primary text-on-primary rounded-full shadow-lg flex items-center justify-center hover:scale-105 active:scale-95 transition-all z-50"
-      >
-        <Plus className="w-6 h-6 text-white" />
-      </button>
     </>
   );
 };
