@@ -67,7 +67,14 @@ const InstructorMedia = () => {
 
   const lessons: Lesson[] = (lessonsResponse as any)?.content ?? (Array.isArray(lessonsResponse) ? lessonsResponse as Lesson[] : []);
 
-  // ── Fetch skill levels ────────────────────────────────────────────────
+  // ── Fetch instruments & skill levels ─────────────────────────────────
+  const [selectedInstrumentId, setSelectedInstrumentId] = useState<number | 'ALL'>('ALL');
+
+  const { data: instruments = [] } = useAxiosRequest<any[]>(
+    (signal) => masterDataApi.instruments({ signal }),
+    { auto: true, initialData: [] }
+  );
+
   const { data: skillLevels = [] } = useAxiosRequest<SkillLevel[]>(
     (signal) => masterDataApi.skillLevels({ signal }),
     { auto: true, initialData: [] }
@@ -175,7 +182,13 @@ const InstructorMedia = () => {
     }
   };
 
-  const sortedLessons = [...lessons].sort((a, b) => {
+  const filteredLessons = lessons.filter((lesson) => {
+    if (selectedInstrumentId === 'ALL') return true;
+    const instId = (lesson as any).instrument?.id ?? (lesson as any).instrument_id;
+    return Number(instId) === Number(selectedInstrumentId);
+  });
+
+  const sortedLessons = [...filteredLessons].sort((a, b) => {
     const oa = (a as any).orderIndex ?? (a as any).order_index ?? 9999;
     const ob = (b as any).orderIndex ?? (b as any).order_index ?? 9999;
     return oa - ob;
@@ -221,17 +234,35 @@ const InstructorMedia = () => {
       {/* ══════════════════════════════════════════════════════════════ */}
       {activeTab === 'order' && (
         <div className="space-y-md">
-          {/* Toolbar */}
-          <div className="flex justify-between items-center">
-            <p className="text-sm text-[#5e5e5b]">
-              {sortedLessons.length} bài học · Kéo/nhấn mũi tên để thay đổi thứ tự
-            </p>
-            <button
-              onClick={() => { setShowCreateForm(true); setCreateOrder(lessons.length + 1); }}
-              className="bg-[#1D4532] text-white px-md py-sm rounded-lg text-sm font-bold flex items-center gap-xs hover:bg-[#1D4532]/90 transition-all shadow-sm"
-            >
-              <Plus className="w-4 h-4" /> Tạo bài học mới
-            </button>
+          {/* Toolbar with Instrument Filter */}
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-md bg-white p-md rounded-2xl border border-outline-variant/20 shadow-sm">
+            <div className="flex items-center gap-sm">
+              <span className="text-xs font-bold text-[#1D4532] uppercase tracking-wider whitespace-nowrap">Lọc theo Nhạc cụ:</span>
+              <select
+                value={selectedInstrumentId}
+                onChange={(e) => setSelectedInstrumentId(e.target.value === 'ALL' ? 'ALL' : Number(e.target.value))}
+                className="bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl px-3 py-1.5 text-xs font-bold text-[#1D4532] focus:ring-1 focus:ring-[#1D4532] outline-none cursor-pointer"
+              >
+                <option value="ALL">Tất cả nhạc cụ ({lessons.length} bài)</option>
+                {instruments.map((inst: any) => (
+                  <option key={inst.id} value={inst.id}>
+                    {inst.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex items-center gap-md w-full sm:w-auto justify-between sm:justify-end">
+              <p className="text-xs text-[#5e5e5b]">
+                Đang hiển thị <strong>{sortedLessons.length}</strong> bài học
+              </p>
+              <button
+                onClick={() => { setShowCreateForm(true); setCreateOrder(lessons.length + 1); }}
+                className="bg-[#1D4532] text-white px-md py-sm rounded-lg text-sm font-bold flex items-center gap-xs hover:bg-[#1D4532]/90 transition-all shadow-sm"
+              >
+                <Plus className="w-4 h-4" /> Tạo bài học mới
+              </button>
+            </div>
           </div>
 
           {/* Create Lesson Form */}
@@ -296,7 +327,7 @@ const InstructorMedia = () => {
             </form>
           )}
 
-          {/* Lesson List */}
+          {/* Lesson List Table with Header Bar */}
           {lessonsLoading ? (
             <div className="flex items-center justify-center py-xl text-[#1D4532]">
               <Loader2 className="w-6 h-6 animate-spin mr-2" /> Đang tải danh sách bài học...
@@ -304,14 +335,24 @@ const InstructorMedia = () => {
           ) : sortedLessons.length === 0 ? (
             <div className="bg-white rounded-2xl border border-dashed border-[#E5E7EB] p-2xl text-center">
               <BookOpen className="w-12 h-12 text-[#D1D5DB] mx-auto mb-md" />
-              <p className="text-[#9CA3AF] font-medium">Chưa có bài học nào. Hãy tạo bài học đầu tiên!</p>
+              <p className="text-[#9CA3AF] font-medium">Chưa có bài học nào cho nhạc cụ này.</p>
             </div>
           ) : (
             <div className="bg-white rounded-2xl border border-outline-variant/20 shadow-sm overflow-hidden">
+              {/* Header explanation bar */}
+              <div className="bg-[#EDF7F2] px-lg py-xs border-b border-[#D1FAE5] flex items-center gap-md text-[11px] font-bold text-[#1D4532] uppercase tracking-wider">
+                <span className="w-16 text-center">Vị trí bài</span>
+                <span className="flex-1">Thông tin bài học &amp; Nhạc cụ</span>
+                <span className="w-24 text-center">Trạng thái</span>
+                <span className="w-24 text-right pr-4">Thao tác</span>
+              </div>
+
               <div className="divide-y divide-[#F3F4F6]">
                 {sortedLessons.map((lesson, idx) => {
                   const order = (lesson as any).orderIndex ?? (lesson as any).order_index ?? idx + 1;
                   const isEditing = editingLesson?.id === lesson.id;
+                  const instName = (lesson as any).instrument?.name ?? (lesson as any).instrumentName ?? 'Chưa rõ nhạc cụ';
+
                   return (
                     <div key={lesson.id} className={`p-lg transition-all ${isEditing ? 'bg-[#EDF7F2]/60' : 'hover:bg-[#F9FAFB]'}`}>
                       {isEditing ? (
@@ -328,7 +369,7 @@ const InstructorMedia = () => {
                               />
                             </div>
                             <div className="flex flex-col gap-xs">
-                              <label className="text-xs font-semibold text-[#6B7280] uppercase">Thứ tự (order_index)</label>
+                              <label className="text-xs font-semibold text-[#6B7280] uppercase">Thứ tự (orderIndex)</label>
                               <input
                                 type="number"
                                 min={0}
@@ -349,7 +390,7 @@ const InstructorMedia = () => {
                             />
                           </div>
                           <div className="flex flex-col gap-xs">
-                            <label className="text-xs font-semibold text-[#6B7280] uppercase">Cấp độ kỹ năng (skill_level_id)</label>
+                            <label className="text-xs font-semibold text-[#6B7280] uppercase">Cấp độ kỹ năng (skillLevel)</label>
                             <select
                               value={editingLesson.skillLevelId ?? ''}
                               onChange={(e) => setEditingLesson({ ...editingLesson, skillLevelId: e.target.value ? Number(e.target.value) : undefined })}
@@ -381,40 +422,54 @@ const InstructorMedia = () => {
                               className="px-md py-xs rounded-lg bg-[#1D4532] text-white text-xs font-bold hover:bg-[#1D4532]/90 transition-all disabled:opacity-50 flex items-center gap-xs"
                             >
                               {isSavingLesson ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
-                              Lưu (PUT /api/lessons/{lesson.id})
+                              Lưu
                             </button>
                           </div>
                         </div>
                       ) : (
                         /* ── Read Mode ── */
                         <div className="flex items-center gap-md">
-                          <GripVertical className="w-4 h-4 text-[#D1D5DB] flex-shrink-0" />
-                          {/* Order badge */}
-                          <span className="w-8 h-8 rounded-full bg-[#1D4532]/10 text-[#1D4532] text-xs font-bold flex items-center justify-center flex-shrink-0">
-                            {order}
-                          </span>
-                          {/* Info */}
-                          <div className="flex-1 min-w-0">
-                            <p className="font-semibold text-[#111827] text-sm truncate">{lesson.title}</p>
-                            {lesson.description && (
-                              <p className="text-xs text-[#6B7280] truncate mt-0.5">{lesson.description}</p>
+                          <GripVertical className="w-4 h-4 text-[#D1D5DB] flex-shrink-0 cursor-grab" />
+                          
+                          {/* Order Badge with Explicit Label */}
+                          <div className="w-12 flex flex-col items-center justify-center flex-shrink-0">
+                            <span className="w-8 h-8 rounded-xl bg-[#1D4532] text-white text-xs font-bold flex items-center justify-center shadow-xs">
+                              {order}
+                            </span>
+                          </div>
+
+                          {/* Lesson Info & Instrument Tag */}
+                          <div className="flex-1 min-w-0 pr-md">
+                            <div className="flex items-center gap-xs mb-0.5">
+                              <p className="font-bold text-[#111827] text-sm truncate">{lesson.title}</p>
+                              <span className="text-[10px] font-semibold text-[#1D4532] bg-[#EDF7F2] border border-[#D1FAE5] px-2 py-0.5 rounded-md flex-shrink-0">
+                                🎵 {instName}
+                              </span>
+                            </div>
+                            {lesson.description ? (
+                              <p className="text-xs text-[#6B7280] truncate">{lesson.description}</p>
+                            ) : (
+                              <p className="text-xs text-[#9CA3AF] italic">Chưa có mô tả</p>
                             )}
                           </div>
-                          {/* Status badge */}
-                          {(() => {
-                            const statusMap: Record<string, { label: string; cls: string }> = {
-                              APPROVED: { label: 'Đã duyệt', cls: 'bg-emerald-100 text-emerald-800' },
-                              PENDING: { label: 'Chờ duyệt', cls: 'bg-amber-100 text-amber-800' },
-                              REJECTED: { label: 'Bị từ chối', cls: 'bg-red-100 text-red-800' },
-                              DRAFT: { label: 'Bản nháp', cls: 'bg-gray-100 text-gray-700' },
-                            };
-                            const meta = statusMap[lesson.status] ?? { label: lesson.status, cls: 'bg-gray-100 text-gray-600' };
-                            return (
-                              <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full ${meta.cls}`}>
-                                {meta.label}
-                              </span>
-                            );
-                          })()}
+
+                          {/* Status Badge */}
+                          <div className="w-24 text-center flex-shrink-0">
+                            {(() => {
+                              const statusMap: Record<string, { label: string; cls: string }> = {
+                                APPROVED: { label: 'Đã duyệt', cls: 'bg-emerald-100 text-emerald-800 border-emerald-200' },
+                                PENDING: { label: 'Chờ duyệt', cls: 'bg-amber-100 text-amber-800 border-amber-200' },
+                                REJECTED: { label: 'Bị từ chối', cls: 'bg-red-100 text-red-800 border-red-200' },
+                                DRAFT: { label: 'Bản nháp', cls: 'bg-gray-100 text-gray-700 border-gray-200' },
+                              };
+                              const meta = statusMap[lesson.status] ?? { label: lesson.status, cls: 'bg-gray-100 text-gray-600' };
+                              return (
+                                <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${meta.cls}`}>
+                                  {meta.label}
+                                </span>
+                              );
+                            })()}
+                          </div>
                           {/* Up/Down buttons */}
                           <div className="flex flex-col gap-0.5">
                             <button
