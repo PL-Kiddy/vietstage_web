@@ -11,6 +11,8 @@ import {
   reviewsApi,
   instructorDashboardApi,
 } from '../../api/services';
+import { profileApi } from '../../api/management';
+import { getAuthSession } from '../../api/authStorage';
 
 const InstructorDashboard = () => {
   // 1. Fetch dashboard stats from backend
@@ -90,15 +92,21 @@ const InstructorDashboard = () => {
     id: r.id,
   }));
 
+  // 5. Fetch user profile for dynamic greeting
+  const fetchProfile = useCallback(() => profileApi.get(), []);
+  const { data: userProfile } = useAxiosRequest(fetchProfile, { auto: true });
+  const session = getAuthSession();
+  const teacherName = userProfile?.fullName || session?.name || 'Giảng viên';
+
   return (
     <>
       {/* Dashboard Header */}
       <header className="mb-xl">
         <h2 className="text-headline-lg font-bold text-[#1D4532] mb-xs">
-          Chào buổi sáng, Giảng viên
+          Xin chào, {teacherName}
         </h2>
         <p className="text-body-md text-on-surface-variant">
-          Đây là những cập nhật mới nhất từ lớp học nhạc cụ dân tộc của bạn.
+          Chào mừng bạn quay trở lại với Cổng quản trị VietStage.
         </p>
       </header>
 
