@@ -575,7 +575,11 @@ const InstructorLessons = () => {
                       />
                       <button
                         type="button"
-                        onClick={handleAddExercise}
+                        onClick={() => {
+                          if (!currentExerciseInput.trim()) return;
+                          setNewExercises([...newExercises, currentExerciseInput.trim()]);
+                          setCurrentExerciseInput('');
+                        }}
                         className="bg-[#1D4532] text-white px-xl py-md rounded-xl font-bold hover:bg-[#1D4532]/95 active:scale-95 transition-all shadow-sm"
                       >
                         Thêm bài tập
