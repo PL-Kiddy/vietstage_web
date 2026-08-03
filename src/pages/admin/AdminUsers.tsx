@@ -15,7 +15,6 @@ import {
   UserCheck,
   Search,
   AlertTriangle,
-  Mail,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createPortal } from 'react-dom';
@@ -223,7 +222,7 @@ const AdminUsers = () => {
   const isAddFormValid = 
     newUserName.trim() !== '' && 
     isEmailValid(newUserEmail) && 
-    (authMethod === 'invite' || newPassword.length >= 6);
+    newPassword.length >= 6;
 
   const isEditFormValid = 
     editName.trim() !== '' && 
@@ -995,62 +994,22 @@ alert('Backend hiện chưa cung cấp endpoint cập nhật thông tin người
                     </>
                   )}
 
-                  {/* Authentication Configuration */}
-                  <div className="border-t border-outline-variant/10 pt-lg space-y-md">
+                  {/* Password Input (Required by Swagger API) */}
+                  <div className="flex flex-col gap-xs border-t border-outline-variant/10 pt-lg">
                     <label className="font-label-sm text-on-surface-variant font-semibold uppercase tracking-wider text-xs">
-                      Phương thức kích hoạt
+                      Mật khẩu khởi tạo <span className="text-error">*</span>
                     </label>
-                    <div className="space-y-sm">
-                      <label className="flex items-center gap-xs cursor-pointer text-body-md text-on-surface">
-                        <input
-                          type="radio"
-                          name="authMethod"
-                          checked={authMethod === 'invite'}
-                          onChange={() => setAuthMethod('invite')}
-                          className="accent-[#1D4532]"
-                        />
-                        <span>Gửi liên kết kích hoạt qua Email</span>
-                      </label>
-                      <label className="flex items-center gap-xs cursor-pointer text-body-md text-on-surface">
-                        <input
-                          type="radio"
-                          name="authMethod"
-                          checked={authMethod === 'password'}
-                          onChange={() => setAuthMethod('password')}
-                          className="accent-[#1D4532]"
-                        />
-                        <span>Đặt mật khẩu khởi tạo tạm thời</span>
-                      </label>
-                    </div>
-
-                    {authMethod === 'password' && (
-                      <div className="flex flex-col gap-xs animate-in fade-in slide-in-from-top-2 duration-200">
-                        <label className="font-label-sm text-on-surface-variant font-semibold text-xs">
-                          Mật khẩu tạm thời <span className="text-error">*</span> (Tối thiểu 6 ký tự)
-                        </label>
-                        <input
-                          type="password"
-                          required={authMethod === 'password'}
-                          value={newPassword}
-                          onChange={(e) => setNewPassword(e.target.value)}
-                          placeholder="Nhập mật khẩu cho tài khoản..."
-                          className="w-full bg-[#fbf9f4] border border-outline-variant/30 rounded-xl p-md text-body-md focus:border-[#1D4532] focus:ring-1 focus:ring-[#1D4532] transition-all outline-none text-on-surface"
-                        />
-                      </div>
-                    )}
-
-                    <div className="bg-[#EDF7F2] p-md rounded-xl text-[11px] text-[#1D4532]/80 flex items-start gap-xs">
-                      <Mail className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                      {authMethod === 'invite' ? (
-                        <p>
-                          * <strong>Lưu ý:</strong> Hệ thống sẽ gửi thư chào mừng chứa liên kết kích hoạt đến email người dùng. Tài khoản sẽ hiển thị ở trạng thái <strong>Chờ xác nhận</strong> cho đến khi người dùng kích hoạt link thành công.
-                        </p>
-                      ) : (
-                        <p>
-                          * <strong>Lưu ý:</strong> Tài khoản sẽ hoạt động ngay lập tức. Admin cần chuyển thông tin đăng nhập và mật khẩu tạm cho người dùng một cách an toàn.
-                        </p>
-                      )}
-                    </div>
+                    <input
+                      type="password"
+                      required
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      placeholder="Nhập mật khẩu cho tài khoản (tối thiểu 6 ký tự)..."
+                      className="w-full bg-[#fbf9f4] border border-outline-variant/30 rounded-xl p-md text-body-md focus:border-[#1D4532] focus:ring-1 focus:ring-[#1D4532] transition-all outline-none text-on-surface font-medium"
+                    />
+                    <p className="text-[11px] text-[#5e5e5b] mt-1">
+                      * Tài khoản sẽ được tạo trực tiếp với mật khẩu này trên hệ thống.
+                    </p>
                   </div>
                 </div>
 
