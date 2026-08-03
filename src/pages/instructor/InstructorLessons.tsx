@@ -11,6 +11,8 @@ import {
   BookOpen,
   RefreshCw,
   AlertCircle,
+  Search,
+  MoreVertical,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -80,6 +82,10 @@ const InstructorLessons = () => {
   const [currentExerciseInput, setCurrentExerciseInput] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingLesson, setEditingLesson] = useState<Lesson | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedInstrumentFilter, setSelectedInstrumentFilter] = useState('Tất cả');
+  const [selectedStatusFilter, setSelectedStatusFilter] = useState('Tất cả');
+  const [openActionMenuLessonId, setOpenActionMenuLessonId] = useState<string | null>(null);
   const { execute: requestLessons } = useAxiosRequest<Lesson[]>(async (signal) => {
     const params = new URLSearchParams({ page: '1', size: '100' });
     const response = await lessonsApi.list(params, { signal });
@@ -234,13 +240,35 @@ const InstructorLessons = () => {
 
   const isModalOpen = showAddForm || editingLesson !== null;
 
-  // Arrange curriculum order by sorting lessons dynamically by orderIndex
-  const sortedLessons = [...lessons].sort((a, b) => a.orderIndex - b.orderIndex);
+  // Filter and arrange curriculum order
+  const filteredLessons = lessons.filter((lesson) => {
+    const matchesSearch =
+      lesson.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      lesson.description.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesInstrument =
+      selectedInstrumentFilter === 'Tất cả' ||
+      lesson.instrument.toLowerCase() === selectedInstrumentFilter.toLowerCase();
+
+    let matchesStatus = true;
+    if (selectedStatusFilter === 'Chờ duyệt') {
+      matchesStatus = lesson.status === 'PENDING';
+    } else if (selectedStatusFilter === 'Đã duyệt') {
+      matchesStatus = lesson.status === 'APPROVED';
+    } else if (selectedStatusFilter === 'Bị từ chối') {
+      matchesStatus = lesson.status === 'REJECTED';
+    } else if (selectedStatusFilter === 'Bản nháp') {
+      matchesStatus = lesson.status !== 'PENDING' && lesson.status !== 'APPROVED' && lesson.status !== 'REJECTED';
+    }
+
+    return matchesSearch && matchesInstrument && matchesStatus;
+  });
+
+  const sortedLessons = [...filteredLessons].sort((a, b) => a.orderIndex - b.orderIndex);
 
   return (
     <div className="max-w-[1400px] mx-auto">
       {/* Header Section */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end mb-xl gap-md">
+      <div className="flex flex-col gap-md mb-xl">
         <div>
           <h2 className="text-headline-lg font-bold text-[#1D4532] tracking-tight">
             Quản lý Bài giảng
@@ -249,18 +277,75 @@ const InstructorLessons = () => {
             Tổ chức, đăng tải học liệu và cấu hình giáo trình giảng dạy trực tuyến của bạn.
           </p>
         </div>
-        <button
-          onClick={() => {
-            // Suggest next order index
-            const nextOrder = lessons.length > 0 ? Math.max(...lessons.map(l => l.orderIndex)) + 1 : 1;
-            setNewOrderIndex(nextOrder);
-            setShowAddForm(true);
-          }}
-          className="flex items-center gap-sm bg-[#1D4532] text-white px-xl py-md rounded-lg font-label-md hover:bg-[#1D4532]/95 transition-all shadow-md active:scale-95"
-        >
-          <Plus className="w-5 h-5" />
-          Thêm bài giảng mới
-        </button>
+
+        {/* Controls Row: Search + Filter + Add Button */}
+        <div className="flex flex-wrap items-center gap-md w-full">
+          {/* Search Bar */}
+          <div className="flex items-center gap-xs px-md py-sm bg-white border border-[#d1e4fb] rounded-lg w-full sm:w-80 shadow-sm focus-within:ring-1 focus-within:ring-[#1D4532] transition-all">
+            <Search className="w-5 h-5 text-[#5e5e5b] flex-shrink-0" />
+            <input
+              type="text"
+              placeholder="Tìm theo tên bài giảng, mô tả..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="bg-transparent border-none outline-none text-body-md w-full text-on-surface focus:ring-0 placeholder:text-[#5e5e5b]/50"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="text-[#5e5e5b] hover:text-error transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+
+          {/* Instrument Filter */}
+          <div className="flex items-center gap-xs px-md py-sm bg-white border border-outline-variant rounded-lg shadow-sm">
+            <span className="font-label-md text-[#5e5e5b] text-sm font-medium">Nhạc cụ:</span>
+            <select
+              value={selectedInstrumentFilter}
+              onChange={(e) => setSelectedInstrumentFilter(e.target.value)}
+              className="bg-transparent border-none text-label-md font-semibold text-[#1D4532] focus:ring-0 cursor-pointer outline-none text-sm"
+            >
+              <option value="Tất cả">Tất cả nhạc cụ</option>
+              {Array.from(new Set(lessons.map((l) => l.instrument))).filter(Boolean).map((ins) => (
+                <option key={ins} value={ins}>
+                  {ins}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Status Filter */}
+          <div className="flex items-center gap-xs px-md py-sm bg-white border border-outline-variant rounded-lg shadow-sm">
+            <span className="font-label-md text-[#5e5e5b] text-sm font-medium">Trạng thái:</span>
+            <select
+              value={selectedStatusFilter}
+              onChange={(e) => setSelectedStatusFilter(e.target.value)}
+              className="bg-transparent border-none text-label-md font-semibold text-[#1D4532] focus:ring-0 cursor-pointer outline-none text-sm"
+            >
+              <option value="Tất cả">Tất cả</option>
+              <option value="Đã duyệt">Đã duyệt</option>
+              <option value="Chờ duyệt">Chờ duyệt</option>
+              <option value="Bị từ chối">Bị từ chối</option>
+              <option value="Bản nháp">Bản nháp</option>
+            </select>
+          </div>
+
+          {/* Add Lesson Button */}
+          <button
+            onClick={() => {
+              const nextOrder = lessons.length > 0 ? Math.max(...lessons.map(l => l.orderIndex)) + 1 : 1;
+              setNewOrderIndex(nextOrder);
+              setShowAddForm(true);
+            }}
+            className="bg-[#1D4532] text-white px-lg py-sm rounded-lg font-label-md hover:bg-[#1D4532]/95 transition-all flex items-center gap-xs shadow-md ml-auto"
+          >
+            <Plus className="w-[18px] h-[18px]" />
+            Thêm bài giảng
+          </button>
+        </div>
       </div>
 
       {loadError && (
@@ -281,9 +366,6 @@ const InstructorLessons = () => {
             <div className="px-xl py-lg border-b border-outline-variant/10 flex justify-between items-center bg-[#EDF7F2]">
               <span className="text-headline-md font-bold text-[#1D4532]">
                 {isLoading ? 'Đang tải bài giảng...' : 'Danh sách lộ trình giáo trình'}
-              </span>
-              <span className="px-md py-xs bg-white rounded-full text-label-sm font-label-sm border border-[#1D4532]/20 text-[#1D4532]">
-                Tổng cộng: {lessons.length} bài học
               </span>
             </div>
 
@@ -313,7 +395,7 @@ const InstructorLessons = () => {
                       Trạng thái
                     </th>
                     <th className="text-right whitespace-nowrap py-md px-xl font-label-sm text-label-sm text-[#1D4532] font-semibold border-b border-outline-variant/10">
-                      Hành động
+                      Thao tác
                     </th>
                   </tr>
                 </thead>
@@ -382,21 +464,50 @@ const InstructorLessons = () => {
                           {getStatusMeta(lesson.status).label}
                         </span>
                       </td>
-                      <td className="py-lg px-xl text-right">
-                        <Link
-                          to={`/instructor/lessons/${lesson.id}/content`}
-                          className="mr-2 p-2 hover:bg-[#1D4532]/10 text-[#1D4532] transition-all rounded-lg border border-[#1D4532]/20 inline-flex items-center justify-center bg-white"
-                          title="Quản lý bài tập, quiz và minigame"
-                        >
-                          <ListChecks className="w-4 h-4" />
-                        </Link>
+                      {/* Thao tác Menu (3 dấu chấm) */}
+                      <td className="py-lg px-xl text-right relative" onClick={(e) => e.stopPropagation()}>
                         <button
-                          onClick={() => void handleEditClick(lesson)}
-                          className="p-2 hover:bg-[#1D4532]/10 text-[#1D4532] transition-all rounded-lg border border-[#1D4532]/20 inline-flex items-center justify-center bg-white"
-                          title="Chỉnh sửa cấu hình bài giảng"
+                          onClick={() => setOpenActionMenuLessonId(openActionMenuLessonId === lesson.id ? null : lesson.id)}
+                          className="p-2 hover:bg-[#EDF7F2] rounded-full transition-colors text-on-surface-variant hover:text-on-surface"
                         >
-                          <Edit2 className="w-4 h-4 text-[#1D4532]" />
+                          <MoreVertical className="w-5 h-5" />
                         </button>
+
+                        {openActionMenuLessonId === lesson.id && (
+                          <>
+                            <div className="fixed inset-0 z-10" onClick={() => setOpenActionMenuLessonId(null)} />
+                            <div className="absolute right-4 mt-1 w-52 bg-white border border-[#d1e4fb] rounded-xl shadow-lg py-1 z-20 text-left">
+                              <Link
+                                to={`/instructor/lessons/${lesson.id}/content`}
+                                onClick={() => setOpenActionMenuLessonId(null)}
+                                className="w-full flex items-center gap-2 px-4 py-2 hover:bg-[#EDF7F2] text-[13px] text-on-surface transition-colors"
+                              >
+                                <ListChecks className="w-4 h-4 text-[#1D4532]" />
+                                Quản lý bài tập & quiz
+                              </Link>
+                              <button
+                                onClick={() => {
+                                  setOpenActionMenuLessonId(null);
+                                  void handleEditClick(lesson);
+                                }}
+                                className="w-full flex items-center gap-2 px-4 py-2 hover:bg-[#EDF7F2] text-[13px] text-on-surface transition-colors"
+                              >
+                                <Edit2 className="w-4 h-4 text-[#1D4532]" />
+                                Sửa bài giảng
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setOpenActionMenuLessonId(null);
+                                  void handleDelete(lesson.id);
+                                }}
+                                className="w-full flex items-center gap-2 px-4 py-2 hover:bg-red-50 text-[13px] text-red-700 transition-colors border-t border-[#d1e4fb]/40"
+                              >
+                                <Trash2 className="w-4 h-4 text-red-600" />
+                                Xóa bài giảng
+                              </button>
+                            </div>
+                          </>
+                        )}
                       </td>
                     </tr>
                   ))}
