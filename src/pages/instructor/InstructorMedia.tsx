@@ -13,6 +13,7 @@ import {
   BookOpen,
   AlertCircle,
   Loader2,
+  Search,
 } from 'lucide-react';
 import { useAxiosRequest } from '../../hooks/useAxiosRequest';
 import { lessonsApi, exercisesApi, masterDataApi, type ExerciseInput } from '../../api/services';
@@ -37,6 +38,7 @@ const InstructorMedia = () => {
   const [editingLesson, setEditingLesson] = useState<EditingLesson | null>(null);
   const [isSavingLesson, setIsSavingLesson] = useState(false);
   const [lessonSaveError, setLessonSaveError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Create lesson form
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -140,7 +142,7 @@ const InstructorMedia = () => {
         title: createTitle.trim(),
         description: createDesc.trim(),
         orderIndex: createOrder,
-        instrumentId: 1, // default; user can edit after creation
+        instrumentId: selectedInstrumentId !== 'ALL' ? selectedInstrumentId : 1,
         status: 'DRAFT',
       });
       await refetchLessons();
@@ -183,9 +185,19 @@ const InstructorMedia = () => {
   };
 
   const filteredLessons = lessons.filter((lesson) => {
-    if (selectedInstrumentId === 'ALL') return true;
-    const instId = (lesson as any).instrument?.id ?? (lesson as any).instrument_id;
-    return Number(instId) === Number(selectedInstrumentId);
+    // 1. Instrument filter
+    if (selectedInstrumentId !== 'ALL') {
+      const instId = (lesson as any).instrument?.id ?? (lesson as any).instrument_id;
+      if (Number(instId) !== Number(selectedInstrumentId)) return false;
+    }
+    // 2. Search query filter
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      const titleMatch = lesson.title.toLowerCase().includes(q);
+      const descMatch = (lesson.description || '').toLowerCase().includes(q);
+      if (!titleMatch && !descMatch) return false;
+    }
+    return true;
   });
 
   const sortedLessons = [...filteredLessons].sort((a, b) => {
@@ -234,33 +246,48 @@ const InstructorMedia = () => {
       {/* ══════════════════════════════════════════════════════════════ */}
       {activeTab === 'order' && (
         <div className="space-y-md">
-          {/* Toolbar with Instrument Filter */}
+          {/* Toolbar with Search Bar & Instrument Filter */}
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-md bg-white p-md rounded-2xl border border-outline-variant/20 shadow-sm">
-            <div className="flex items-center gap-sm">
-              <span className="text-xs font-bold text-[#1D4532] uppercase tracking-wider whitespace-nowrap">Lọc theo Nhạc cụ:</span>
-              <select
-                value={selectedInstrumentId}
-                onChange={(e) => setSelectedInstrumentId(e.target.value === 'ALL' ? 'ALL' : Number(e.target.value))}
-                className="bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl px-3 py-1.5 text-xs font-bold text-[#1D4532] focus:ring-1 focus:ring-[#1D4532] outline-none cursor-pointer"
-              >
-                <option value="ALL">Tất cả nhạc cụ ({lessons.length} bài)</option>
-                {instruments.map((inst: any) => (
-                  <option key={inst.id} value={inst.id}>
-                    {inst.name}
-                  </option>
-                ))}
-              </select>
+            <div className="flex flex-wrap items-center gap-md w-full sm:w-auto">
+              {/* Search Bar */}
+              <div className="flex items-center gap-xs px-md py-sm bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl w-full sm:w-64 focus-within:ring-1 focus-within:ring-[#1D4532] focus-within:border-[#1D4532]">
+                <Search className="w-4 h-4 text-[#6B7280]" />
+                <input
+                  type="text"
+                  placeholder="Tìm tiêu đề bài học..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="bg-transparent border-none outline-none text-xs text-[#111827] w-full placeholder:text-[#9CA3AF]"
+                />
+              </div>
+
+              {/* Instrument Filter */}
+              <div className="flex items-center gap-xs">
+                <span className="text-xs font-bold text-[#1D4532] uppercase tracking-wider whitespace-nowrap">Nhạc cụ:</span>
+                <select
+                  value={selectedInstrumentId}
+                  onChange={(e) => setSelectedInstrumentId(e.target.value === 'ALL' ? 'ALL' : Number(e.target.value))}
+                  className="bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl px-3 py-1.5 text-xs font-bold text-[#1D4532] focus:ring-1 focus:ring-[#1D4532] outline-none cursor-pointer"
+                >
+                  <option value="ALL">Tất cả nhạc cụ ({lessons.length})</option>
+                  {instruments.map((inst: any) => (
+                    <option key={inst.id} value={inst.id}>
+                      {inst.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
 
             <div className="flex items-center gap-md w-full sm:w-auto justify-between sm:justify-end">
               <p className="text-xs text-[#5e5e5b]">
-                Đang hiển thị <strong>{sortedLessons.length}</strong> bài học
+                Hiển thị <strong>{sortedLessons.length}</strong> bài
               </p>
               <button
                 onClick={() => { setShowCreateForm(true); setCreateOrder(lessons.length + 1); }}
-                className="bg-[#1D4532] text-white px-md py-sm rounded-lg text-sm font-bold flex items-center gap-xs hover:bg-[#1D4532]/90 transition-all shadow-sm"
+                className="bg-[#1D4532] text-white px-md py-sm rounded-lg text-sm font-bold flex items-center gap-xs hover:bg-[#1D4532]/90 transition-all shadow-sm whitespace-nowrap"
               >
-                <Plus className="w-4 h-4" /> Tạo bài học mới
+                <Plus className="w-4 h-4" /> Tạo bài mới
               </button>
             </div>
           </div>
@@ -342,16 +369,22 @@ const InstructorMedia = () => {
               {/* Header explanation bar */}
               <div className="bg-[#EDF7F2] px-lg py-xs border-b border-[#D1FAE5] flex items-center gap-md text-[11px] font-bold text-[#1D4532] uppercase tracking-wider">
                 <span className="w-16 text-center">Vị trí bài</span>
-                <span className="flex-1">Thông tin bài học &amp; Nhạc cụ</span>
+                <span className="flex-1">Thông tin bài học</span>
+                <span className="w-28">Nhạc cụ</span>
+                <span className="w-28 text-center">Ngày tạo</span>
                 <span className="w-24 text-center">Trạng thái</span>
-                <span className="w-24 text-right pr-4">Thao tác</span>
+                <span className="w-20 text-right pr-2">Thao tác</span>
               </div>
 
               <div className="divide-y divide-[#F3F4F6]">
                 {sortedLessons.map((lesson, idx) => {
                   const order = (lesson as any).orderIndex ?? (lesson as any).order_index ?? idx + 1;
                   const isEditing = editingLesson?.id === lesson.id;
-                  const instName = (lesson as any).instrument?.name ?? (lesson as any).instrumentName ?? 'Chưa rõ nhạc cụ';
+                  const instName = (lesson as any).instrument?.name ?? (lesson as any).instrumentName ?? 'Chưa rõ';
+                  const rawDate = (lesson as any).createdAt ?? (lesson as any).created_at;
+                  const formattedDate = rawDate
+                    ? new Date(rawDate).toLocaleDateString('vi-VN')
+                    : '---';
 
                   return (
                     <div key={lesson.id} className={`p-lg transition-all ${isEditing ? 'bg-[#EDF7F2]/60' : 'hover:bg-[#F9FAFB]'}`}>
@@ -431,26 +464,33 @@ const InstructorMedia = () => {
                         <div className="flex items-center gap-md">
                           <GripVertical className="w-4 h-4 text-[#D1D5DB] flex-shrink-0 cursor-grab" />
                           
-                          {/* Order Badge with Explicit Label */}
+                          {/* Order Badge */}
                           <div className="w-12 flex flex-col items-center justify-center flex-shrink-0">
                             <span className="w-8 h-8 rounded-xl bg-[#1D4532] text-white text-xs font-bold flex items-center justify-center shadow-xs">
                               {order}
                             </span>
                           </div>
 
-                          {/* Lesson Info & Instrument Tag */}
+                          {/* Lesson Info */}
                           <div className="flex-1 min-w-0 pr-md">
-                            <div className="flex items-center gap-xs mb-0.5">
-                              <p className="font-bold text-[#111827] text-sm truncate">{lesson.title}</p>
-                              <span className="text-[10px] font-semibold text-[#1D4532] bg-[#EDF7F2] border border-[#D1FAE5] px-2 py-0.5 rounded-md flex-shrink-0">
-                                🎵 {instName}
-                              </span>
-                            </div>
+                            <p className="font-bold text-[#111827] text-sm truncate">{lesson.title}</p>
                             {lesson.description ? (
-                              <p className="text-xs text-[#6B7280] truncate">{lesson.description}</p>
+                              <p className="text-xs text-[#6B7280] truncate mt-0.5">{lesson.description}</p>
                             ) : (
-                              <p className="text-xs text-[#9CA3AF] italic">Chưa có mô tả</p>
+                              <p className="text-xs text-[#9CA3AF] italic mt-0.5">Chưa có mô tả</p>
                             )}
+                          </div>
+
+                          {/* Instrument Column */}
+                          <div className="w-28 flex-shrink-0">
+                            <span className="text-[11px] font-semibold text-[#1D4532] bg-[#EDF7F2] border border-[#D1FAE5] px-2.5 py-1 rounded-lg inline-flex items-center gap-1">
+                              🎵 {instName}
+                            </span>
+                          </div>
+
+                          {/* Date Created Column */}
+                          <div className="w-28 text-center text-xs font-medium text-[#6B7280] flex-shrink-0">
+                            {formattedDate}
                           </div>
 
                           {/* Status Badge */}
