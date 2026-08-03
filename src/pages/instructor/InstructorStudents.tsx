@@ -79,7 +79,7 @@ const InstructorStudents = () => {
   return (
     <div className="max-w-[1400px] mx-auto">
       <div className="mb-xl">
-        <h2 className="text-headline-lg font-bold text-primary">
+        <h2 className="text-headline-lg font-bold text-[#1D4532]">
           Phân tích Tiến trình Học tập
         </h2>
         <p className="text-on-surface-variant font-body-md mt-base">
@@ -89,7 +89,7 @@ const InstructorStudents = () => {
 
       <div className="grid grid-cols-12 gap-gutter">
         <section className="col-span-12 lg:col-span-3 flex flex-col gap-md">
-          <h3 className="font-label-md text-label-md uppercase tracking-widest text-on-surface-variant/70 px-base text-xs font-semibold">
+          <h3 className="font-label-md text-label-md uppercase tracking-widest text-[#1D4532] px-base text-xs font-semibold">
             Danh sách Học viên
           </h3>
           <div className="flex flex-col gap-sm overflow-y-auto max-h-[calc(100vh-320px)] pr-2">
@@ -101,17 +101,17 @@ const InstructorStudents = () => {
                   onClick={() => handleStudentChange(idx)}
                   className={`p-md rounded-xl border transition-all flex items-center gap-md cursor-pointer ${
                     isSelected
-                      ? 'bg-white border-secondary/20 shadow-sm border-l-4 border-l-secondary'
-                      : 'bg-white/50 hover:bg-white border-outline-variant/10'
+                      ? 'bg-[#EDF7F2] border-[#1D4532]/30 shadow-sm border-l-4 border-l-[#1D4532]'
+                      : 'bg-white hover:bg-[#EDF7F2]/30 border-outline-variant/10'
                   }`}
                 >
-                  <div className="w-12 h-12 rounded-full bg-primary/10 text-primary font-bold flex items-center justify-center">
+                  <div className="w-12 h-12 rounded-full bg-[#1D4532]/10 text-[#1D4532] font-bold flex items-center justify-center">
                     {st.name?.charAt(0) || 'U'}
                   </div>
                   <div>
                     <h4
                       className={`font-label-md text-label-md font-bold ${
-                        isSelected ? 'text-secondary' : 'text-on-surface'
+                        isSelected ? 'text-[#1D4532]' : 'text-on-surface'
                       }`}
                     >
                       {st.name}
@@ -128,17 +128,17 @@ const InstructorStudents = () => {
 
         <section className="col-span-12 lg:col-span-5 bg-white rounded-xl p-xl shadow-sm border border-outline-variant/5">
           <div className="flex justify-between items-center mb-xl">
-            <h3 className="text-headline-md font-bold text-on-surface">
+            <h3 className="text-headline-md font-bold text-[#1D4532]">
               Biểu đồ Năng lực
             </h3>
-            <span className="px-3 py-1 rounded-full bg-[#f0eee9] text-[#745c00] font-label-sm text-label-sm font-semibold">
+            <span className="px-3 py-1 rounded-full bg-[#EDF7F2] text-[#1D4532] font-label-sm text-label-sm font-semibold">
               Điểm số: {attempt ? (attempt.overall_score || 0) : 0}/10
             </span>
           </div>
 
           {attempt ? (
             <div className="flex flex-col items-center">
-              <div className="relative w-[300px] h-[300px] bg-[#fbf9f4] rounded-full border border-outline-variant/10 shadow-inner flex items-center justify-center">
+              <div className="relative w-[300px] h-[300px] bg-[#EDF7F2]/20 rounded-full border border-outline-variant/10 shadow-inner flex items-center justify-center">
                 <svg className="absolute inset-0 w-full h-full">
                   <circle cx="150" cy="150" r="120" fill="none" stroke="#eae8e3" strokeDasharray="3" />
                   <circle cx="150" cy="150" r="80" fill="none" stroke="#eae8e3" strokeDasharray="3" />
@@ -148,24 +148,24 @@ const InstructorStudents = () => {
                   <line x1="150" y1="150" x2={150 + 120 * Math.cos(Math.PI / 6)} y2={150 + 120 * Math.sin(Math.PI / 6)} stroke="#eae8e3" />
                   <line x1="150" y1="150" x2={150 + 120 * Math.cos((5 * Math.PI) / 6)} y2={150 + 120 * Math.sin((5 * Math.PI) / 6)} stroke="#eae8e3" />
 
-                  <polygon points={points} fill="rgba(115, 92, 0, 0.25)" stroke="#735c00" strokeWidth="2.5" />
+                  <polygon points={points} fill="rgba(29, 69, 50, 0.25)" stroke="#1D4532" strokeWidth="2.5" />
 
-                  <circle cx="150" cy={150 - 12 * (attempt.pitch_score || 0)} r="5" fill="#735c00" stroke="white" strokeWidth="1.5" />
-                  <circle cx={150 + 12 * (attempt.rhythm_score || 0) * Math.cos(Math.PI / 6)} cy={150 + 12 * (attempt.rhythm_score || 0) * Math.sin(Math.PI / 6)} r="5" fill="#735c00" stroke="white" strokeWidth="1.5" />
-                  <circle cx={150 + 12 * (attempt.technique_score || 0) * Math.cos((5 * Math.PI) / 6)} cy={150 + 12 * (attempt.technique_score || 0) * Math.sin((5 * Math.PI) / 6)} r="5" fill="#735c00" stroke="white" strokeWidth="1.5" />
+                  <circle cx="150" cy={150 - 12 * (attempt.pitch_score || 0)} r="5" fill="#1D4532" stroke="white" strokeWidth="1.5" />
+                  <circle cx={150 + 12 * (attempt.rhythm_score || 0) * Math.cos(Math.PI / 6)} cy={150 + 12 * (attempt.rhythm_score || 0) * Math.sin(Math.PI / 6)} r="5" fill="#1D4532" stroke="white" strokeWidth="1.5" />
+                  <circle cx={150 + 12 * (attempt.technique_score || 0) * Math.cos((5 * Math.PI) / 6)} cy={150 + 12 * (attempt.technique_score || 0) * Math.sin((5 * Math.PI) / 6)} r="5" fill="#1D4532" stroke="white" strokeWidth="1.5" />
                 </svg>
 
                 <div className="absolute top-2 left-1/2 -translate-x-1/2 flex flex-col items-center">
                   <span className="text-[11px] uppercase tracking-wider text-on-surface-variant font-bold">Cao độ</span>
-                  <span className="text-body-sm font-bold text-primary">{(attempt.pitch_score || 0)}/10</span>
+                  <span className="text-body-sm font-bold text-[#1D4532]">{(attempt.pitch_score || 0)}/10</span>
                 </div>
                 <div className="absolute bottom-6 right-2 flex flex-col items-end">
                   <span className="text-[11px] uppercase tracking-wider text-on-surface-variant font-bold">Nhịp điệu</span>
-                  <span className="text-body-sm font-bold text-primary">{(attempt.rhythm_score || 0)}/10</span>
+                  <span className="text-body-sm font-bold text-[#1D4532]">{(attempt.rhythm_score || 0)}/10</span>
                 </div>
                 <div className="absolute bottom-6 left-2 flex flex-col items-start">
                   <span className="text-[11px] uppercase tracking-wider text-on-surface-variant font-bold">Kỹ thuật</span>
-                  <span className="text-body-sm font-bold text-primary">{(attempt.technique_score || 0)}/10</span>
+                  <span className="text-body-sm font-bold text-[#1D4532]">{(attempt.technique_score || 0)}/10</span>
                 </div>
               </div>
 
@@ -175,11 +175,11 @@ const InstructorStudents = () => {
                   { label: 'Rhythm Sync', val: (attempt.rhythm_score || 0) * 10, suffix: '%' },
                   { label: 'Technique Score', val: (attempt.technique_score || 0) * 10, suffix: '%' },
                 ].map((stat, i) => (
-                  <div key={i} className="bg-[#fbf9f4] p-md rounded-lg border border-outline-variant/10 text-center">
+                  <div key={i} className="bg-[#EDF7F2]/40 p-md rounded-lg border border-[#1D4532]/10 text-center">
                     <span className="text-[11px] text-on-surface-variant block font-medium uppercase tracking-wider leading-none mb-1">
                       {stat.label}
                     </span>
-                    <span className="text-body-md font-bold text-primary">
+                    <span className="text-body-md font-bold text-[#1D4532]">
                       {stat.val.toFixed(0)}{stat.suffix}
                     </span>
                   </div>
@@ -196,8 +196,8 @@ const InstructorStudents = () => {
         <section className="col-span-12 lg:col-span-4 flex flex-col gap-lg">
           <div className="bg-white rounded-xl p-lg shadow-sm border border-outline-variant/5 flex-grow">
             <div className="flex items-center gap-xs mb-lg">
-              <History className="w-5 h-5 text-primary" />
-              <h3 className="text-headline-md font-bold text-on-surface">
+              <History className="w-5 h-5 text-[#1D4532]" />
+              <h3 className="text-headline-md font-bold text-[#1D4532]">
                 Lịch sử thực hành
               </h3>
             </div>
@@ -214,12 +214,12 @@ const InstructorStudents = () => {
                     }}
                     className={`p-md rounded-lg border cursor-pointer transition-all flex justify-between items-center ${
                       isActive
-                        ? 'bg-primary/5 border-primary/20 shadow-xs'
-                        : 'bg-[#fbf9f4] border-outline-variant/5 hover:bg-[#f5f3ee]'
+                        ? 'bg-[#EDF7F2] border-[#1D4532]/30 shadow-xs'
+                        : 'bg-white hover:bg-[#EDF7F2]/30 border-outline-variant/5'
                     }`}
                   >
                     <div>
-                      <h4 className="font-label-md text-label-md font-bold text-primary">
+                      <h4 className="font-label-md text-label-md font-bold text-[#1D4532]">
                         {att.lessonName || 'Bài thực hành'}
                       </h4>
                       <p className="text-[12px] text-on-surface-variant mt-xs">
@@ -228,7 +228,7 @@ const InstructorStudents = () => {
                     </div>
                     <span
                       className={`text-body-md font-bold ${
-                        (att.overall_score || 0) >= 8.0 ? 'text-[#735c00]' : 'text-on-surface'
+                        (att.overall_score || 0) >= 8.0 ? 'text-[#1D4532]' : 'text-on-surface'
                       }`}
                     >
                       {att.overall_score || 0}/10
@@ -240,13 +240,13 @@ const InstructorStudents = () => {
           </div>
 
           {attempt && (
-            <div className="bg-white rounded-xl p-lg shadow-sm border border-[#ffe088]/20 flex flex-col gap-md">
-              <h4 className="font-label-md text-primary font-bold">
+            <div className="bg-white rounded-xl p-lg shadow-sm border border-[#1D4532]/20 flex flex-col gap-md">
+              <h4 className="font-label-md text-[#1D4532] font-bold">
                 Bản ghi âm &amp; Phê duyệt phản hồi
               </h4>
 
-              <div className="bg-[#fbf9f4] p-md rounded-xl border border-outline-variant/10 flex items-center gap-md">
-                <button className="w-10 h-10 rounded-full bg-primary text-on-primary flex items-center justify-center shadow-md active:scale-95 transition-transform hover:opacity-95 shrink-0">
+              <div className="bg-[#EDF7F2]/30 p-md rounded-xl border border-[#1D4532]/10 flex items-center gap-md">
+                <button className="w-10 h-10 rounded-full bg-[#1D4532] text-white flex items-center justify-center shadow-md active:scale-95 transition-transform hover:opacity-95 shrink-0">
                   <Volume2 className="w-5 h-5 text-white fill-white ml-[1px]" />
                 </button>
                 <div className="flex-grow">
@@ -255,7 +255,7 @@ const InstructorStudents = () => {
                     <span>0:00 / {attempt.duration || '0:00'}</span>
                   </div>
                   <div className="h-1 w-full bg-[#eae8e3] rounded-full overflow-hidden mt-sm">
-                    <div className="bg-[#735c00] h-full" style={{ width: '35%' }} />
+                    <div className="bg-[#1D4532] h-full" style={{ width: '35%' }} />
                   </div>
                 </div>
               </div>
@@ -264,23 +264,23 @@ const InstructorStudents = () => {
                 <textarea
                   value={feedbackText}
                   onChange={(e) => setFeedbackText(e.target.value)}
-                  className="w-full bg-[#fbf9f4] border border-[#ffe088]/30 rounded-xl p-md text-body-md focus:border-primary focus:ring-0 h-20 outline-none transition-all resize-none placeholder:text-on-surface-variant/40"
+                  className="w-full bg-white border border-[#1D4532]/20 rounded-xl p-md text-body-md focus:border-[#1D4532] focus:ring-1 focus:ring-[#1D4532] h-20 outline-none transition-all resize-none placeholder:text-on-surface-variant/40"
                   placeholder="Nhập nhận xét..."
                 />
                 <div className="flex gap-sm">
                   <button
                     onClick={handleSaveDraft}
-                    className="flex-1 bg-[#fbf9f4] border border-outline text-on-surface-variant py-md rounded-lg font-label-md hover:bg-[#f5f3ee] transition-all flex items-center justify-center gap-xs"
+                    className="flex-1 bg-white border border-outline text-on-surface-variant py-md rounded-lg font-label-md hover:bg-[#EDF7F2] transition-all flex items-center justify-center gap-xs"
                   >
                     <Save className="w-4 h-4" />
                     Lưu nháp
                   </button>
                   <button
                     onClick={handleSendFeedback}
-                    className="flex-1 bg-primary text-on-primary py-md rounded-lg font-label-md hover:bg-primary/95 transition-all flex items-center justify-center gap-xs shadow-md"
+                    className="flex-1 bg-[#1D4532] text-white py-md rounded-lg font-label-md hover:bg-[#1D4532]/95 transition-all flex items-center justify-center gap-xs shadow-md"
                   >
-                    <Send className="w-4 h-4 text-white" />
-                    Gửi phản hồi
+                    <Send className="w-4 h-4" />
+                    Gửi nhận xét
                   </button>
                 </div>
               </div>

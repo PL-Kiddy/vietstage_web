@@ -205,7 +205,7 @@ const InstructorMedia = () => {
           {/* Header Actions */}
           <div className="flex justify-between items-end gap-md">
             <div>
-              <h2 className="text-headline-md font-bold text-primary">
+              <h2 className="text-headline-md font-bold text-[#1D4532]">
                 Thư viện Media
               </h2>
               <p className="text-on-surface-variant font-body-md text-[14px]">
@@ -280,12 +280,12 @@ const InstructorMedia = () => {
           <section className="relative">
             <div
               onClick={handleUploadClick}
-              className={`border-2 border-dashed border-outline-variant/30 rounded-2xl p-xl bg-[#f5f3ee] flex flex-col items-center justify-center text-center group hover:border-[#735c00] transition-colors cursor-pointer ${
+              className={`border-2 border-dashed border-outline-variant/30 rounded-2xl p-xl bg-[#EDF7F2]/30 flex flex-col items-center justify-center text-center group hover:border-[#1D4532] transition-colors cursor-pointer ${
                 isUploading ? 'opacity-50 pointer-events-none' : ''
               }`}
             >
-              <div className="w-16 h-16 bg-[#735c00]/10 rounded-full flex items-center justify-center mb-md group-hover:scale-110 transition-transform">
-                <UploadCloud className="w-8 h-8 text-[#735c00]" />
+              <div className="w-16 h-16 bg-[#1D4532]/10 rounded-full flex items-center justify-center mb-md group-hover:scale-110 transition-transform">
+                <UploadCloud className="w-8 h-8 text-[#1D4532]" />
               </div>
               <h3 className="text-headline-md font-semibold mb-xs text-on-surface">
                 {isUploading ? 'Đang tải lên tệp tin...' : 'Tải lên tệp tin bài giảng'}
@@ -298,7 +298,7 @@ const InstructorMedia = () => {
               </p>
               <button 
                 disabled={!selectedLessonId}
-                className="mt-lg px-xl py-md border border-[#735c00] text-[#735c00] rounded-lg font-label-md hover:bg-[#735c00]/5 transition-colors disabled:opacity-50"
+                className="mt-lg px-xl py-md border border-[#1D4532] text-[#1D4532] rounded-lg font-label-md hover:bg-[#1D4532]/10 transition-colors disabled:opacity-50"
               >
                 Chọn tệp từ máy tính
               </button>
@@ -308,7 +308,7 @@ const InstructorMedia = () => {
           {/* Recent Files Table */}
           <section>
             <div className="flex items-center justify-between mb-md">
-              <h3 className="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider text-xs font-semibold">
+              <h3 className="font-label-md text-label-md text-[#1D4532] uppercase tracking-wider text-xs font-semibold">
                 Danh sách tệp tin {selectedFolderType ? `(${folders.find(f => f.type === selectedFolderType)?.name})` : ''}
               </h3>
             </div>
@@ -316,14 +316,14 @@ const InstructorMedia = () => {
             <div className="bg-white rounded-xl border border-outline-variant/10 overflow-hidden shadow-sm">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="bg-[#f5f3ee] border-b border-outline-variant/10">
-                    <th className="px-lg py-md font-label-sm text-on-surface-variant uppercase text-xs">
+                  <tr className="bg-[#EDF7F2] border-b border-outline-variant/10">
+                    <th className="px-lg py-md font-label-sm text-[#1D4532] font-semibold uppercase text-xs">
                       Tên tệp
                     </th>
-                    <th className="px-lg py-md font-label-sm text-on-surface-variant uppercase text-xs">
+                    <th className="px-lg py-md font-label-sm text-[#1D4532] font-semibold uppercase text-xs">
                       Định dạng
                     </th>
-                    <th className="px-lg py-md font-label-sm text-on-surface-variant uppercase text-xs">
+                    <th className="px-lg py-md font-label-sm text-[#1D4532] font-semibold uppercase text-xs">
                       Thời lượng
                     </th>
                     <th className="px-lg py-md"></th>

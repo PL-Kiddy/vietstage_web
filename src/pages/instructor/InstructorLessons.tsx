@@ -242,7 +242,7 @@ const InstructorLessons = () => {
       {/* Header Section */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end mb-xl gap-md">
         <div>
-          <h2 className="text-headline-lg font-bold text-primary tracking-tight">
+          <h2 className="text-headline-lg font-bold text-[#1D4532] tracking-tight">
             Quản lý Bài giảng
           </h2>
           <p className="text-on-surface-variant font-body-md mt-base">
@@ -256,7 +256,7 @@ const InstructorLessons = () => {
             setNewOrderIndex(nextOrder);
             setShowAddForm(true);
           }}
-          className="flex items-center gap-sm bg-primary text-on-primary px-xl py-md rounded-lg font-label-md hover:bg-primary/95 transition-all shadow-md active:scale-95"
+          className="flex items-center gap-sm bg-[#1D4532] text-white px-xl py-md rounded-lg font-label-md hover:bg-[#1D4532]/95 transition-all shadow-md active:scale-95"
         >
           <Plus className="w-5 h-5" />
           Thêm bài giảng mới
@@ -278,11 +278,11 @@ const InstructorLessons = () => {
         {/* Lesson List Table */}
         <div className="col-span-12 flex flex-col gap-gutter">
           <div className="bg-white rounded-xl border border-outline-variant/10 overflow-hidden shadow-sm">
-            <div className="px-xl py-lg border-b border-outline-variant/10 flex justify-between items-center bg-[#f5f3ee]/30">
-              <span className="text-headline-md font-bold text-primary">
+            <div className="px-xl py-lg border-b border-outline-variant/10 flex justify-between items-center bg-[#EDF7F2]">
+              <span className="text-headline-md font-bold text-[#1D4532]">
                 {isLoading ? 'Đang tải bài giảng...' : 'Danh sách lộ trình giáo trình'}
               </span>
-              <span className="px-md py-xs bg-[#eae8e3] rounded-full text-label-sm font-label-sm">
+              <span className="px-md py-xs bg-white rounded-full text-label-sm font-label-sm border border-[#1D4532]/20 text-[#1D4532]">
                 Tổng cộng: {lessons.length} bài học
               </span>
             </div>
@@ -290,29 +290,29 @@ const InstructorLessons = () => {
             <div className="overflow-x-auto custom-scrollbar">
               <table className="w-full min-w-[1080px] border-collapse">
                 <thead>
-                  <tr className="bg-[#f5f3ee]/50">
-                    <th className="text-left whitespace-nowrap py-md px-xl font-label-sm text-label-sm text-on-surface-variant border-b border-outline-variant/10">
+                  <tr className="bg-[#EDF7F2]/60">
+                    <th className="text-left whitespace-nowrap py-md px-xl font-label-sm text-label-sm text-[#1D4532] font-semibold border-b border-outline-variant/10">
                       Thứ tự giáo trình
                     </th>
-                    <th className="text-left whitespace-nowrap py-md px-xl font-label-sm text-label-sm text-on-surface-variant border-b border-outline-variant/10">
+                    <th className="text-left whitespace-nowrap py-md px-xl font-label-sm text-label-sm text-[#1D4532] font-semibold border-b border-outline-variant/10">
                       Tên bài giảng
                     </th>
-                    <th className="text-left whitespace-nowrap py-md px-md font-label-sm text-label-sm text-on-surface-variant border-b border-outline-variant/10">
+                    <th className="text-left whitespace-nowrap py-md px-md font-label-sm text-label-sm text-[#1D4532] font-semibold border-b border-outline-variant/10">
                       Nhạc cụ
                     </th>
-                    <th className="text-left whitespace-nowrap py-md px-md font-label-sm text-label-sm text-on-surface-variant border-b border-outline-variant/10">
+                    <th className="text-left whitespace-nowrap py-md px-md font-label-sm text-label-sm text-[#1D4532] font-semibold border-b border-outline-variant/10">
                       Ngưỡng đạt (Scoring)
                     </th>
-                    <th className="text-left whitespace-nowrap py-md px-md font-label-sm text-label-sm text-on-surface-variant border-b border-outline-variant/10">
+                    <th className="text-left whitespace-nowrap py-md px-md font-label-sm text-label-sm text-[#1D4532] font-semibold border-b border-outline-variant/10">
                       Bài tập nhỏ
                     </th>
-                    <th className="text-left whitespace-nowrap py-md px-md font-label-sm text-label-sm text-on-surface-variant border-b border-outline-variant/10">
+                    <th className="text-left whitespace-nowrap py-md px-md font-label-sm text-label-sm text-[#1D4532] font-semibold border-b border-outline-variant/10">
                       Ngày cập nhật
                     </th>
-                    <th className="text-left whitespace-nowrap py-md px-md font-label-sm text-label-sm text-on-surface-variant border-b border-outline-variant/10">
+                    <th className="text-left whitespace-nowrap py-md px-md font-label-sm text-label-sm text-[#1D4532] font-semibold border-b border-outline-variant/10">
                       Trạng thái
                     </th>
-                    <th className="text-right whitespace-nowrap py-md px-xl font-label-sm text-label-sm text-on-surface-variant border-b border-outline-variant/10">
+                    <th className="text-right whitespace-nowrap py-md px-xl font-label-sm text-label-sm text-[#1D4532] font-semibold border-b border-outline-variant/10">
                       Hành động
                     </th>
                   </tr>
@@ -321,7 +321,7 @@ const InstructorLessons = () => {
                   {isLoading ? (
                     <tr>
                       <td colSpan={8} className="px-xl py-14 text-center">
-                        <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
+                        <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-2 border-[#1D4532]/20 border-t-[#1D4532]" />
                         <p className="text-on-surface-variant">Đang tải danh sách bài giảng...</p>
                       </td>
                     </tr>
@@ -329,12 +329,12 @@ const InstructorLessons = () => {
                     <tr>
                       <td colSpan={8} className="px-xl py-16 text-center">
                         <div className="mx-auto flex max-w-md flex-col items-center">
-                          <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                          <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#1D4532]/10 text-[#1D4532]">
                             <BookOpen className="h-7 w-7" />
                           </div>
                           <h3 className="text-lg font-bold text-on-surface">Chưa có bài giảng nào</h3>
                           <p className="mt-1 text-sm text-on-surface-variant">Tạo bài giảng đầu tiên để bắt đầu xây dựng lộ trình giảng dạy.</p>
-                          <button onClick={() => setShowAddForm(true)} className="mt-5 inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 font-bold text-white hover:opacity-90">
+                          <button onClick={() => setShowAddForm(true)} className="mt-5 inline-flex items-center gap-2 rounded-lg bg-[#1D4532] px-5 py-2.5 font-bold text-white hover:opacity-90">
                             <Plus className="h-4 w-4" /> Thêm bài giảng
                           </button>
                         </div>
@@ -343,16 +343,16 @@ const InstructorLessons = () => {
                   ) : sortedLessons.map((lesson) => (
                     <tr
                       key={lesson.id}
-                      className="hover:bg-[#f5f3ee] transition-colors group"
+                      className="hover:bg-[#EDF7F2]/40 transition-colors group"
                     >
-                      <td className="py-lg px-xl font-label-md text-primary font-bold text-center">
-                        <span className="bg-primary/5 text-primary px-3 py-1 rounded-md border border-primary/10">
+                      <td className="py-lg px-xl font-label-md text-[#1D4532] font-bold text-center">
+                        <span className="bg-[#1D4532]/10 text-[#1D4532] px-3 py-1 rounded-md border border-[#1D4532]/20">
                           #{lesson.orderIndex}
                         </span>
                       </td>
                       <td className="py-lg px-xl">
                         <div className="flex flex-col">
-                          <span className="font-label-md text-label-md text-primary font-bold">
+                          <span className="font-label-md text-label-md text-[#1D4532] font-bold">
                             {lesson.title}
                           </span>
                           <span className="text-label-sm text-on-surface-variant text-[12px] line-clamp-1 max-w-xs">
@@ -385,17 +385,17 @@ const InstructorLessons = () => {
                       <td className="py-lg px-xl text-right">
                         <Link
                           to={`/instructor/lessons/${lesson.id}/content`}
-                          className="mr-2 p-2 hover:bg-primary/10 text-primary transition-all rounded-lg border border-primary/20 inline-flex items-center justify-center bg-white"
+                          className="mr-2 p-2 hover:bg-[#1D4532]/10 text-[#1D4532] transition-all rounded-lg border border-[#1D4532]/20 inline-flex items-center justify-center bg-white"
                           title="Quản lý bài tập, quiz và minigame"
                         >
                           <ListChecks className="w-4 h-4" />
                         </Link>
                         <button
                           onClick={() => void handleEditClick(lesson)}
-                          className="p-2 hover:bg-[#ffe088]/20 text-primary transition-all rounded-lg border border-[#ffe088]/30 inline-flex items-center justify-center bg-[#fbf9f4]"
+                          className="p-2 hover:bg-[#1D4532]/10 text-[#1D4532] transition-all rounded-lg border border-[#1D4532]/20 inline-flex items-center justify-center bg-white"
                           title="Chỉnh sửa cấu hình bài giảng"
                         >
-                          <Edit2 className="w-4 h-4 text-[#735c00]" />
+                          <Edit2 className="w-4 h-4 text-[#1D4532]" />
                         </button>
                       </td>
                     </tr>
@@ -429,19 +429,19 @@ const InstructorLessons = () => {
               transition={{ type: 'spring', damping: 25, stiffness: 220 }}
             >
               {/* Drawer Header */}
-              <div className="px-xl py-lg border-b border-outline-variant/10 flex justify-between items-center bg-[#f5f3ee]/30">
+              <div className="px-xl py-lg border-b border-outline-variant/10 flex justify-between items-center bg-[#EDF7F2]">
                 <div>
-                  <h4 className="text-headline-md font-bold text-primary font-sans">
-                    {editingLesson ? 'Chỉnh sửa bài giảng' : 'Bài giảng mới'}
+                  <h4 className="text-headline-md font-bold text-[#1D4532] font-sans">
+                    {editingLesson ? 'Chỉnh sửa cấu hình bài giảng' : 'Thêm bài giảng mới'}
                   </h4>
-                  <p className="text-[12px] text-on-surface-variant mt-xs">
-                    {editingLesson ? `Cập nhật cấu hình cho bài giảng: ${editingLesson.title}` : 'Thêm bài giảng mới vào giáo trình giảng dạy trực tuyến.'}
+                  <p className="text-label-sm text-on-surface-variant text-[13px] mt-xs">
+                    Tạo lộ trình và tiêu chí đánh giá kỹ năng bài học.
                   </p>
                 </div>
                 <button
                   type="button"
                   onClick={handleCloseModal}
-                  className="p-md hover:bg-[#eae8e3]/80 rounded-full text-on-surface-variant hover:text-on-surface transition-colors"
+                  className="p-md hover:bg-[#1D4532]/10 rounded-full text-on-surface-variant hover:text-on-surface transition-colors"
                 >
                   <X className="w-6 h-6" />
                 </button>
@@ -575,14 +575,10 @@ const InstructorLessons = () => {
                       />
                       <button
                         type="button"
-                        onClick={() => {
-                          if (!currentExerciseInput.trim()) return;
-                          setNewExercises([...newExercises, currentExerciseInput.trim()]);
-                          setCurrentExerciseInput('');
-                        }}
-                        className="bg-[#ffe088] text-primary px-xl py-md rounded-xl font-bold hover:opacity-90 active:scale-95 transition-all shadow-sm"
+                        onClick={handleAddExercise}
+                        className="bg-[#1D4532] text-white px-xl py-md rounded-xl font-bold hover:bg-[#1D4532]/95 active:scale-95 transition-all shadow-sm"
                       >
-                        Thêm
+                        Thêm bài tập
                       </button>
                     </div>
 
