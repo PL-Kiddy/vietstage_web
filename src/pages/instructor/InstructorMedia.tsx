@@ -1,6 +1,5 @@
 import { useState, useCallback, type FormEvent } from 'react';
 import {
-  ListOrdered,
   Dumbbell,
   Plus,
   ChevronUp,
@@ -13,6 +12,9 @@ import {
   AlertCircle,
   Loader2,
   Search,
+  MoreVertical,
+  ArrowUpDown,
+  Award,
 } from 'lucide-react';
 import { useAxiosRequest } from '../../hooks/useAxiosRequest';
 import { lessonsApi, exercisesApi, masterDataApi, type ExerciseInput } from '../../api/services';
@@ -38,6 +40,7 @@ const InstructorMedia = () => {
   const [isSavingLesson, setIsSavingLesson] = useState(false);
   const [lessonSaveError, setLessonSaveError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [openActionMenuId, setOpenActionMenuId] = useState<number | null>(null);
 
   // Create lesson form
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -222,9 +225,9 @@ const InstructorMedia = () => {
       {/* ── Tab Navigation ───────────────────────────────────────────── */}
       <div className="flex gap-xs bg-[#F3F4F6] p-1 rounded-xl w-fit">
         {([
-          { id: 'order', icon: ListOrdered, label: 'Sắp xếp Bài học' },
-          { id: 'exercises', icon: Dumbbell, label: 'Bài tập & Điểm chuẩn' },
-        ] as { id: Tab; icon: typeof ListOrdered; label: string }[]).map((tab) => (
+          { id: 'order', icon: ArrowUpDown, label: 'Sắp xếp Bài học' },
+          { id: 'exercises', icon: Award, label: 'Bài tập & Điểm chuẩn' },
+        ] as { id: Tab; icon: typeof ArrowUpDown; label: string }[]).map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
@@ -268,7 +271,7 @@ const InstructorMedia = () => {
                   onChange={(e) => setSelectedInstrumentId(e.target.value === 'ALL' ? 'ALL' : Number(e.target.value))}
                   className="bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl px-3 py-1.5 text-xs font-bold text-[#1D4532] focus:ring-1 focus:ring-[#1D4532] outline-none cursor-pointer"
                 >
-                  <option value="ALL">Tất cả nhạc cụ ({lessons.length})</option>
+                  <option value="ALL">Tất cả nhạc cụ</option>
                   {instruments.map((inst: any) => (
                     <option key={inst.id} value={inst.id}>
                       {inst.name}
@@ -278,10 +281,7 @@ const InstructorMedia = () => {
               </div>
             </div>
 
-            <div className="flex items-center gap-md w-full sm:w-auto justify-between sm:justify-end">
-              <p className="text-xs text-[#5e5e5b]">
-                Hiển thị <strong>{sortedLessons.length}</strong> bài
-              </p>
+            <div className="flex items-center gap-md w-full sm:w-auto justify-end">
               <button
                 onClick={() => { setShowCreateForm(true); setCreateOrder(lessons.length + 1); }}
                 className="bg-[#1D4532] text-white px-md py-sm rounded-lg text-sm font-bold flex items-center gap-xs hover:bg-[#1D4532]/90 transition-all shadow-sm whitespace-nowrap"
@@ -508,31 +508,54 @@ const InstructorMedia = () => {
                               );
                             })()}
                           </div>
-                          {/* Up/Down buttons */}
-                          <div className="flex flex-col gap-0.5">
+                          {/* Thao tác Menu (3 dấu chấm) */}
+                          <div className="w-20 text-right relative" onClick={(e) => e.stopPropagation()}>
                             <button
-                              title="Lên trên"
-                              onClick={() => moveLesson(lesson, 'up')}
-                              className="p-0.5 text-[#9CA3AF] hover:text-[#1D4532] transition-colors"
+                              onClick={() => setOpenActionMenuId(openActionMenuId === lesson.id ? null : lesson.id)}
+                              className="p-2 hover:bg-[#EDF7F2] rounded-full transition-colors text-on-surface-variant hover:text-on-surface"
+                              title="Thao tác"
                             >
-                              <ChevronUp className="w-4 h-4" />
+                              <MoreVertical className="w-5 h-5" />
                             </button>
-                            <button
-                              title="Xuống dưới"
-                              onClick={() => moveLesson(lesson, 'down')}
-                              className="p-0.5 text-[#9CA3AF] hover:text-[#1D4532] transition-colors"
-                            >
-                              <ChevronDown className="w-4 h-4" />
-                            </button>
+
+                            {openActionMenuId === lesson.id && (
+                              <>
+                                <div className="fixed inset-0 z-10" onClick={() => setOpenActionMenuId(null)} />
+                                <div className="absolute right-0 mt-1 w-48 bg-white border border-[#d1e4fb] rounded-xl shadow-lg py-1 z-20 text-left">
+                                  <button
+                                    onClick={() => {
+                                      setOpenActionMenuId(null);
+                                      startEditing(lesson);
+                                    }}
+                                    className="w-full flex items-center gap-2 px-4 py-2 hover:bg-[#EDF7F2] text-[13px] text-on-surface transition-colors"
+                                  >
+                                    <Edit2 className="w-4 h-4 text-[#1D4532]" />
+                                    Chỉnh sửa bài học
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      setOpenActionMenuId(null);
+                                      moveLesson(lesson, 'up');
+                                    }}
+                                    className="w-full flex items-center gap-2 px-4 py-2 hover:bg-[#EDF7F2] text-[13px] text-on-surface transition-colors"
+                                  >
+                                    <ChevronUp className="w-4 h-4 text-[#1D4532]" />
+                                    Đẩy vị trí lên trên
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      setOpenActionMenuId(null);
+                                      moveLesson(lesson, 'down');
+                                    }}
+                                    className="w-full flex items-center gap-2 px-4 py-2 hover:bg-[#EDF7F2] text-[13px] text-on-surface transition-colors"
+                                  >
+                                    <ChevronDown className="w-4 h-4 text-[#1D4532]" />
+                                    Đẩy vị trí xuống dưới
+                                  </button>
+                                </div>
+                              </>
+                            )}
                           </div>
-                          {/* Edit button */}
-                          <button
-                            onClick={() => startEditing(lesson)}
-                            className="p-sm hover:bg-[#EDF7F2] rounded-lg text-[#1D4532] transition-colors"
-                            title="Sửa tiêu đề / thứ tự"
-                          >
-                            <Edit2 className="w-4 h-4" />
-                          </button>
                         </div>
                       )}
                     </div>
