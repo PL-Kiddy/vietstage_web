@@ -5,7 +5,6 @@ import {
   Plus,
   ChevronUp,
   ChevronDown,
-  GripVertical,
   Edit2,
   Check,
   X,
@@ -462,7 +461,6 @@ const InstructorMedia = () => {
                       ) : (
                         /* ── Read Mode ── */
                         <div className="flex items-center gap-md">
-                          <GripVertical className="w-4 h-4 text-[#D1D5DB] flex-shrink-0 cursor-grab" />
                           
                           {/* Order Badge */}
                           <div className="w-12 flex flex-col items-center justify-center flex-shrink-0">

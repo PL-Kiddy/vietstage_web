@@ -3,7 +3,7 @@ import {
   LayoutDashboard,
   BookOpen,
   Users,
-  Music,
+  GraduationCap,
 } from 'lucide-react';
 import logo from '../../assets/logongangtachnen.png';
 
@@ -11,7 +11,7 @@ const navItems = [
   { icon: LayoutDashboard, label: 'Tổng quan', href: '/instructor' },
   { icon: BookOpen, label: 'Quản lý Bài giảng', href: '/instructor/lessons' },
   { icon: Users, label: 'Theo dõi Học viên', href: '/instructor/students' },
-  { icon: Music, label: 'Cấu trúc Giáo trình', href: '/instructor/media' },
+  { icon: GraduationCap, label: 'Cấu trúc Giáo trình', href: '/instructor/media' },
 ];
 
 const InstructorSidebar = () => {
