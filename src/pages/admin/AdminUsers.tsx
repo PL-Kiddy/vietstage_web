@@ -205,7 +205,21 @@ const AdminUsers = () => {
           u.email.toLowerCase().includes(q)
       );
     }
-    return result;
+
+    // Sort by registration date descending (latest registered users first)
+    const parseRegisteredDate = (user: any): number => {
+      const raw = user.registeredAt || user.createdAt || user.created_at || '';
+      if (!raw) return Number(user.id) || 0;
+      // Handle "DD/MM/YYYY" format (what the API returns)
+      const ddmmyyyy = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+      if (ddmmyyyy) {
+        return new Date(Number(ddmmyyyy[3]), Number(ddmmyyyy[2]) - 1, Number(ddmmyyyy[1])).getTime();
+      }
+      // Handle ISO 8601 or other standard formats
+      const ts = new Date(raw).getTime();
+      return isNaN(ts) ? (Number(user.id) || 0) : ts;
+    };
+    return [...result].sort((a, b) => parseRegisteredDate(b) - parseRegisteredDate(a));
   }, [isLearnersMode, roleFilter, statusFilter, searchQuery, users]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / perPage));
@@ -420,7 +434,7 @@ alert('Backend hiện chưa cung cấp endpoint cập nhật thông tin người
               className="bg-[#1D4532] text-white px-lg py-sm rounded-lg font-label-md hover:bg-[#1D4532]/95 transition-all flex items-center gap-xs shadow-md ml-auto"
             >
               <UserPlus className="w-[18px] h-[18px]" />
-              Thêm mới
+              Thêm thành viên
             </button>
           )}
         </div>
