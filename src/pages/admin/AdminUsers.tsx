@@ -112,8 +112,9 @@ const AdminUsers = () => {
   const [newUserName, setNewUserName] = useState('');
   const [newUserRole, setNewUserRole] = useState<'Admin' | 'Giảng viên'>('Giảng viên');
   const [newUserEmail, setNewUserEmail] = useState('');
-  const [newInstrument, setNewInstrument] = useState<string>('Đàn Bầu');
-  const [authMethod, setAuthMethod] = useState<'invite' | 'password'>('invite');
+  const [newBiography, setNewBiography] = useState('');
+  const [newYearsExperience, setNewYearsExperience] = useState<number>(1);
+  const [authMethod, setAuthMethod] = useState<'invite' | 'password'>('password');
   const [newPassword, setNewPassword] = useState('');
 
   // Edit User Drawer State
@@ -262,8 +263,9 @@ const AdminUsers = () => {
     setNewUserName('');
     setNewUserEmail('');
     setNewUserRole('Giảng viên');
-    setNewInstrument('Đàn Bầu');
-    setAuthMethod('invite');
+    setNewBiography('');
+    setNewYearsExperience(1);
+    setAuthMethod('password');
     setNewPassword('');
     setIsAddDrawerOpen(true);
   };
@@ -282,27 +284,33 @@ const AdminUsers = () => {
     e.preventDefault();
     if (!isAddFormValid) return;
 
-    const generatedPassword = authMethod === 'password'
+    const passwordToSubmit = authMethod === 'password'
       ? newPassword
       : `Vs@${crypto.randomUUID().replaceAll('-', '').slice(0, 10)}`;
 
     try {
       if (newUserRole === 'Giảng viên') {
+        // Swagger: POST /api/admin/create-instructor
+        // Payload: { email, password, fullName, biography, yearsExperience }
         await usersApi.createInstructor({
           email: newUserEmail.trim(),
-          password: generatedPassword,
+          password: passwordToSubmit,
           fullName: newUserName.trim(),
+          biography: newBiography.trim() || undefined,
+          yearsExperience: Number(newYearsExperience) || 0,
         });
       } else {
+        // Swagger: POST /api/admin/create-admin
+        // Payload: { email, password, fullName }
         await usersApi.createAdmin({
           email: newUserEmail.trim(),
-          password: generatedPassword,
+          password: passwordToSubmit,
           fullName: newUserName.trim(),
         });
       }
       await loadUsers();
       setIsAddDrawerOpen(false);
-      alert(`Đã tạo tài khoản. Mật khẩu tạm thời: ${generatedPassword}`);
+      alert(`Tạo tài khoản ${newUserRole} thành công!`);
     } catch (error) {
       alert(error instanceof Error ? error.message : 'Không thể tạo tài khoản.');
     }
@@ -954,22 +962,37 @@ alert('Backend hiện chưa cung cấp endpoint cập nhật thông tin người
                     </select>
                   </div>
 
-                  {/* Specialty (Instrument option) - Visible only for Giảng viên */}
+                  {/* Instructor Specific Fields: Biography & Years of Experience */}
                   {newUserRole === 'Giảng viên' && (
-                    <div className="flex flex-col gap-xs animate-in fade-in slide-in-from-top-2 duration-200">
-                      <label className="font-label-sm text-on-surface-variant font-semibold uppercase tracking-wider text-xs">
-                        Chuyên môn giảng dạy (Theo Đàn)
-                      </label>
-                      <select
-                        value={newInstrument}
-                        onChange={(e) => setNewInstrument(e.target.value)}
-                        className="w-full bg-[#fbf9f4] border border-outline-variant/30 rounded-xl p-md text-body-md focus:border-[#1D4532] focus:ring-1 focus:ring-[#1D4532] transition-all outline-none text-on-surface cursor-pointer font-medium"
-                      >
-                        {instrumentOptions.map((inst) => (
-                          <option key={inst} value={inst}>{inst}</option>
-                        ))}
-                      </select>
-                    </div>
+                    <>
+                      <div className="flex flex-col gap-xs animate-in fade-in slide-in-from-top-2 duration-200">
+                        <label className="font-label-sm text-on-surface-variant font-semibold uppercase tracking-wider text-xs">
+                          Số năm kinh nghiệm giảng dạy (yearsExperience)
+                        </label>
+                        <input
+                          type="number"
+                          min={0}
+                          max={60}
+                          value={newYearsExperience}
+                          onChange={(e) => setNewYearsExperience(Math.max(0, parseInt(e.target.value) || 0))}
+                          placeholder="Ví dụ: 5"
+                          className="w-full bg-[#fbf9f4] border border-outline-variant/30 rounded-xl p-md text-body-md focus:border-[#1D4532] focus:ring-1 focus:ring-[#1D4532] transition-all outline-none text-on-surface font-medium"
+                        />
+                      </div>
+
+                      <div className="flex flex-col gap-xs animate-in fade-in slide-in-from-top-2 duration-200">
+                        <label className="font-label-sm text-on-surface-variant font-semibold uppercase tracking-wider text-xs">
+                          Tiểu sử &amp; Giới thiệu bản thân (biography)
+                        </label>
+                        <textarea
+                          rows={3}
+                          value={newBiography}
+                          onChange={(e) => setNewBiography(e.target.value)}
+                          placeholder="Nhập giới thiệu tóm tắt về giảng viên..."
+                          className="w-full bg-[#fbf9f4] border border-outline-variant/30 rounded-xl p-md text-body-md focus:border-[#1D4532] focus:ring-1 focus:ring-[#1D4532] transition-all outline-none text-on-surface resize-none"
+                        />
+                      </div>
+                    </>
                   )}
 
                   {/* Authentication Configuration */}
