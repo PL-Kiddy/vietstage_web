@@ -8,6 +8,7 @@ import {
   X,
   Check,
   ListChecks,
+  BookOpen,
   RefreshCw,
   AlertCircle,
   Search,
@@ -84,6 +85,8 @@ const InstructorLessons = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedInstrumentFilter, setSelectedInstrumentFilter] = useState('Tất cả');
   const [selectedStatusFilter, setSelectedStatusFilter] = useState('Tất cả');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [perPage, setPerPage] = useState(5);
   const [openActionMenuLessonId, setOpenActionMenuLessonId] = useState<string | null>(null);
   const { execute: requestLessons } = useAxiosRequest<Lesson[]>(async (signal) => {
     const params = new URLSearchParams({ page: '1', size: '100' });
@@ -258,8 +261,6 @@ const InstructorLessons = () => {
     }
   };
 
-  const isModalOpen = showAddForm || editingLesson !== null;
-
   // Filter and arrange curriculum order
   const filteredLessons = lessons.filter((lesson) => {
     const matchesSearch =
@@ -283,12 +284,23 @@ const InstructorLessons = () => {
     return matchesSearch && matchesInstrument && matchesStatus;
   });
 
-  const sortedLessons = [...filteredLessons].sort((a, b) => a.orderIndex - b.orderIndex);
+  const parseDate = (dStr: string) => {
+    if (!dStr) return 0;
+    const parts = dStr.split('/');
+    if (parts.length === 3) {
+      return new Date(Number(parts[2]), Number(parts[1]) - 1, Number(parts[0])).getTime();
+    }
+    return new Date(dStr).getTime() || 0;
+  };
+
+  const sortedLessons = [...filteredLessons].sort((a, b) => parseDate(b.updatedAt) - parseDate(a.updatedAt));
+  const totalPages = Math.max(1, Math.ceil(sortedLessons.length / perPage));
+  const paginatedLessons = sortedLessons.slice((currentPage - 1) * perPage, currentPage * perPage);
 
   return (
     <div className="max-w-[1400px] mx-auto">
       {/* Header Section */}
-      <div className="mb-lg flex flex-col md:flex-row md:items-center justify-between gap-md">
+      <div className="mb-lg flex flex-col gap-md">
         <div>
           <h1 className="text-headline-lg font-bold text-[#1D4532]">
             Nội dung & Học liệu
@@ -299,58 +311,72 @@ const InstructorLessons = () => {
         </div>
 
         {/* Controls Row: Search + Filter + Add Button */}
-        <div className="flex flex-wrap items-center gap-md w-full">
-          {/* Search Bar */}
-          <div className="flex items-center gap-xs px-md py-sm bg-white border border-[#d1e4fb] rounded-lg w-full sm:w-80 shadow-sm focus-within:ring-1 focus-within:ring-[#1D4532] transition-all">
-            <Search className="w-5 h-5 text-[#5e5e5b] flex-shrink-0" />
-            <input
-              type="text"
-              placeholder="Tìm theo tên bài giảng, mô tả..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="bg-transparent border-none outline-none text-body-md w-full text-on-surface focus:ring-0 placeholder:text-[#5e5e5b]/50"
-            />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery('')}
-                className="text-[#5e5e5b] hover:text-error transition-colors"
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-md w-full">
+          <div className="flex flex-wrap items-center gap-sm flex-1">
+            {/* Search Bar */}
+            <div className="flex items-center gap-xs px-md py-sm bg-white border border-[#d1e4fb] rounded-lg min-w-[260px] flex-1 sm:flex-initial shadow-sm focus-within:ring-1 focus-within:ring-[#1D4532] transition-all">
+              <Search className="w-5 h-5 text-[#5e5e5b] flex-shrink-0" />
+              <input
+                type="text"
+                placeholder="Tìm theo tên bài giảng, mô tả..."
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="bg-transparent border-none outline-none text-body-md w-full text-on-surface focus:ring-0 placeholder:text-[#5e5e5b]/50"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => {
+                    setSearchQuery('');
+                    setCurrentPage(1);
+                  }}
+                  className="text-[#5e5e5b] hover:text-error transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+
+            {/* Instrument Filter */}
+            <div className="flex items-center gap-xs px-md py-sm bg-white border border-outline-variant rounded-lg shadow-sm">
+              <span className="font-label-md text-[#5e5e5b] text-sm font-medium whitespace-nowrap">Nhạc cụ:</span>
+              <select
+                value={selectedInstrumentFilter}
+                onChange={(e) => {
+                  setSelectedInstrumentFilter(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="bg-transparent border-none text-label-md font-semibold text-[#1D4532] focus:ring-0 cursor-pointer outline-none text-sm"
               >
-                <X className="w-4 h-4" />
-              </button>
-            )}
-          </div>
+                <option value="Tất cả">Tất cả nhạc cụ</option>
+                {Array.from(new Set(lessons.map((l) => l.instrument))).filter(Boolean).map((ins) => (
+                  <option key={ins} value={ins}>
+                    {ins}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-          {/* Instrument Filter */}
-          <div className="flex items-center gap-xs px-md py-sm bg-white border border-outline-variant rounded-lg shadow-sm">
-            <span className="font-label-md text-[#5e5e5b] text-sm font-medium">Nhạc cụ:</span>
-            <select
-              value={selectedInstrumentFilter}
-              onChange={(e) => setSelectedInstrumentFilter(e.target.value)}
-              className="bg-transparent border-none text-label-md font-semibold text-[#1D4532] focus:ring-0 cursor-pointer outline-none text-sm"
-            >
-              <option value="Tất cả">Tất cả nhạc cụ</option>
-              {Array.from(new Set(lessons.map((l) => l.instrument))).filter(Boolean).map((ins) => (
-                <option key={ins} value={ins}>
-                  {ins}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Status Filter */}
-          <div className="flex items-center gap-xs px-md py-sm bg-[#ffffff] border border-outline-variant rounded-lg shadow-sm">
-            <span className="font-label-md text-[#5e5e5b] text-sm font-medium">Trạng thái:</span>
-            <select
-              value={selectedStatusFilter}
-              onChange={(e) => setSelectedStatusFilter(e.target.value)}
-              className="bg-transparent border-none text-label-md font-semibold text-[#1D4532] focus:ring-0 cursor-pointer outline-none text-sm"
-            >
-              <option value="Tất cả">Tất cả</option>
-              <option value="Đã duyệt">Đã duyệt</option>
-              <option value="Chờ duyệt">Chờ duyệt</option>
-              <option value="Bị từ chối">Bị từ chối</option>
-              <option value="Bản nháp">Bản nháp</option>
-            </select>
+            {/* Status Filter */}
+            <div className="flex items-center gap-xs px-md py-sm bg-white border border-outline-variant rounded-lg shadow-sm">
+              <span className="font-label-md text-[#5e5e5b] text-sm font-medium whitespace-nowrap">Trạng thái:</span>
+              <select
+                value={selectedStatusFilter}
+                onChange={(e) => {
+                  setSelectedStatusFilter(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="bg-transparent border-none text-label-md font-semibold text-[#1D4532] focus:ring-0 cursor-pointer outline-none text-sm"
+              >
+                <option value="Tất cả">Tất cả</option>
+                <option value="Đã duyệt">Đã duyệt</option>
+                <option value="Chờ duyệt">Chờ duyệt</option>
+                <option value="Bị từ chối">Bị từ chối</option>
+                <option value="Bản nháp">Bản nháp</option>
+              </select>
+            </div>
           </div>
 
           {/* Add Lesson Button */}
@@ -360,7 +386,7 @@ const InstructorLessons = () => {
               setNewOrderIndex(nextOrder);
               setShowAddForm(true);
             }}
-            className="bg-[#1D4532] text-white px-lg py-sm rounded-lg font-label-md hover:bg-[#1D4532]/95 transition-all flex items-center gap-xs shadow-md ml-auto"
+            className="bg-[#1D4532] text-white px-lg py-sm rounded-lg font-label-md hover:bg-[#1D4532]/95 transition-all flex items-center justify-center gap-xs shadow-md shrink-0"
           >
             <Plus className="w-[18px] h-[18px]" />
             Thêm bài giảng
@@ -393,7 +419,7 @@ const InstructorLessons = () => {
               <table className="w-full min-w-[1080px] border-collapse">
                 <thead>
                   <tr className="bg-[#EDF7F2]/60">
-                    <th className="text-center whitespace-nowrap py-md px-xl font-label-sm text-label-sm text-[#1D4532] font-semibold border-b border-outline-variant/10">
+                    <th className="text-center whitespace-nowrap py-md px-lg font-label-sm text-label-sm text-[#1D4532] font-semibold border-b border-outline-variant/10 w-16">
                       STT
                     </th>
                     <th className="text-left whitespace-nowrap py-md px-xl font-label-sm text-label-sm text-[#1D4532] font-semibold border-b border-outline-variant/10">
@@ -424,7 +450,22 @@ const InstructorLessons = () => {
                         <p className="text-on-surface-variant">Đang tải danh sách bài giảng...</p>
                       </td>
                     </tr>
-                  ) : sortedLessons.map((lesson, idx) => {
+                  ) : paginatedLessons.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="px-xl py-16 text-center">
+                        <div className="mx-auto flex max-w-md flex-col items-center">
+                          <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#1D4532]/10 text-[#1D4532]">
+                            <BookOpen className="h-7 w-7" />
+                          </div>
+                          <h3 className="text-lg font-bold text-on-surface">Chưa có bài giảng nào</h3>
+                          <p className="mt-1 text-sm text-on-surface-variant">Tạo bài giảng đầu tiên để bắt đầu đăng tải học liệu giảng dạy.</p>
+                          <button onClick={() => setShowAddForm(true)} className="mt-5 inline-flex items-center gap-2 rounded-lg bg-[#1D4532] px-5 py-2.5 font-bold text-white hover:opacity-90">
+                            <Plus className="h-4 w-4" /> Thêm bài giảng
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : paginatedLessons.map((lesson, idx) => {
                     const rawInst = lesson.instrument || '';
                     const instFormatted =
                       rawInst.toLowerCase().includes('tranh') ? 'Đàn Tranh'
@@ -438,10 +479,8 @@ const InstructorLessons = () => {
                         key={lesson.id}
                         className="hover:bg-[#EDF7F2]/40 transition-colors group"
                       >
-                        <td className="py-lg px-xl font-label-md text-[#1D4532] font-bold text-center">
-                          <span className="bg-[#1D4532]/10 text-[#1D4532] px-3 py-1 rounded-md border border-[#1D4532]/20 text-xs font-mono">
-                            #{idx + 1}
-                          </span>
+                        <td className="py-lg px-lg text-center font-semibold text-on-surface-variant text-sm">
+                          {(currentPage - 1) * perPage + idx + 1}
                         </td>
                         <td className="py-lg px-xl">
                           <div className="flex flex-col">
@@ -463,8 +502,8 @@ const InstructorLessons = () => {
                             </span>
                           </div>
                         </td>
-                        <td className="py-lg px-md">
-                          <span className="px-md py-xs bg-[#ffe088]/25 text-[#574500] rounded-full text-label-sm font-bold text-xs border border-[#ffe088]/40">
+                        <td className="py-lg px-md whitespace-nowrap">
+                          <span className="px-md py-xs bg-[#ffe088]/25 text-[#574500] rounded-full text-label-sm font-bold text-xs border border-[#ffe088]/40 whitespace-nowrap inline-block">
                             {instFormatted}
                           </span>
                         </td>
@@ -477,7 +516,6 @@ const InstructorLessons = () => {
                             {getStatusMeta(lesson.status).label}
                           </span>
                         </td>
-                        {/* Thao tác Menu (3 dấu chấm) */}
                         <td className="py-lg px-xl text-right relative" onClick={(e) => e.stopPropagation()}>
                           <button
                             onClick={() => setOpenActionMenuLessonId(openActionMenuLessonId === lesson.id ? null : lesson.id)}
@@ -532,9 +570,69 @@ const InstructorLessons = () => {
         </div>
       </div>
 
+      {/* Pagination Footer */}
+      {sortedLessons.length > 0 && (
+        <div className="mt-lg flex flex-col sm:flex-row justify-between items-center gap-md text-[12px] text-[#5e5e5b] pt-4">
+          <div className="flex items-center gap-lg">
+            <p>
+              Hiển thị {(currentPage - 1) * perPage + 1} -{' '}
+              {Math.min(currentPage * perPage, sortedLessons.length)} trong tổng số{' '}
+              {sortedLessons.length} bài giảng
+            </p>
+
+            <div className="flex items-center gap-xs">
+              <span>Số dòng mỗi trang:</span>
+              <select
+                value={perPage}
+                onChange={(e) => {
+                  setPerPage(Number(e.target.value));
+                  setCurrentPage(1);
+                }}
+                className="bg-white border border-outline-variant rounded px-2 py-1 text-label-md cursor-pointer outline-none font-semibold text-[#1D4532]"
+              >
+                <option value={5}>5 dòng</option>
+                <option value={10}>10 dòng</option>
+                <option value={20}>20 dòng</option>
+                <option value={50}>50 dòng</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-xs">
+            <button
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="px-3 py-1.5 rounded-lg border border-outline-variant/30 text-xs font-semibold hover:bg-[#EDF7F2] disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+            >
+              Trang trước
+            </button>
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+              <button
+                key={page}
+                onClick={() => setCurrentPage(page)}
+                className={`w-7 h-7 rounded-lg text-xs font-bold transition-all ${
+                  currentPage === page
+                    ? 'bg-[#1D4532] text-white shadow-xs'
+                    : 'border border-outline-variant/30 hover:bg-[#EDF7F2] text-on-surface'
+                }`}
+              >
+                {page}
+              </button>
+            ))}
+            <button
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              className="px-3 py-1.5 rounded-lg border border-outline-variant/30 text-xs font-semibold hover:bg-[#EDF7F2] disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+            >
+              Trang sau
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Drawer Form Overlay - Slide from right */}
       <AnimatePresence>
-        {isModalOpen && (
+        {Boolean(showAddForm || editingLesson) && (
           <>
             {/* Backdrop Blur Overlay */}
             <motion.div
