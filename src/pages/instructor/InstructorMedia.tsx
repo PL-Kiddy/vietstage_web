@@ -1,14 +1,11 @@
 import { useState, useCallback, type FormEvent } from 'react';
-import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
 import {
   Dumbbell,
   Plus,
   ChevronLeft,
   ChevronRight,
   Check,
-  X,
   Target,
   BookOpen,
   AlertCircle,
@@ -20,22 +17,13 @@ import {
   ListChecks,
 } from 'lucide-react';
 import { useAxiosRequest } from '../../hooks/useAxiosRequest';
-import { lessonsApi, exercisesApi, masterDataApi, lessonTechniquesApi, type ExerciseInput } from '../../api/services';
-import type { Lesson, SkillLevel } from '../../api/types';
+import { lessonsApi, exercisesApi, masterDataApi, type ExerciseInput } from '../../api/services';
+import type { Lesson } from '../../api/types';
 
 // ─── Tab definitions ──────────────────────────────────────────────────────────
 type Tab = 'order' | 'exercises';
 
-// ─── Lesson edit state ────────────────────────────────────────────────────────
-interface EditingLesson {
-  id: number;
-  title: string;
-  description: string;
-  orderIndex: number;
-  skillLevelId?: number;
-  instrumentId?: number;
-  status?: string;
-}
+
 
 const getInstrumentTranslation = (instName: string) => {
   if (!instName) return '';
@@ -52,23 +40,8 @@ const InstructorMedia = () => {
   const [activeTab, setActiveTab] = useState<Tab>('order');
 
   // ── Tab 1: Curriculum Order ────────────────────────────────────────────
-  const [editingLesson, setEditingLesson] = useState<EditingLesson | null>(null);
-  const [isSavingLesson, setIsSavingLesson] = useState(false);
-  const [lessonSaveError, setLessonSaveError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [openActionMenuId, setOpenActionMenuId] = useState<number | null>(null);
-
-  // Create lesson form
-  const [showCreateForm, setShowCreateForm] = useState(false);
-  const [createTitle, setCreateTitle] = useState('');
-  const [createDesc, setCreateDesc] = useState('');
-  const [createOrder, setCreateOrder] = useState<number>(1);
-  const [createInstrumentId, setCreateInstrumentId] = useState<number>(1);
-  const [createSkillLevelId, setCreateSkillLevelId] = useState<number | undefined>(undefined);
-  const [createStatus, setCreateStatus] = useState<string>('DRAFT');
-  const [createPassingThreshold, setCreatePassingThreshold] = useState<number>(80);
-  const [isCreating, setIsCreating] = useState(false);
-  const [createError, setCreateError] = useState<string | null>(null);
 
   // ── Tab 2: Exercise Management ─────────────────────────────────────────
   const [selectedLessonId, setSelectedLessonId] = useState<number | ''>('');
@@ -85,7 +58,7 @@ const InstructorMedia = () => {
     lessonsApi.list(new URLSearchParams({ size: '100', sort: 'orderIndex,asc' }), { signal })
     , []);
 
-  const { data: lessonsResponse, loading: lessonsLoading, execute: refetchLessons } = useAxiosRequest(
+  const { data: lessonsResponse, loading: lessonsLoading } = useAxiosRequest(
     fetchLessons, { auto: true }
   );
 
@@ -102,93 +75,6 @@ const InstructorMedia = () => {
     { auto: true, initialData: [] }
   );
 
-  const { data: skillLevels = [] } = useAxiosRequest<SkillLevel[]>(
-    (signal) => masterDataApi.skillLevels({ signal }),
-    { auto: true, initialData: [] }
-  );
-
-  // ── Drawer Modal control ─────────────────────────────────────────────
-  const isDrawerOpen = showCreateForm || editingLesson !== null;
-
-
-
-  const handleCloseModal = () => {
-    setShowCreateForm(false);
-    setEditingLesson(null);
-    setCreateError(null);
-    setLessonSaveError(null);
-  };
-
-
-  // ── Handler: Save lesson order/details ───────────────────────────────
-  const saveLesson = async () => {
-    if (!editingLesson) return;
-    setIsSavingLesson(true);
-    setLessonSaveError(null);
-    try {
-      await lessonsApi.update(editingLesson.id, {
-        title: editingLesson.title,
-        description: editingLesson.description,
-        orderIndex: editingLesson.orderIndex,
-        skillLevelId: editingLesson.skillLevelId,
-      });
-      if (editingLesson.description.trim()) {
-        try {
-          await lessonTechniquesApi.create(editingLesson.id, {
-            name: 'Ghi chú Kỹ thuật biểu diễn',
-            description: editingLesson.description.trim(),
-          });
-        } catch {
-          // fallback if endpoint returns 404 or duplicate
-        }
-      }
-      await refetchLessons();
-      setEditingLesson(null);
-    } catch (err) {
-      setLessonSaveError(err instanceof Error ? err.message : 'Không thể cập nhật bài học.');
-    } finally {
-      setIsSavingLesson(false);
-    }
-  };
-
-
-
-  // ── Handler: Create new lesson ────────────────────────────────────────
-  const handleCreateLesson = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!createTitle.trim()) return;
-    setIsCreating(true);
-    setCreateError(null);
-    try {
-      const createdLesson = await lessonsApi.create({
-        title: createTitle.trim(),
-        description: createDesc.trim(),
-        orderIndex: createOrder,
-        instrumentId: createInstrumentId,
-        skillLevelId: createSkillLevelId,
-        status: (createStatus as 'DRAFT' | 'PENDING') || 'DRAFT',
-      });
-      if (createdLesson?.id && createDesc.trim()) {
-        try {
-          await lessonTechniquesApi.create(createdLesson.id, {
-            name: 'Ghi chú Kỹ thuật biểu diễn',
-            description: createDesc.trim(),
-          });
-        } catch {
-          // fallback
-        }
-      }
-      await refetchLessons();
-      setShowCreateForm(false);
-      setCreateTitle('');
-      setCreateDesc('');
-      setCreateOrder(lessons.length + 1);
-    } catch (err) {
-      setCreateError(err instanceof Error ? err.message : 'Không thể tạo bài học.');
-    } finally {
-      setIsCreating(false);
-    }
-  };
 
   // ── Handler: Create exercise ──────────────────────────────────────────
   const handleCreateExercise = async (e: FormEvent) => {
@@ -668,211 +554,7 @@ const InstructorMedia = () => {
         </div>
       )}
 
-      {/* Drawer Form Overlay - Slide from right */}
-      {createPortal(
-        <AnimatePresence>
-          {isDrawerOpen && (
-            <>
-              {/* Backdrop Blur Overlay */}
-              <motion.div
-                className="fixed inset-0 bg-black/60 backdrop-blur-sm"
-                style={{ zIndex: 9998 }}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                onClick={handleCloseModal}
-              />
 
-              {/* Slide-in Drawer */}
-              <motion.div
-                className="fixed top-0 right-0 h-full w-[100%] sm:w-[75%] md:w-[65%] lg:w-[50%] bg-[#fbf9f4] border-l border-outline-variant/15 shadow-2xl overflow-hidden flex flex-col"
-                style={{ zIndex: 9999 }}
-                initial={{ x: '100%' }}
-                animate={{ x: 0 }}
-                exit={{ x: '100%' }}
-                transition={{ type: 'spring', damping: 25, stiffness: 220 }}
-              >
-                {/* Drawer Header */}
-                <div className="px-xl py-lg border-b border-outline-variant/10 flex justify-between items-center bg-[#EDF7F2]">
-                  <div>
-                    <h4 className="text-headline-md font-bold text-[#1D4532] font-sans">
-                      {editingLesson ? 'Chỉnh sửa bài học' : 'Thêm bài học mới'}
-                    </h4>
-                    <p className="text-label-sm text-on-surface-variant text-[13px] mt-xs">
-                      {editingLesson ? 'Cập nhật tiêu đề, nhạc cụ và cấu hình cho bài học.' : 'Tạo bài học mới và xếp vị trí lộ trình trong giáo trình.'}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleCloseModal}
-                    className="p-md hover:bg-[#1D4532]/10 rounded-full text-on-surface-variant hover:text-on-surface transition-colors"
-                  >
-                    <X className="w-6 h-6" />
-                  </button>
-                </div>
-
-                {/* Drawer Body Form */}
-                <form
-                  onSubmit={editingLesson ? (e) => { e.preventDefault(); void saveLesson(); } : handleCreateLesson}
-                  className="flex-1 overflow-y-auto p-xl space-y-xl custom-scrollbar flex flex-col justify-between"
-                >
-                  <div className="bg-white/95 backdrop-blur-md border border-outline-variant/10 rounded-2xl p-lg shadow-sm space-y-lg">
-                    {/* Grid 1: Title & Instrument */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-md">
-                      <div className="flex flex-col gap-xs">
-                        <label className="font-label-sm text-on-surface-variant font-semibold uppercase tracking-wider text-xs">
-                          Tên bài học *
-                        </label>
-                        <input
-                          type="text"
-                          required
-                          value={editingLesson ? editingLesson.title : createTitle}
-                          onChange={(e) => editingLesson ? setEditingLesson({ ...editingLesson, title: e.target.value }) : setCreateTitle(e.target.value)}
-                          placeholder="Nhập tên bài học..."
-                          className="w-full bg-[#fbf9f4] border border-outline-variant/30 rounded-xl p-md text-body-md focus:border-primary focus:ring-1 focus:ring-primary transition-all outline-none text-on-surface text-sm"
-                        />
-                      </div>
-                      <div className="flex flex-col gap-xs">
-                        <label className="font-label-sm text-on-surface-variant font-semibold uppercase tracking-wider text-xs">
-                          Nhạc cụ giảng dạy
-                        </label>
-                        <select
-                          value={editingLesson ? (editingLesson.instrumentId ?? 1) : createInstrumentId}
-                          onChange={(e) => editingLesson ? setEditingLesson({ ...editingLesson, instrumentId: Number(e.target.value) }) : setCreateInstrumentId(Number(e.target.value))}
-                          className="w-full bg-[#fbf9f4] border border-outline-variant/30 rounded-xl p-md text-body-md focus:border-primary focus:ring-1 focus:ring-primary transition-all outline-none text-on-surface cursor-pointer text-sm"
-                        >
-                          {instruments.map((inst: any) => (
-                            <option key={inst.id} value={inst.id}>
-                              {inst.name}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-
-                    {/* Grid 2: Order Index & Skill Level */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-md">
-                      <div className="flex flex-col gap-xs">
-                        <label className="font-label-sm text-on-surface-variant font-semibold uppercase tracking-wider text-xs">
-                          Thứ tự trong giáo trình
-                        </label>
-                        <input
-                          type="number"
-                          min="1"
-                          value={editingLesson ? editingLesson.orderIndex : createOrder}
-                          onChange={(e) => editingLesson ? setEditingLesson({ ...editingLesson, orderIndex: Math.max(1, parseInt(e.target.value) || 1) }) : setCreateOrder(Math.max(1, parseInt(e.target.value) || 1))}
-                          className="w-full bg-[#fbf9f4] border border-outline-variant/30 rounded-xl p-md text-body-md focus:border-primary focus:ring-1 focus:ring-primary transition-all outline-none text-on-surface text-sm"
-                        />
-                      </div>
-                      <div className="flex flex-col gap-xs">
-                        <label className="font-label-sm text-on-surface-variant font-semibold uppercase tracking-wider text-xs">
-                          Trình độ
-                        </label>
-                        <select
-                          value={editingLesson ? (editingLesson.skillLevelId ?? '') : (createSkillLevelId ?? '')}
-                          onChange={(e) => {
-                            const val = e.target.value ? Number(e.target.value) : undefined;
-                            if (editingLesson) setEditingLesson({ ...editingLesson, skillLevelId: val });
-                            else setCreateSkillLevelId(val);
-                          }}
-                          className="w-full bg-[#fbf9f4] border border-outline-variant/30 rounded-xl p-md text-body-md focus:border-primary focus:ring-1 focus:ring-primary transition-all outline-none text-on-surface cursor-pointer text-sm"
-                        >
-                          <option value="">-- Chọn trình độ --</option>
-                          {(skillLevels as SkillLevel[]).map((level: SkillLevel) => (
-                            <option key={level.id} value={level.id}>{level.levelName}</option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-
-                    {/* Status Selection */}
-                    <div className="flex flex-col gap-xs">
-                      <label className="font-label-sm text-on-surface-variant font-semibold uppercase tracking-wider text-xs">
-                        Trạng thái hiển thị
-                      </label>
-                      <select
-                        value={editingLesson ? (editingLesson.status ?? 'DRAFT') : createStatus}
-                        onChange={(e) => editingLesson ? setEditingLesson({ ...editingLesson, status: e.target.value }) : setCreateStatus(e.target.value)}
-                        className="w-full bg-[#fbf9f4] border border-outline-variant/30 rounded-xl p-md text-body-md focus:border-primary focus:ring-1 focus:ring-primary transition-all outline-none text-on-surface cursor-pointer text-sm"
-                      >
-                        <option value="DRAFT">Bản nháp (Draft)</option>
-                        <option value="APPROVED">Công khai (Approved)</option>
-                        <option value="PENDING">Chờ duyệt (Pending)</option>
-                      </select>
-                    </div>
-
-                    {/* Score Range Slider */}
-                    <div className="flex flex-col gap-xs border-t border-outline-variant/10 pt-md">
-                      <div className="flex justify-between items-center">
-                        <label className="font-label-sm text-on-surface-variant font-semibold uppercase tracking-wider text-xs">
-                          Điểm AI tối thiểu để đạt
-                        </label>
-                        <span className="bg-[#ffe088]/30 text-[#574500] px-sm py-xs rounded font-bold text-xs">
-                          {createPassingThreshold}%
-                        </span>
-                      </div>
-                      <input
-                        type="range"
-                        min="50"
-                        max="95"
-                        step="5"
-                        value={createPassingThreshold}
-                        onChange={(e) => setCreatePassingThreshold(Number(e.target.value))}
-                        className="w-full h-2 bg-[#eae8e3] rounded-lg appearance-none cursor-pointer accent-[#1D4532] mt-2"
-                      />
-                    </div>
-
-                    {/* Description */}
-                    <div className="flex flex-col gap-xs border-t border-outline-variant/10 pt-md">
-                      <label className="font-label-sm text-on-surface-variant font-semibold uppercase tracking-wider text-xs">
-                        Mô tả kỹ thuật biểu diễn
-                      </label>
-                      <textarea
-                        rows={3}
-                        value={editingLesson ? editingLesson.description : createDesc}
-                        onChange={(e) => editingLesson ? setEditingLesson({ ...editingLesson, description: e.target.value }) : setCreateDesc(e.target.value)}
-                        placeholder="Mô tả kỹ thuật rung dây, nhấn vuốt, gảy ngón..."
-                        className="w-full bg-[#fbf9f4] border border-outline-variant/30 rounded-xl p-md text-body-md focus:border-primary focus:ring-1 focus:ring-primary transition-all outline-none text-on-surface text-sm resize-none"
-                      />
-                    </div>
-
-                    {/* Errors */}
-                    {(createError || lessonSaveError) && (
-                      <div className="flex items-center gap-xs bg-red-50 border border-red-200 rounded-xl p-md text-red-700 text-xs">
-                        <AlertCircle className="w-4 h-4 flex-shrink-0" /> {createError || lessonSaveError}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Drawer Footer Buttons */}
-                  <div className="flex items-center justify-end gap-md pt-lg border-t border-outline-variant/10">
-                    <button
-                      type="button"
-                      onClick={handleCloseModal}
-                      className="px-xl py-md rounded-xl border border-outline-variant/30 text-on-surface-variant text-sm font-bold hover:bg-black/5 transition-all"
-                    >
-                      Hủy
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={isCreating || isSavingLesson || (editingLesson ? !editingLesson.title.trim() : !createTitle.trim())}
-                      className="px-xl py-md rounded-xl bg-[#1D4532] text-white text-sm font-bold hover:bg-[#1D4532]/90 transition-all disabled:opacity-50 flex items-center gap-xs shadow-md"
-                    >
-                      {(isCreating || isSavingLesson) ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <Check className="w-4 h-4" />
-                      )}
-                      {editingLesson ? 'Lưu thay đổi' : 'Tạo bài học'}
-                    </button>
-                  </div>
-                </form>
-              </motion.div>
-            </>
-          )}
-        </AnimatePresence>,
-        document.body
-      )}
     </div>
   );
 };
