@@ -8,10 +8,10 @@ import {
 import logo from '../../assets/logongangtachnen.png';
 
 const navItems = [
-  { icon: LayoutDashboard, label: 'Tổng quan', href: '/instructor' },
-  { icon: BookOpen, label: 'Quản lý Bài giảng', href: '/instructor/lessons' },
-  { icon: Users, label: 'Theo dõi Học viên', href: '/instructor/students' },
-  { icon: GraduationCap, label: 'Cấu trúc Giáo trình', href: '/instructor/media' },
+  { icon: LayoutDashboard, label: 'Tổng quan & Báo cáo', href: '/instructor' },
+  { icon: BookOpen, label: 'Nội dung & Học liệu', href: '/instructor/lessons' },
+  { icon: GraduationCap, label: 'Cấu hình Giáo trình', href: '/instructor/media' },
+  { icon: Users, label: 'Tiến độ & Phản hồi', href: '/instructor/students' },
 ];
 
 const InstructorSidebar = () => {
