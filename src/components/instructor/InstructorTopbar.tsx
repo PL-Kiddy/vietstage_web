@@ -1,9 +1,34 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bell, CheckCheck, X, User, LogOut } from 'lucide-react';
+import { Bell, CheckCheck, X, User, LogOut, Settings, Book, AlertCircle, Calendar, MessageSquare } from 'lucide-react';
 import { authApi } from '../../api/services';
 import { clearAuthSession, getAuthSession } from '../../api/authStorage';
 import { notificationApi, profileApi, type Notification, type UserProfile } from '../../api/management';
+
+const getTimeAgo = (dateStr: string) => {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const minutes = Math.floor(diff / 60000);
+  if (minutes < 1) return 'Vừa xong';
+  if (minutes < 60) return `${minutes} phút trước`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} giờ trước`;
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `${days} ngày trước`;
+  const months = Math.floor(days / 30);
+  if (months < 12) return `${months} tháng trước`;
+  return `${Math.floor(months / 12)} năm trước`;
+};
+
+const getNotificationIcon = (type?: string) => {
+  switch (type) {
+    case 'system': return <Settings className="w-6 h-6 text-gray-500" />;
+    case 'course': return <Book className="w-6 h-6 text-[#1D4532]" />;
+    case 'alert': return <AlertCircle className="w-6 h-6 text-red-500" />;
+    case 'schedule': return <Calendar className="w-6 h-6 text-amber-500" />;
+    case 'message': return <MessageSquare className="w-6 h-6 text-blue-500" />;
+    default: return <Bell className="w-6 h-6 text-[#1D4532]" />;
+  }
+};
 
 interface InstructorTopbarProps {
   userName?: string;
@@ -14,6 +39,7 @@ const InstructorTopbar = ({ userName, userRole }: InstructorTopbarProps) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [filter, setFilter] = useState<'all' | 'unread'>('all');
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
@@ -25,6 +51,15 @@ const InstructorTopbar = ({ userName, userRole }: InstructorTopbarProps) => {
   const avatarUrl = userProfile?.avatarUrl;
 
   const unread = notifications.filter((n) => !n.read).length;
+  
+  const filteredNotifications = notifications.filter(n => filter === 'all' || !n.read);
+  
+  const groupedNotifications = filteredNotifications.reduce((acc, n) => {
+    const diffHours = (Date.now() - new Date(n.createdAt).getTime()) / (1000 * 60 * 60);
+    if (diffHours < 24) acc.new.push(n);
+    else acc.earlier.push(n);
+    return acc;
+  }, { new: [] as Notification[], earlier: [] as Notification[] });
 
   // Fetch profile and notifications
   useEffect(() => {
@@ -117,69 +152,131 @@ const InstructorTopbar = ({ userName, userRole }: InstructorTopbarProps) => {
 
           {/* Notification Dropdown */}
           {isNotifOpen && (
-            <div className="absolute right-0 top-full mt-2 w-[380px] bg-white border border-outline-variant/20 rounded-2xl shadow-xl shadow-black/5 z-50 overflow-hidden">
+            <div className="absolute right-0 top-full mt-2 w-[400px] bg-white border border-outline-variant/20 rounded-2xl shadow-2xl shadow-black/10 z-50 overflow-hidden flex flex-col">
               {/* Header */}
-              <div className="flex items-center justify-between px-5 py-3.5 border-b border-outline-variant/10 bg-white">
-                <span className="font-bold text-[15px] text-[#1D4532] truncate pr-2">
-                  Thông báo {unread > 0 && <span className="text-red-500 text-sm">({unread} mới)</span>}
-                </span>
-                <div className="flex items-center gap-1 shrink-0">
-                  {unread > 0 && (
+              <div className="flex flex-col px-4 pt-4 pb-2 border-b border-outline-variant/10 bg-white">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="font-bold text-[24px] tracking-tight text-on-surface">Thông báo</span>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {unread > 0 && (
+                      <button
+                        onClick={handleMarkAllAsRead}
+                        className="text-[13px] font-semibold text-[#1D4532] hover:bg-[#EDF7F2] px-2.5 py-1.5 rounded-lg transition-colors whitespace-nowrap"
+                        title="Đánh dấu tất cả đã đọc"
+                      >
+                        <CheckCheck className="w-4 h-4 inline mr-1" />Đọc tất cả
+                      </button>
+                    )}
                     <button
-                      onClick={handleMarkAllAsRead}
-                      className="flex items-center gap-1 text-xs font-semibold text-[#1D4532] hover:bg-[#EDF7F2] px-2 py-1.5 rounded-lg transition-colors whitespace-nowrap"
-                      title="Đánh dấu tất cả đã đọc"
+                      onClick={() => setIsNotifOpen(false)}
+                      className="p-2 rounded-full text-on-surface-variant hover:bg-outline-variant/10 transition-colors"
                     >
-                      <CheckCheck className="w-4 h-4" />
-                      Đọc tất cả
+                      <X className="w-5 h-5" />
                     </button>
-                  )}
-                  <button
-                    onClick={() => setIsNotifOpen(false)}
-                    className="p-1.5 rounded-lg text-on-surface-variant hover:bg-red-50 hover:text-red-500 transition-colors"
+                  </div>
+                </div>
+                
+                {/* Filter Pills */}
+                <div className="flex gap-2">
+                  <button 
+                    onClick={() => setFilter('all')} 
+                    className={`px-3.5 py-1.5 rounded-full text-[14px] font-bold transition-colors ${filter === 'all' ? 'bg-[#EDF7F2] text-[#1D4532]' : 'hover:bg-outline-variant/10 text-on-surface'}`}
                   >
-                    <X className="w-4.5 h-4.5" />
+                    Tất cả
+                  </button>
+                  <button 
+                    onClick={() => setFilter('unread')} 
+                    className={`px-3.5 py-1.5 rounded-full text-[14px] font-bold transition-colors ${filter === 'unread' ? 'bg-[#EDF7F2] text-[#1D4532]' : 'hover:bg-outline-variant/10 text-on-surface'}`}
+                  >
+                    Chưa đọc
                   </button>
                 </div>
               </div>
 
               {/* Body */}
-              <div className="max-h-80 overflow-y-auto bg-[#fbf9f4]/30">
+              <div className="max-h-[480px] overflow-y-auto bg-white pb-3">
                 {loading ? (
                   <div className="flex items-center justify-center py-8 text-sm text-on-surface-variant font-medium">
                     <div className="animate-spin w-4 h-4 border-2 border-[#1D4532] border-t-transparent rounded-full mr-2" />
                     Đang tải...
                   </div>
-                ) : notifications.length === 0 ? (
+                ) : filteredNotifications.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-12 gap-3">
-                    <Bell className="w-8 h-8 text-on-surface-variant/30" />
-                    <p className="text-sm font-medium text-on-surface-variant">Không có thông báo nào</p>
+                    <Bell className="w-10 h-10 text-outline-variant/40" />
+                    <p className="text-[15px] font-semibold text-on-surface-variant">Không có thông báo nào</p>
                   </div>
                 ) : (
-                  notifications.slice(0, 10).map((n) => (
-                    <button
-                      key={n.id}
-                      onClick={() => handleMarkAsRead(n.id)}
-                      className={`w-full text-left px-4 py-3.5 transition-colors border-b border-outline-variant/10 last:border-0 ${!n.read ? 'bg-[#EDF7F2] hover:bg-[#e4f1ea]' : 'hover:bg-white'
-                        }`}
-                    >
-                      <div className="flex items-start gap-3">
-                        {!n.read && (
-                          <span className="mt-1.5 w-2 h-2 bg-[#1D4532] rounded-full flex-shrink-0 shadow-[0_0_8px_rgba(29,69,50,0.3)]" />
-                        )}
-                        <div className={`flex-1 ${!n.read ? '' : 'ml-5'}`}>
-                          <div className={`text-sm leading-snug ${!n.read ? 'font-bold text-[#1D4532]' : 'font-medium text-on-surface'}`}>{n.title}</div>
-                          <div className="text-[13px] text-on-surface-variant mt-1 line-clamp-2">{n.message}</div>
-                          <div className="text-[11px] font-medium text-on-surface-variant/60 mt-2">
-                            {new Date(n.createdAt).toLocaleString('vi-VN', { 
-                              hour: '2-digit', minute: '2-digit', 
-                              day: '2-digit', month: '2-digit', year: 'numeric' 
-                            })}
-                          </div>
+                  <>
+                    {groupedNotifications.new.length > 0 && (
+                      <div className="mt-2">
+                        <div className="px-4 py-2">
+                          <h4 className="font-bold text-[16px] text-on-surface">Mới</h4>
                         </div>
+                        {groupedNotifications.new.slice(0, 15).map((n) => (
+                          <button
+                            key={n.id}
+                            onClick={() => handleMarkAsRead(n.id)}
+                            className="w-full text-left px-4 py-2.5 hover:bg-[#f2f4f7] transition-colors flex items-center gap-3 relative overflow-hidden group"
+                          >
+                            <div className="relative shrink-0">
+                              <div className={`w-14 h-14 rounded-full flex items-center justify-center border border-outline-variant/10 ${!n.read ? 'bg-[#EDF7F2]' : 'bg-white shadow-sm'}`}>
+                                {getNotificationIcon(n.type)}
+                              </div>
+                            </div>
+                            <div className="flex-1 min-w-0 pr-4">
+                              <div className="text-[14.5px] leading-snug text-on-surface line-clamp-3">
+                                <span className={`mr-1 ${!n.read ? 'font-bold' : 'font-semibold'}`}>{n.title}</span>
+                                <span className={`${!n.read ? 'font-medium' : 'text-on-surface-variant'}`}>{n.message}</span>
+                              </div>
+                              <div className={`text-[13px] mt-1 ${!n.read ? 'font-bold text-[#1D4532]' : 'font-medium text-on-surface-variant'}`}>
+                                {getTimeAgo(n.createdAt)}
+                              </div>
+                            </div>
+                            {!n.read && (
+                              <div className="shrink-0 flex items-center justify-center w-4">
+                                <div className="w-3 h-3 bg-[#1D4532] rounded-full shadow-[0_0_8px_rgba(29,69,50,0.4)]"></div>
+                              </div>
+                            )}
+                          </button>
+                        ))}
                       </div>
-                    </button>
-                  ))
+                    )}
+
+                    {groupedNotifications.earlier.length > 0 && (
+                      <div className="mt-2">
+                        <div className="px-4 py-2">
+                          <h4 className="font-bold text-[16px] text-on-surface">Trước đó</h4>
+                        </div>
+                        {groupedNotifications.earlier.slice(0, 15).map((n) => (
+                          <button
+                            key={n.id}
+                            onClick={() => handleMarkAsRead(n.id)}
+                            className="w-full text-left px-4 py-2.5 hover:bg-[#f2f4f7] transition-colors flex items-center gap-3 relative overflow-hidden group"
+                          >
+                            <div className="relative shrink-0">
+                              <div className={`w-14 h-14 rounded-full flex items-center justify-center border border-outline-variant/10 ${!n.read ? 'bg-[#EDF7F2]' : 'bg-white shadow-sm'}`}>
+                                {getNotificationIcon(n.type)}
+                              </div>
+                            </div>
+                            <div className="flex-1 min-w-0 pr-4">
+                              <div className="text-[14.5px] leading-snug text-on-surface line-clamp-3">
+                                <span className={`mr-1 ${!n.read ? 'font-bold' : 'font-semibold'}`}>{n.title}</span>
+                                <span className={`${!n.read ? 'font-medium' : 'text-on-surface-variant'}`}>{n.message}</span>
+                              </div>
+                              <div className={`text-[13px] mt-1 ${!n.read ? 'font-bold text-[#1D4532]' : 'font-medium text-on-surface-variant'}`}>
+                                {getTimeAgo(n.createdAt)}
+                              </div>
+                            </div>
+                            {!n.read && (
+                              <div className="shrink-0 flex items-center justify-center w-4">
+                                <div className="w-3 h-3 bg-[#1D4532] rounded-full shadow-[0_0_8px_rgba(29,69,50,0.4)]"></div>
+                              </div>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             </div>
