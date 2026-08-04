@@ -13,6 +13,8 @@ import {
   AlertCircle,
   Search,
   MoreVertical,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -527,7 +529,9 @@ const InstructorLessons = () => {
                           {openActionMenuLessonId === lesson.id && (
                             <>
                               <div className="fixed inset-0 z-10" onClick={() => setOpenActionMenuLessonId(null)} />
-                              <div className="absolute right-4 mt-1 w-52 bg-white border border-[#d1e4fb] rounded-xl shadow-lg py-1 z-20 text-left">
+                              <div className={`absolute right-4 w-52 bg-white border border-[#d1e4fb] rounded-xl shadow-lg py-1 z-20 text-left ${
+                                idx >= paginatedLessons.length - 2 && paginatedLessons.length > 2 ? 'bottom-[85%] mb-1' : 'top-full mt-1'
+                              }`}>
                                 <Link
                                   to={`/instructor/lessons/${lesson.id}/content`}
                                   onClick={() => setOpenActionMenuLessonId(null)}
@@ -598,33 +602,33 @@ const InstructorLessons = () => {
             </div>
           </div>
 
-          <div className="flex items-center gap-xs">
+          <div className="flex gap-xs">
             <button
-              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-              disabled={currentPage === 1}
-              className="px-3 py-1.5 rounded-lg border border-outline-variant/30 text-xs font-semibold hover:bg-[#EDF7F2] disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+              disabled={currentPage <= 1}
+              onClick={() => setCurrentPage((p) => p - 1)}
+              className="p-2 border border-outline-variant rounded hover:bg-[#EDF7F2] transition-colors disabled:opacity-40"
             >
-              Trang trước
+              <ChevronLeft className="w-4 h-4" />
             </button>
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
               <button
-                key={page}
-                onClick={() => setCurrentPage(page)}
-                className={`w-7 h-7 rounded-lg text-xs font-bold transition-all ${
-                  currentPage === page
-                    ? 'bg-[#1D4532] text-white shadow-xs'
-                    : 'border border-outline-variant/30 hover:bg-[#EDF7F2] text-on-surface'
+                key={p}
+                onClick={() => setCurrentPage(p)}
+                className={`px-3 py-1 rounded font-bold transition-colors ${
+                  p === currentPage
+                    ? 'bg-[#1D4532] text-white'
+                    : 'border border-outline-variant hover:bg-[#EDF7F2]'
                 }`}
               >
-                {page}
+                {p}
               </button>
             ))}
             <button
-              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-              disabled={currentPage === totalPages}
-              className="px-3 py-1.5 rounded-lg border border-outline-variant/30 text-xs font-semibold hover:bg-[#EDF7F2] disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+              disabled={currentPage >= totalPages}
+              onClick={() => setCurrentPage((p) => p + 1)}
+              className="p-2 border border-outline-variant rounded hover:bg-[#EDF7F2] transition-colors disabled:opacity-40"
             >
-              Trang sau
+              <ChevronRight className="w-4 h-4" />
             </button>
           </div>
         </div>
