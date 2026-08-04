@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { lessonsApi, masterDataApi, uploadApi, lessonAssetsApi } from '../../api/services';
+import { lessonsApi, masterDataApi, uploadApi, lessonAssetsApi, lessonTechniquesApi } from '../../api/services';
 import { lessonDetailApi } from '../../api/management';
 import type { Instrument, Lesson as ApiLesson, SkillLevel } from '../../api/types';
 import { useAxiosRequest } from '../../hooks/useAxiosRequest';
@@ -194,7 +194,8 @@ const InstructorLessons = () => {
 
     try {
       if (editingLesson) {
-        await lessonsApi.update(Number(editingLesson.id), {
+        const lessonIdNum = Number(editingLesson.id);
+        await lessonsApi.update(lessonIdNum, {
           title: newTitle.trim(),
           description: newDescription,
           skillLevelId,
@@ -202,13 +203,23 @@ const InstructorLessons = () => {
           exercises: newExercises,
           passThreshold: newPassingThreshold,
         });
+        if (newDescription.trim()) {
+          try {
+            await lessonTechniquesApi.create(lessonIdNum, {
+              name: 'Ghi chú kỹ thuật gảy/thổi',
+              description: newDescription.trim(),
+            });
+          } catch {
+            // fallback
+          }
+        }
         if (editingLesson.backendStatus !== targetStatus
             && !(editingLesson.backendStatus === 'APPROVED' && targetStatus === 'PENDING')) {
-          await lessonsApi.updateStatus(Number(editingLesson.id), targetStatus);
+          await lessonsApi.updateStatus(lessonIdNum, targetStatus);
         }
         alert('Đã cập nhật bài giảng thành công!');
       } else {
-        await lessonsApi.create({
+        const createdLesson = await lessonsApi.create({
           title: newTitle.trim(),
           description: newDescription,
           instrumentId: instrument.id,
@@ -218,6 +229,16 @@ const InstructorLessons = () => {
           exercises: newExercises,
           passThreshold: newPassingThreshold,
         });
+        if (createdLesson?.id && newDescription.trim()) {
+          try {
+            await lessonTechniquesApi.create(createdLesson.id, {
+              name: 'Ghi chú kỹ thuật gảy/thổi',
+              description: newDescription.trim(),
+            });
+          } catch {
+            // fallback
+          }
+        }
         alert('Đã thêm bài giảng mới!');
       }
       await loadLessons();
