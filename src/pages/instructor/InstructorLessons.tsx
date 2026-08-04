@@ -267,7 +267,9 @@ const InstructorLessons = () => {
   const filteredLessons = lessons.filter((lesson) => {
     const matchesSearch =
       lesson.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      lesson.description.toLowerCase().includes(searchQuery.toLowerCase());
+      lesson.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      lesson.instrument.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      lesson.updatedAt.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesInstrument =
       selectedInstrumentFilter === 'Tất cả' ||
       lesson.instrument.toLowerCase() === selectedInstrumentFilter.toLowerCase();
@@ -313,72 +315,70 @@ const InstructorLessons = () => {
         </div>
 
         {/* Controls Row: Search + Filter + Add Button */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-md w-full">
-          <div className="flex flex-wrap items-center gap-sm flex-1">
-            {/* Search Bar */}
-            <div className="flex items-center gap-xs px-md py-sm bg-white border border-[#d1e4fb] rounded-lg min-w-[260px] flex-1 sm:flex-initial shadow-sm focus-within:ring-1 focus-within:ring-[#1D4532] transition-all">
-              <Search className="w-5 h-5 text-[#5e5e5b] flex-shrink-0" />
-              <input
-                type="text"
-                placeholder="Tìm theo tên bài giảng, mô tả..."
-                value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value);
+        <div className="flex flex-col md:flex-row md:items-center gap-sm w-full">
+          {/* Search Bar - Kéo dài chiếm khoảng trống bên trái */}
+          <div className="flex items-center gap-xs px-md h-[42px] bg-white border border-[#d1e4fb] rounded-lg flex-grow shadow-sm focus-within:ring-1 focus-within:ring-[#1D4532] transition-all">
+            <Search className="w-5 h-5 text-[#5e5e5b] flex-shrink-0" />
+            <input
+              type="text"
+              placeholder="Tìm theo tên bài giảng, mô tả, nhạc cụ, ngày cập nhật..."
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="bg-transparent border-none outline-none text-body-md w-full text-on-surface focus:ring-0 placeholder:text-[#5e5e5b]/50 py-1 leading-normal"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => {
+                  setSearchQuery('');
                   setCurrentPage(1);
                 }}
-                className="bg-transparent border-none outline-none text-body-md w-full text-on-surface focus:ring-0 placeholder:text-[#5e5e5b]/50"
-              />
-              {searchQuery && (
-                <button
-                  onClick={() => {
-                    setSearchQuery('');
-                    setCurrentPage(1);
-                  }}
-                  className="text-[#5e5e5b] hover:text-error transition-colors"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              )}
-            </div>
-
-            {/* Instrument Filter */}
-            <div className="flex items-center gap-xs px-md py-sm bg-white border border-outline-variant rounded-lg shadow-sm">
-              <span className="font-label-md text-[#5e5e5b] text-sm font-medium whitespace-nowrap">Nhạc cụ:</span>
-              <select
-                value={selectedInstrumentFilter}
-                onChange={(e) => {
-                  setSelectedInstrumentFilter(e.target.value);
-                  setCurrentPage(1);
-                }}
-                className="bg-transparent border-none text-label-md font-semibold text-[#1D4532] focus:ring-0 cursor-pointer outline-none text-sm"
+                className="text-[#5e5e5b] hover:text-error transition-colors"
               >
-                <option value="Tất cả">Tất cả nhạc cụ</option>
-                {Array.from(new Set(lessons.map((l) => l.instrument))).filter(Boolean).map((ins) => (
-                  <option key={ins} value={ins}>
-                    {ins}
-                  </option>
-                ))}
-              </select>
-            </div>
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
 
-            {/* Status Filter */}
-            <div className="flex items-center gap-xs px-md py-sm bg-white border border-outline-variant rounded-lg shadow-sm">
-              <span className="font-label-md text-[#5e5e5b] text-sm font-medium whitespace-nowrap">Trạng thái:</span>
-              <select
-                value={selectedStatusFilter}
-                onChange={(e) => {
-                  setSelectedStatusFilter(e.target.value);
-                  setCurrentPage(1);
-                }}
-                className="bg-transparent border-none text-label-md font-semibold text-[#1D4532] focus:ring-0 cursor-pointer outline-none text-sm"
-              >
-                <option value="Tất cả">Tất cả</option>
-                <option value="Đã duyệt">Đã duyệt</option>
-                <option value="Chờ duyệt">Chờ duyệt</option>
-                <option value="Bị từ chối">Bị từ chối</option>
-                <option value="Bản nháp">Bản nháp</option>
-              </select>
-            </div>
+          {/* Instrument Filter */}
+          <div className="flex items-center justify-between gap-xs px-md h-[42px] bg-white border border-[#d1e4fb] rounded-lg shadow-sm shrink-0 w-[260px]">
+            <span className="font-label-md text-[#5e5e5b] text-sm font-medium whitespace-nowrap">Nhạc cụ:</span>
+            <select
+              value={selectedInstrumentFilter}
+              onChange={(e) => {
+                setSelectedInstrumentFilter(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="bg-transparent border-none text-label-md font-semibold text-[#1D4532] focus:ring-0 cursor-pointer outline-none text-sm pr-6 py-1 leading-normal w-[160px]"
+            >
+              <option value="Tất cả">Tất cả nhạc cụ</option>
+              {Array.from(new Set(lessons.map((l) => l.instrument))).filter(Boolean).map((ins) => (
+                <option key={ins} value={ins}>
+                  {ins}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Status Filter */}
+          <div className="flex items-center justify-between gap-xs px-md h-[42px] bg-white border border-[#d1e4fb] rounded-lg shadow-sm shrink-0 w-[225px]">
+            <span className="font-label-md text-[#5e5e5b] text-sm font-medium whitespace-nowrap">Trạng thái:</span>
+            <select
+              value={selectedStatusFilter}
+              onChange={(e) => {
+                setSelectedStatusFilter(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="bg-transparent border-none text-label-md font-semibold text-[#1D4532] focus:ring-0 cursor-pointer outline-none text-sm pr-6 py-1 leading-normal w-[130px]"
+            >
+              <option value="Tất cả">Tất cả</option>
+              <option value="Đã duyệt">Đã duyệt</option>
+              <option value="Chờ duyệt">Chờ duyệt</option>
+              <option value="Bị từ chối">Bị từ chối</option>
+              <option value="Bản nháp">Bản nháp</option>
+            </select>
           </div>
 
           {/* Add Lesson Button */}
@@ -388,7 +388,7 @@ const InstructorLessons = () => {
               setNewOrderIndex(nextOrder);
               setShowAddForm(true);
             }}
-            className="bg-[#1D4532] text-white px-lg py-sm rounded-lg font-label-md hover:bg-[#1D4532]/95 transition-all flex items-center justify-center gap-xs shadow-md shrink-0"
+            className="bg-[#1D4532] text-white px-lg h-[42px] rounded-lg font-label-md hover:bg-[#1D4532]/95 transition-all flex items-center justify-center gap-xs shadow-md shrink-0"
           >
             <Plus className="w-[18px] h-[18px]" />
             Thêm bài giảng
@@ -407,16 +407,11 @@ const InstructorLessons = () => {
           </button>
         </div>
       )}
+
       <div className="grid grid-cols-12 gap-gutter">
         {/* Lesson List Table */}
         <div className="col-span-12 flex flex-col gap-gutter">
           <div className="bg-white rounded-xl border border-outline-variant/10 overflow-hidden shadow-sm">
-            <div className="px-xl py-lg border-b border-outline-variant/10 flex justify-between items-center bg-[#EDF7F2]">
-              <span className="text-headline-md font-bold text-[#1D4532]">
-                {isLoading ? 'Đang tải bài giảng...' : 'Danh sách Bài giảng & Học liệu'}
-              </span>
-            </div>
-
             <div className="overflow-x-auto custom-scrollbar">
               <table className="w-full min-w-[1080px] border-collapse">
                 <thead>
@@ -430,13 +425,13 @@ const InstructorLessons = () => {
                     <th className="text-center whitespace-nowrap py-md px-md font-label-sm text-label-sm text-[#1D4532] font-semibold border-b border-outline-variant/10">
                       Học liệu Media
                     </th>
-                    <th className="text-left whitespace-nowrap py-md px-md font-label-sm text-label-sm text-[#1D4532] font-semibold border-b border-outline-variant/10">
+                    <th className="text-center whitespace-nowrap py-md px-md font-label-sm text-label-sm text-[#1D4532] font-semibold border-b border-outline-variant/10">
                       Nhạc cụ
                     </th>
-                    <th className="text-left whitespace-nowrap py-md px-md font-label-sm text-label-sm text-[#1D4532] font-semibold border-b border-outline-variant/10">
+                    <th className="text-center whitespace-nowrap py-md px-md font-label-sm text-label-sm text-[#1D4532] font-semibold border-b border-outline-variant/10">
                       Ngày cập nhật
                     </th>
-                    <th className="text-left whitespace-nowrap py-md px-md font-label-sm text-label-sm text-[#1D4532] font-semibold border-b border-outline-variant/10">
+                    <th className="text-center whitespace-nowrap py-md px-md font-label-sm text-label-sm text-[#1D4532] font-semibold border-b border-outline-variant/10">
                       Trạng thái
                     </th>
                     <th className="text-right whitespace-nowrap py-md px-xl font-label-sm text-label-sm text-[#1D4532] font-semibold border-b border-outline-variant/10">
@@ -504,15 +499,15 @@ const InstructorLessons = () => {
                             </span>
                           </div>
                         </td>
-                        <td className="py-lg px-md whitespace-nowrap">
+                        <td className="py-lg px-md whitespace-nowrap text-center">
                           <span className="px-md py-xs bg-[#ffe088]/25 text-[#574500] rounded-full text-label-sm font-bold text-xs border border-[#ffe088]/40 whitespace-nowrap inline-block">
                             {instFormatted}
                           </span>
                         </td>
-                        <td className="py-lg px-md text-on-surface-variant font-label-md text-xs">
+                        <td className="py-lg px-md text-on-surface-variant font-label-md text-xs text-center">
                           {lesson.updatedAt}
                         </td>
-                        <td className="py-lg px-md">
+                        <td className="py-lg px-md text-center">
                           <span className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-bold whitespace-nowrap ${getStatusMeta(lesson.status).className}`}>
                             <span className={`h-2 w-2 rounded-full ${getStatusMeta(lesson.status).dot}`} />
                             {getStatusMeta(lesson.status).label}
