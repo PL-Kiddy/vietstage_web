@@ -8,7 +8,6 @@ import {
   X,
   Check,
   ListChecks,
-  BookOpen,
   RefreshCw,
   AlertCircle,
   Search,
@@ -289,13 +288,13 @@ const InstructorLessons = () => {
   return (
     <div className="max-w-[1400px] mx-auto">
       {/* Header Section */}
-      <div className="flex flex-col gap-md mb-xl">
+      <div className="mb-lg flex flex-col md:flex-row md:items-center justify-between gap-md">
         <div>
-          <h2 className="text-headline-lg font-bold text-[#1D4532] tracking-tight">
-            Quản lý Bài giảng
-          </h2>
-          <p className="text-on-surface-variant font-body-md mt-base">
-            Tổ chức, đăng tải học liệu và cấu hình giáo trình giảng dạy trực tuyến của bạn.
+          <h1 className="text-headline-lg font-bold text-[#1D4532]">
+            Nội dung & Học liệu
+          </h1>
+          <p className="text-body-md text-on-surface-variant mt-xs">
+            Tổ chức, đăng tải học liệu (âm thanh mẫu, bản ký âm sheet nhạc) và quản lý thông tin bài giảng của bạn.
           </p>
         </div>
 
@@ -339,7 +338,7 @@ const InstructorLessons = () => {
           </div>
 
           {/* Status Filter */}
-          <div className="flex items-center gap-xs px-md py-sm bg-white border border-outline-variant rounded-lg shadow-sm">
+          <div className="flex items-center gap-xs px-md py-sm bg-[#ffffff] border border-outline-variant rounded-lg shadow-sm">
             <span className="font-label-md text-[#5e5e5b] text-sm font-medium">Trạng thái:</span>
             <select
               value={selectedStatusFilter}
@@ -386,7 +385,7 @@ const InstructorLessons = () => {
           <div className="bg-white rounded-xl border border-outline-variant/10 overflow-hidden shadow-sm">
             <div className="px-xl py-lg border-b border-outline-variant/10 flex justify-between items-center bg-[#EDF7F2]">
               <span className="text-headline-md font-bold text-[#1D4532]">
-                {isLoading ? 'Đang tải bài giảng...' : 'Danh sách lộ trình giáo trình'}
+                {isLoading ? 'Đang tải bài giảng...' : 'Danh sách Bài giảng & Học liệu'}
               </span>
             </div>
 
@@ -398,7 +397,10 @@ const InstructorLessons = () => {
                       STT
                     </th>
                     <th className="text-left whitespace-nowrap py-md px-xl font-label-sm text-label-sm text-[#1D4532] font-semibold border-b border-outline-variant/10">
-                      Tên bài giảng
+                      Tên bài giảng & Kỹ thuật
+                    </th>
+                    <th className="text-center whitespace-nowrap py-md px-md font-label-sm text-label-sm text-[#1D4532] font-semibold border-b border-outline-variant/10">
+                      Học liệu Media
                     </th>
                     <th className="text-left whitespace-nowrap py-md px-md font-label-sm text-label-sm text-[#1D4532] font-semibold border-b border-outline-variant/10">
                       Nhạc cụ
@@ -417,113 +419,112 @@ const InstructorLessons = () => {
                 <tbody className="divide-y divide-outline-variant/10">
                   {isLoading ? (
                     <tr>
-                      <td colSpan={6} className="px-xl py-14 text-center">
+                      <td colSpan={7} className="px-xl py-14 text-center">
                         <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-2 border-[#1D4532]/20 border-t-[#1D4532]" />
                         <p className="text-on-surface-variant">Đang tải danh sách bài giảng...</p>
                       </td>
                     </tr>
-                  ) : sortedLessons.length === 0 ? (
-                    <tr>
-                      <td colSpan={6} className="px-xl py-16 text-center">
-                        <div className="mx-auto flex max-w-md flex-col items-center">
-                          <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#1D4532]/10 text-[#1D4532]">
-                            <BookOpen className="h-7 w-7" />
-                          </div>
-                          <h3 className="text-lg font-bold text-on-surface">Chưa có bài giảng nào</h3>
-                          <p className="mt-1 text-sm text-on-surface-variant">Tạo bài giảng đầu tiên để bắt đầu xây dựng lộ trình giảng dạy.</p>
-                          <button onClick={() => setShowAddForm(true)} className="mt-5 inline-flex items-center gap-2 rounded-lg bg-[#1D4532] px-5 py-2.5 font-bold text-white hover:opacity-90">
-                            <Plus className="h-4 w-4" /> Thêm bài giảng
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ) : sortedLessons.map((lesson) => (
-                    <tr
-                      key={lesson.id}
-                      className="hover:bg-[#EDF7F2]/40 transition-colors group"
-                    >
-                      <td className="py-lg px-xl font-label-md text-[#1D4532] font-bold text-center">
-                        <span className="bg-[#1D4532]/10 text-[#1D4532] px-3 py-1 rounded-md border border-[#1D4532]/20">
-                          #{lesson.orderIndex}
-                        </span>
-                      </td>
-                      <td className="py-lg px-xl">
-                        <div className="flex flex-col">
-                          <span className="font-label-md text-label-md text-[#1D4532] font-bold">
-                            {lesson.title}
-                          </span>
-                          <div className="flex items-center gap-2 text-label-sm text-on-surface-variant text-[12px] mt-0.5">
-                            <span className="line-clamp-1 max-w-xs">
-                              {lesson.description || 'Chưa có mô tả kỹ thuật.'}
-                            </span>
-                            <span className="text-[#1D4532]/30">•</span>
-                            <span className="text-[#1D4532] font-medium whitespace-nowrap">
-                              {lesson.exercises ? lesson.exercises.length : 0} bài tập
-                            </span>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="py-lg px-md">
-                        <span className="px-md py-xs bg-[#ffe088]/20 text-[#574500] rounded-full text-label-sm font-semibold">
-                          {lesson.instrument}
-                        </span>
-                      </td>
-                      <td className="py-lg px-md text-on-surface-variant font-label-md">
-                        {lesson.updatedAt}
-                      </td>
-                      <td className="py-lg px-md">
-                        <span className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-bold whitespace-nowrap ${getStatusMeta(lesson.status).className}`}>
-                          <span className={`h-2 w-2 rounded-full ${getStatusMeta(lesson.status).dot}`} />
-                          {getStatusMeta(lesson.status).label}
-                        </span>
-                      </td>
-                      {/* Thao tác Menu (3 dấu chấm) */}
-                      <td className="py-lg px-xl text-right relative" onClick={(e) => e.stopPropagation()}>
-                        <button
-                          onClick={() => setOpenActionMenuLessonId(openActionMenuLessonId === lesson.id ? null : lesson.id)}
-                          className="p-2 hover:bg-[#EDF7F2] rounded-full transition-colors text-on-surface-variant hover:text-on-surface"
-                        >
-                          <MoreVertical className="w-5 h-5" />
-                        </button>
+                  ) : sortedLessons.map((lesson, idx) => {
+                    const rawInst = lesson.instrument || '';
+                    const instFormatted =
+                      rawInst.toLowerCase().includes('tranh') ? 'Đàn Tranh'
+                      : rawInst.toLowerCase().includes('bau') ? 'Đàn Bầu'
+                      : rawInst.toLowerCase().includes('sao') ? 'Sáo Trúc'
+                      : rawInst.toLowerCase().includes('nguyet') ? 'Đàn Nguyệt'
+                      : rawInst || 'Đàn Tranh';
 
-                        {openActionMenuLessonId === lesson.id && (
-                          <>
-                            <div className="fixed inset-0 z-10" onClick={() => setOpenActionMenuLessonId(null)} />
-                            <div className="absolute right-4 mt-1 w-52 bg-white border border-[#d1e4fb] rounded-xl shadow-lg py-1 z-20 text-left">
-                              <Link
-                                to={`/instructor/lessons/${lesson.id}/content`}
-                                onClick={() => setOpenActionMenuLessonId(null)}
-                                className="w-full flex items-center gap-2 px-4 py-2 hover:bg-[#EDF7F2] text-[13px] text-on-surface transition-colors"
-                              >
-                                <ListChecks className="w-4 h-4 text-[#1D4532]" />
-                                Quản lý bài tập & quiz
-                              </Link>
-                              <button
-                                onClick={() => {
-                                  setOpenActionMenuLessonId(null);
-                                  void handleEditClick(lesson);
-                                }}
-                                className="w-full flex items-center gap-2 px-4 py-2 hover:bg-[#EDF7F2] text-[13px] text-on-surface transition-colors"
-                              >
-                                <Edit2 className="w-4 h-4 text-[#1D4532]" />
-                                Sửa bài giảng
-                              </button>
-                              <button
-                                onClick={() => {
-                                  setOpenActionMenuLessonId(null);
-                                  void handleDelete(lesson.id);
-                                }}
-                                className="w-full flex items-center gap-2 px-4 py-2 hover:bg-red-50 text-[13px] text-red-700 transition-colors border-t border-[#d1e4fb]/40"
-                              >
-                                <Trash2 className="w-4 h-4 text-red-600" />
-                                Xóa bài giảng
-                              </button>
-                            </div>
-                          </>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
+                    return (
+                      <tr
+                        key={lesson.id}
+                        className="hover:bg-[#EDF7F2]/40 transition-colors group"
+                      >
+                        <td className="py-lg px-xl font-label-md text-[#1D4532] font-bold text-center">
+                          <span className="bg-[#1D4532]/10 text-[#1D4532] px-3 py-1 rounded-md border border-[#1D4532]/20 text-xs font-mono">
+                            #{idx + 1}
+                          </span>
+                        </td>
+                        <td className="py-lg px-xl">
+                          <div className="flex flex-col">
+                            <span className="font-label-md text-label-md text-[#1D4532] font-bold">
+                              {lesson.title}
+                            </span>
+                            <span className="line-clamp-1 max-w-xs text-label-sm text-on-surface-variant text-[12px] mt-0.5 italic">
+                              {lesson.description || 'Chưa có mô tả kỹ thuật biểu diễn.'}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="py-lg px-md">
+                          <div className="flex items-center justify-center gap-xs">
+                            <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800" title="File âm thanh mẫu">
+                              <Music className="w-3 h-3" /> Âm thanh
+                            </span>
+                            <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800" title="Ký âm / Sheet nhạc">
+                              <FileText className="w-3 h-3" /> Sheet
+                            </span>
+                          </div>
+                        </td>
+                        <td className="py-lg px-md">
+                          <span className="px-md py-xs bg-[#ffe088]/25 text-[#574500] rounded-full text-label-sm font-bold text-xs border border-[#ffe088]/40">
+                            {instFormatted}
+                          </span>
+                        </td>
+                        <td className="py-lg px-md text-on-surface-variant font-label-md text-xs">
+                          {lesson.updatedAt}
+                        </td>
+                        <td className="py-lg px-md">
+                          <span className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-bold whitespace-nowrap ${getStatusMeta(lesson.status).className}`}>
+                            <span className={`h-2 w-2 rounded-full ${getStatusMeta(lesson.status).dot}`} />
+                            {getStatusMeta(lesson.status).label}
+                          </span>
+                        </td>
+                        {/* Thao tác Menu (3 dấu chấm) */}
+                        <td className="py-lg px-xl text-right relative" onClick={(e) => e.stopPropagation()}>
+                          <button
+                            onClick={() => setOpenActionMenuLessonId(openActionMenuLessonId === lesson.id ? null : lesson.id)}
+                            className="p-2 hover:bg-[#EDF7F2] rounded-full transition-colors text-on-surface-variant hover:text-on-surface"
+                          >
+                            <MoreVertical className="w-5 h-5" />
+                          </button>
+
+                          {openActionMenuLessonId === lesson.id && (
+                            <>
+                              <div className="fixed inset-0 z-10" onClick={() => setOpenActionMenuLessonId(null)} />
+                              <div className="absolute right-4 mt-1 w-52 bg-white border border-[#d1e4fb] rounded-xl shadow-lg py-1 z-20 text-left">
+                                <Link
+                                  to={`/instructor/lessons/${lesson.id}/content`}
+                                  onClick={() => setOpenActionMenuLessonId(null)}
+                                  className="w-full flex items-center gap-2 px-4 py-2 hover:bg-[#EDF7F2] text-[13px] text-on-surface transition-colors"
+                                >
+                                  <ListChecks className="w-4 h-4 text-[#1D4532]" />
+                                  Quản lý bài tập & quiz
+                                </Link>
+                                <button
+                                  onClick={() => {
+                                    setOpenActionMenuLessonId(null);
+                                    void handleEditClick(lesson);
+                                  }}
+                                  className="w-full flex items-center gap-2 px-4 py-2 hover:bg-[#EDF7F2] text-[13px] text-on-surface transition-colors"
+                                >
+                                  <Edit2 className="w-4 h-4 text-[#1D4532]" />
+                                  Sửa bài giảng & học liệu
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setOpenActionMenuLessonId(null);
+                                    void handleDelete(lesson.id);
+                                  }}
+                                  className="w-full flex items-center gap-2 px-4 py-2 hover:bg-red-50 text-[13px] text-red-700 transition-colors border-t border-[#d1e4fb]/40"
+                                >
+                                  <Trash2 className="w-4 h-4 text-red-600" />
+                                  Xóa bài giảng
+                                </button>
+                              </div>
+                            </>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
