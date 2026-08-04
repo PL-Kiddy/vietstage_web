@@ -7,7 +7,6 @@ import {
   FileText,
   X,
   Check,
-  ListChecks,
   BookOpen,
   RefreshCw,
   AlertCircle,
@@ -16,7 +15,6 @@ import {
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { lessonsApi, masterDataApi, uploadApi, lessonAssetsApi, lessonTechniquesApi } from '../../api/services';
 import { lessonDetailApi } from '../../api/management';
@@ -546,14 +544,6 @@ const InstructorLessons = () => {
                               <div className={`absolute right-4 w-52 bg-white border border-[#d1e4fb] rounded-xl shadow-lg py-1 z-20 text-left ${
                                 idx >= paginatedLessons.length - 2 && paginatedLessons.length > 2 ? 'bottom-[85%] mb-1' : 'top-full mt-1'
                               }`}>
-                                <Link
-                                  to={`/instructor/lessons/${lesson.id}/content`}
-                                  onClick={() => setOpenActionMenuLessonId(null)}
-                                  className="w-full flex items-center gap-2 px-4 py-2 hover:bg-[#EDF7F2] text-[13px] text-on-surface transition-colors"
-                                >
-                                  <ListChecks className="w-4 h-4 text-[#1D4532]" />
-                                  Quản lý bài tập & quiz
-                                </Link>
                                 <button
                                   onClick={() => {
                                     setOpenActionMenuLessonId(null);

@@ -1,14 +1,12 @@
 import { useState, useCallback, type FormEvent } from 'react';
 import { createPortal } from 'react-dom';
+import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Dumbbell,
   Plus,
-  ChevronUp,
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
-  Edit2,
   Check,
   X,
   Target,
@@ -19,6 +17,7 @@ import {
   MoreVertical,
   ArrowUpDown,
   Award,
+  ListChecks,
 } from 'lucide-react';
 import { useAxiosRequest } from '../../hooks/useAxiosRequest';
 import { lessonsApi, exercisesApi, masterDataApi, lessonTechniquesApi, type ExerciseInput } from '../../api/services';
@@ -111,18 +110,7 @@ const InstructorMedia = () => {
   // ── Drawer Modal control ─────────────────────────────────────────────
   const isDrawerOpen = showCreateForm || editingLesson !== null;
 
-  const handleOpenCreateModal = () => {
-    setEditingLesson(null);
-    setCreateTitle('');
-    setCreateDesc('');
-    setCreateOrder(lessons.length > 0 ? Math.max(...lessons.map(l => (l as any).orderIndex ?? (l as any).order_index ?? 0)) + 1 : 1);
-    setCreateInstrumentId(selectedInstrumentId !== 'ALL' ? Number(selectedInstrumentId) : (instruments[0]?.id ?? 1));
-    setCreateSkillLevelId(skillLevels[0]?.id);
-    setCreateStatus('DRAFT');
-    setCreatePassingThreshold(80);
-    setCreateError(null);
-    setShowCreateForm(true);
-  };
+
 
   const handleCloseModal = () => {
     setShowCreateForm(false);
@@ -131,20 +119,6 @@ const InstructorMedia = () => {
     setLessonSaveError(null);
   };
 
-  // ── Handler: Start editing a lesson ──────────────────────────────────
-  const startEditing = (lesson: Lesson) => {
-    setEditingLesson({
-      id: lesson.id,
-      title: lesson.title,
-      description: lesson.description || '',
-      orderIndex: (lesson as any).orderIndex ?? (lesson as any).order_index ?? 0,
-      skillLevelId: (lesson as any).skillLevel?.id ?? (lesson as any).skill_level_id,
-      instrumentId: (lesson as any).instrument?.id ?? (lesson as any).instrument_id ?? 1,
-      status: lesson.status || 'DRAFT',
-    });
-    setShowCreateForm(false);
-    setLessonSaveError(null);
-  };
 
   // ── Handler: Save lesson order/details ───────────────────────────────
   const saveLesson = async () => {
@@ -177,21 +151,7 @@ const InstructorMedia = () => {
     }
   };
 
-  // ── Handler: Quick order change (move up/down) ────────────────────────
-  const moveLesson = async (lesson: Lesson, direction: 'up' | 'down') => {
-    const currentOrder = (lesson as any).orderIndex ?? (lesson as any).order_index ?? 0;
-    const newOrder = direction === 'up' ? currentOrder - 1 : currentOrder + 1;
-    try {
-      await lessonsApi.update(lesson.id, {
-        title: lesson.title,
-        description: lesson.description || '',
-        orderIndex: newOrder,
-      });
-      await refetchLessons();
-    } catch (err) {
-      // Silent fail for quick reorder
-    }
-  };
+
 
   // ── Handler: Create new lesson ────────────────────────────────────────
   const handleCreateLesson = async (e: FormEvent) => {
@@ -380,15 +340,6 @@ const InstructorMedia = () => {
                 <option value="DRAFT">Bản nháp</option>
               </select>
             </div>
-
-            {/* Add Button */}
-            <button
-              onClick={handleOpenCreateModal}
-              className="bg-[#1D4532] text-white px-lg h-[42px] rounded-lg font-bold text-xs hover:bg-[#1D4532]/95 transition-all flex items-center justify-center gap-xs shadow-md shrink-0 whitespace-nowrap"
-            >
-              <Plus className="w-[18px] h-[18px]" />
-              Thêm bài giảng
-            </button>
           </div>
 
           {/* Lesson List Table */}
@@ -483,17 +434,15 @@ const InstructorMedia = () => {
                           {openActionMenuId === lesson.id && (
                             <>
                               <div className="fixed inset-0 z-10" onClick={() => setOpenActionMenuId(null)} />
-                              <div className="absolute right-6 mt-1 w-48 bg-white border border-[#d1e4fb] rounded-xl shadow-lg py-1 z-20 text-left">
-                                <button
-                                  onClick={() => {
-                                    setOpenActionMenuId(null);
-                                    startEditing(lesson);
-                                  }}
+                              <div className="absolute right-6 mt-1 w-52 bg-white border border-[#d1e4fb] rounded-xl shadow-lg py-1 z-20 text-left">
+                                <Link
+                                  to={`/instructor/lessons/${lesson.id}/content`}
+                                  onClick={() => setOpenActionMenuId(null)}
                                   className="w-full flex items-center gap-2 px-4 py-2 hover:bg-[#EDF7F2] text-[13px] text-on-surface transition-colors"
                                 >
-                                  <Edit2 className="w-4 h-4 text-[#1D4532]" />
-                                  Chỉnh sửa bài học
-                                </button>
+                                  <ListChecks className="w-4 h-4 text-[#1D4532]" />
+                                  Biên soạn Bài tập & Quiz
+                                </Link>
                               </div>
                             </>
                           )}
