@@ -15,10 +15,11 @@ import {
   Search,
   MoreVertical,
   ListChecks,
+  Pencil,
 } from 'lucide-react';
 import { useAxiosRequest } from '../../hooks/useAxiosRequest';
 import { lessonsApi, exercisesApi, masterDataApi, type ExerciseInput } from '../../api/services';
-import type { Lesson } from '../../api/types';
+import type { Lesson, SkillLevel } from '../../api/types';
 
 
 
@@ -53,7 +54,7 @@ const InstructorMedia = () => {
     lessonsApi.list(new URLSearchParams({ size: '100', sort: 'orderIndex,asc' }), { signal })
     , []);
 
-  const { data: lessonsResponse, loading: lessonsLoading } = useAxiosRequest(
+  const { data: lessonsResponse, loading: lessonsLoading, execute: reloadLessons } = useAxiosRequest(
     fetchLessons, { auto: true }
   );
 
@@ -69,6 +70,79 @@ const InstructorMedia = () => {
     (signal) => masterDataApi.instruments({ signal }),
     { auto: true, initialData: [] }
   );
+
+  const { data: skillLevels = [] } = useAxiosRequest<SkillLevel[]>(
+    (signal) => masterDataApi.skillLevels({ signal }),
+    { auto: true, initialData: [] }
+  );
+
+  // ── Create / Edit Lesson State ───────────────────────────────────────
+  const [lessonModalOpen, setLessonModalOpen] = useState(false);
+  const [editingLessonInfo, setEditingLessonInfo] = useState<Lesson | null>(null);
+  const [lessonTitle, setLessonTitle] = useState('');
+  const [lessonDesc, setLessonDesc] = useState('');
+  const [lessonInstrumentId, setLessonInstrumentId] = useState<number | null>(null);
+  const [lessonSkillLevelId, setLessonSkillLevelId] = useState<number | undefined>();
+  const [lessonOrderIndex, setLessonOrderIndex] = useState<number>(1);
+  const [lessonStatus, setLessonStatus] = useState<string>('DRAFT');
+  const [isSavingLesson, setIsSavingLesson] = useState(false);
+
+  const handleOpenCreateLesson = () => {
+    setEditingLessonInfo(null);
+    setLessonTitle('');
+    setLessonDesc('');
+    setLessonInstrumentId(instruments[0]?.id ?? null);
+    setLessonSkillLevelId(skillLevels[0]?.id);
+    setLessonOrderIndex(lessons.length > 0 ? Math.max(...lessons.map((l: any) => l.orderIndex ?? l.order_index ?? 0)) + 1 : 1);
+    setLessonStatus('DRAFT');
+    setLessonModalOpen(true);
+  };
+
+  const handleOpenEditLesson = (lesson: Lesson) => {
+    setEditingLessonInfo(lesson);
+    setLessonTitle(lesson.title);
+    setLessonDesc(lesson.description || '');
+    setLessonInstrumentId((lesson as any).instrument?.id ?? (lesson as any).instrument_id ?? instruments[0]?.id ?? null);
+    setLessonSkillLevelId((lesson as any).skillLevel?.id ?? (lesson as any).skill_level_id);
+    setLessonOrderIndex((lesson as any).orderIndex ?? (lesson as any).order_index ?? 1);
+    setLessonStatus(lesson.status || 'DRAFT');
+    setOpenActionMenuId(null);
+    setLessonModalOpen(true);
+  };
+
+  const handleSaveLesson = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!lessonTitle.trim() || !lessonInstrumentId) return;
+    setIsSavingLesson(true);
+    try {
+      if (editingLessonInfo) {
+        await lessonsApi.update(editingLessonInfo.id, {
+          title: lessonTitle.trim(),
+          description: lessonDesc.trim(),
+          skillLevelId: lessonSkillLevelId,
+          orderIndex: lessonOrderIndex,
+        });
+        if (editingLessonInfo.status !== lessonStatus) {
+          await lessonsApi.updateStatus(editingLessonInfo.id, lessonStatus as any);
+        }
+      } else {
+        await lessonsApi.create({
+          title: lessonTitle.trim(),
+          description: lessonDesc.trim(),
+          instrumentId: lessonInstrumentId,
+          skillLevelId: lessonSkillLevelId,
+          status: lessonStatus as any,
+          orderIndex: lessonOrderIndex,
+        });
+      }
+      setLessonModalOpen(false);
+      await reloadLessons();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Không thể lưu bài học.');
+    } finally {
+      setIsSavingLesson(false);
+    }
+  };
 
 
   // ── Handler: Open Config Modal ───────────────────────────────────────
@@ -150,15 +224,22 @@ const InstructorMedia = () => {
   return (
     <div className="space-y-lg">
       {/* ── Page Header ──────────────────────────────────────────────── */}
-      <div className="flex items-end justify-between gap-md">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-md">
         <div>
           <h2 className="text-headline-lg font-bold text-[#1D4532]" style={{ fontFamily: "'Montserrat', sans-serif" }}>
             Cấu hình Giáo trình
           </h2>
           <p className="text-on-surface-variant mt-1">
-            Quản lý lộ trình học tập, cấu hình ngưỡng điểm đạt và biên soạn bài tập/quiz thực hành.
+            Tạo bài học, sắp xếp lộ trình và biên soạn Bài tập, Quiz, Minigame cùng ngưỡng điểm đạt.
           </p>
         </div>
+        <button
+          onClick={handleOpenCreateLesson}
+          className="bg-[#1D4532] text-white px-lg h-[42px] rounded-lg font-label-md hover:bg-[#1D4532]/95 transition-all flex items-center justify-center gap-xs shadow-md shrink-0 font-bold"
+        >
+          <Plus className="w-[18px] h-[18px]" />
+          Tạo bài học mới
+        </button>
       </div>
 
       <div className="space-y-md">
@@ -303,6 +384,13 @@ const InstructorMedia = () => {
                             <>
                               <div className="fixed inset-0 z-10" onClick={() => setOpenActionMenuId(null)} />
                               <div className="absolute right-6 mt-1 w-64 bg-white border border-[#d1e4fb] rounded-xl shadow-lg py-1 z-20 text-left">
+                                <button
+                                  onClick={() => handleOpenEditLesson(lesson)}
+                                  className="w-full flex items-center gap-2 px-4 py-2 hover:bg-[#EDF7F2] text-[13px] font-medium text-on-surface transition-colors"
+                                >
+                                  <Pencil className="w-4 h-4 text-[#1D4532]" />
+                                  Sửa thông tin bài học
+                                </button>
                                 <button
                                   onClick={() => handleOpenConfigModal(lesson)}
                                   className="w-full flex items-center gap-2 px-4 py-2 hover:bg-[#EDF7F2] text-[13px] font-medium text-[#1D4532] transition-colors"
@@ -535,6 +623,173 @@ const InstructorMedia = () => {
                         <Plus className="w-4 h-4" />
                       )}
                       Lưu bài tập & Điểm chuẩn
+                    </button>
+                  </div>
+                </form>
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
+
+      {/* ── Modal Tạo / Sửa Bài học ────────────────────────────────────────── */}
+      {createPortal(
+        <AnimatePresence>
+          {lessonModalOpen && (
+            <>
+              {/* Backdrop */}
+              <motion.div
+                className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9998]"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setLessonModalOpen(false)}
+              />
+
+              {/* Drawer Modal */}
+              <motion.div
+                className="fixed top-0 right-0 h-full w-[100%] sm:w-[75%] md:w-[60%] lg:w-[45%] bg-[#fbf9f4] border-l border-outline-variant/15 shadow-2xl overflow-hidden flex flex-col z-[9999]"
+                initial={{ x: '100%' }}
+                animate={{ x: 0 }}
+                exit={{ x: '100%' }}
+                transition={{ type: 'spring', damping: 25, stiffness: 220 }}
+              >
+                {/* Header */}
+                <div className="px-xl py-lg border-b border-outline-variant/10 flex justify-between items-center bg-[#EDF7F2]">
+                  <div>
+                    <h4 className="text-headline-sm font-bold text-[#1D4532]">
+                      {editingLessonInfo ? 'Chỉnh sửa Cấu trúc Bài học' : 'Tạo Bài học Mới'}
+                    </h4>
+                    <p className="text-xs text-on-surface-variant mt-0.5 font-medium">
+                      Thiết lập thông tin cơ bản, nhạc cụ và thứ tự bài học trong lộ trình.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setLessonModalOpen(false)}
+                    className="p-md hover:bg-[#1D4532]/10 rounded-full text-on-surface-variant hover:text-on-surface transition-colors"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                {/* Form Body */}
+                <form onSubmit={handleSaveLesson} className="flex-1 overflow-y-auto p-xl space-y-lg custom-scrollbar">
+                  <div className="bg-white border border-outline-variant/10 rounded-2xl p-lg shadow-sm space-y-md">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-md">
+                      <div className="flex flex-col gap-xs">
+                        <label className="text-xs font-semibold text-[#6B7280] uppercase tracking-wider">
+                          Tên bài học *
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={lessonTitle}
+                          onChange={(e) => setLessonTitle(e.target.value)}
+                          placeholder="Nhập tên bài học..."
+                          className="bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl p-md text-sm focus:ring-1 focus:ring-[#1D4532] focus:border-[#1D4532] outline-none"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-xs">
+                        <label className="text-xs font-semibold text-[#6B7280] uppercase tracking-wider">
+                          Nhạc cụ giảng dạy *
+                        </label>
+                        <select
+                          required
+                          value={lessonInstrumentId ?? ''}
+                          onChange={(e) => setLessonInstrumentId(Number(e.target.value))}
+                          disabled={editingLessonInfo !== null}
+                          className="bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl p-md text-sm focus:ring-1 focus:ring-[#1D4532] focus:border-[#1D4532] outline-none cursor-pointer"
+                        >
+                          {instruments.map((inst: any) => (
+                            <option key={inst.id} value={inst.id}>
+                              {getInstrumentTranslation(inst.name)}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-md">
+                      <div className="flex flex-col gap-xs">
+                        <label className="text-xs font-semibold text-[#6B7280] uppercase tracking-wider">
+                          Thứ tự (orderIndex)
+                        </label>
+                        <input
+                          type="number"
+                          min={1}
+                          value={lessonOrderIndex}
+                          onChange={(e) => setLessonOrderIndex(Math.max(1, parseInt(e.target.value) || 1))}
+                          className="bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl p-md text-sm focus:ring-1 focus:ring-[#1D4532] focus:border-[#1D4532] outline-none"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-xs">
+                        <label className="text-xs font-semibold text-[#6B7280] uppercase tracking-wider">
+                          Trình độ
+                        </label>
+                        <select
+                          value={lessonSkillLevelId ?? ''}
+                          onChange={(e) => setLessonSkillLevelId(e.target.value ? Number(e.target.value) : undefined)}
+                          className="bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl p-md text-sm focus:ring-1 focus:ring-[#1D4532] focus:border-[#1D4532] outline-none cursor-pointer"
+                        >
+                          <option value="">Chưa phân cấp</option>
+                          {skillLevels.map((lvl: any) => (
+                            <option key={lvl.id} value={lvl.id}>
+                              {lvl.levelName}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="flex flex-col gap-xs">
+                        <label className="text-xs font-semibold text-[#6B7280] uppercase tracking-wider">
+                          Trạng thái
+                        </label>
+                        <select
+                          value={lessonStatus}
+                          onChange={(e) => setLessonStatus(e.target.value)}
+                          className="bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl p-md text-sm focus:ring-1 focus:ring-[#1D4532] focus:border-[#1D4532] outline-none cursor-pointer"
+                        >
+                          <option value="DRAFT">Bản nháp</option>
+                          <option value="PENDING">Chờ duyệt</option>
+                          <option value="APPROVED">Đã duyệt</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col gap-xs">
+                      <label className="text-xs font-semibold text-[#6B7280] uppercase tracking-wider">
+                        Mô tả tóm tắt bài học
+                      </label>
+                      <textarea
+                        rows={3}
+                        value={lessonDesc}
+                        onChange={(e) => setLessonDesc(e.target.value)}
+                        placeholder="Mô tả mục tiêu bài học..."
+                        className="bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl p-md text-sm focus:ring-1 focus:ring-[#1D4532] focus:border-[#1D4532] outline-none resize-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-end gap-md pt-md">
+                    <button
+                      type="button"
+                      onClick={() => setLessonModalOpen(false)}
+                      className="px-xl py-md rounded-xl border border-outline-variant/30 text-on-surface-variant text-sm font-bold hover:bg-black/5 transition-all"
+                    >
+                      Đóng
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={isSavingLesson || !lessonTitle.trim()}
+                      className="px-xl py-md rounded-xl bg-[#1D4532] text-white text-sm font-bold hover:bg-[#1D4532]/90 transition-all disabled:opacity-50 flex items-center gap-xs shadow-md"
+                    >
+                      {isSavingLesson ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Check className="w-4 h-4" />
+                      )}
+                      Lưu Bài Học
                     </button>
                   </div>
                 </form>
