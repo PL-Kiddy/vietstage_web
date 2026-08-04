@@ -145,8 +145,9 @@ export interface PracticeAttempt {
 
 export interface FeedbackResponse {
   id: number;
-  content: string;
-  createdAt: string;
+  comment: string;
+  instructor_name?: string;
+  created_at?: string;
 }
 
 export interface LessonAsset {

@@ -1,8 +1,8 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAxiosRequest } from '../../hooks/useAxiosRequest';
 import { usersApi, lessonsApi, learnerProgressApi, instructorStudentsApi } from '../../api/services';
-import type { PracticeAttempt } from '../../api/types';
-import { Search, X, BookOpen, ChevronRight, Users, Loader2, Check, HelpCircle, User, CalendarDays, BarChart3 } from 'lucide-react';
+import type { FeedbackResponse, PracticeAttempt } from '../../api/types';
+import { Search, X, BookOpen, ChevronRight, Users, Loader2, Check, HelpCircle, User, CalendarDays, BarChart3, Clock3, MessageSquareText, Send } from 'lucide-react';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 interface LessonProgress {
@@ -65,6 +65,12 @@ const InstructorStudents = () => {
   const [practiceAttemptsError, setPracticeAttemptsError] = useState('');
   const [practiceDateFrom, setPracticeDateFrom] = useState(getInitialDateFrom);
   const [practiceDateTo, setPracticeDateTo] = useState(() => toDateInputValue(new Date()));
+  const [selectedAttemptId, setSelectedAttemptId] = useState<number | null>(null);
+  const [attemptFeedbacks, setAttemptFeedbacks] = useState<FeedbackResponse[]>([]);
+  const [feedbackComment, setFeedbackComment] = useState('');
+  const [feedbackLoading, setFeedbackLoading] = useState(false);
+  const [feedbackSaving, setFeedbackSaving] = useState(false);
+  const [feedbackError, setFeedbackError] = useState('');
   
   // Track currently selected instrument to filter the selected student's progress
   const [selectedStudentInstrument, setSelectedStudentInstrument] = useState<string>('');
@@ -157,6 +163,7 @@ const InstructorStudents = () => {
 
   // Sync selected student instrument list
   useEffect(() => {
+    setSelectedAttemptId(null);
     if (selectedStudent) {
       // Default to the first instrument they learn
       setSelectedStudentInstrument(selectedStudent.instrumentsList[0] || 'Đàn Tranh');
@@ -262,7 +269,7 @@ const InstructorStudents = () => {
             totalPages = result.totalPages ?? 1;
             page += 1;
           }
-          return attempts;
+          return attempts.map((attempt) => ({ ...attempt, lessonName: lesson.title }));
         }));
         if (!controller.signal.aborted) setPracticeAttempts(attemptsByLesson.flat());
       } catch (cause) {
@@ -277,6 +284,33 @@ const InstructorStudents = () => {
     void loadAttempts();
     return () => controller.abort();
   }, [selectedStudentId, studentLessons]);
+
+  useEffect(() => {
+    if (!selectedAttemptId) {
+      setAttemptFeedbacks([]);
+      setFeedbackComment('');
+      setFeedbackError('');
+      return;
+    }
+    const controller = new AbortController();
+    const loadFeedbacks = async () => {
+      setFeedbackLoading(true);
+      setFeedbackError('');
+      try {
+        const result = await instructorStudentsApi.getFeedbacks(selectedAttemptId, { signal: controller.signal });
+        if (!controller.signal.aborted) setAttemptFeedbacks(result ?? []);
+      } catch (cause) {
+        if (!controller.signal.aborted) {
+          setAttemptFeedbacks([]);
+          setFeedbackError(cause instanceof Error ? cause.message : 'Không thể tải phản hồi của lượt tập.');
+        }
+      } finally {
+        if (!controller.signal.aborted) setFeedbackLoading(false);
+      }
+    };
+    void loadFeedbacks();
+    return () => controller.abort();
+  }, [selectedAttemptId]);
 
   // Summary stats aggregated from filtered student lessons
   const summaryStats = useMemo(() => {
@@ -323,6 +357,26 @@ const InstructorStudents = () => {
     const total = rows.reduce((sum, row) => sum + row.attempts, 0);
     return { invalidRange: false, rows, total, activeDays: rows.filter((row) => row.attempts > 0).length };
   }, [practiceAttempts, practiceDateFrom, practiceDateTo]);
+
+  const selectedAttempt = useMemo(
+    () => practiceAttempts.find((attempt) => attempt.id === selectedAttemptId) ?? null,
+    [practiceAttempts, selectedAttemptId],
+  );
+
+  const submitFeedback = async () => {
+    if (!selectedAttemptId || !feedbackComment.trim()) return;
+    setFeedbackSaving(true);
+    setFeedbackError('');
+    try {
+      const created = await instructorStudentsApi.sendFeedback(selectedAttemptId, feedbackComment.trim());
+      setAttemptFeedbacks((current) => [...current, created]);
+      setFeedbackComment('');
+    } catch (cause) {
+      setFeedbackError(cause instanceof Error ? cause.message : 'Không thể gửi phản hồi.');
+    } finally {
+      setFeedbackSaving(false);
+    }
+  };
 
   return (
     <div className="max-w-[1400px] mx-auto">
@@ -637,6 +691,45 @@ const InstructorStudents = () => {
                 </div>
               )}
             </div>
+
+            <section className="bg-white rounded-2xl shadow-sm border border-outline-variant/10 overflow-hidden">
+              <div className="px-lg py-md border-b border-outline-variant/10 flex items-center gap-sm">
+                <MessageSquareText className="w-4 h-4 text-[#1D4532]" />
+                <div><h3 className="text-sm font-bold text-[#1D4532]">Phản hồi theo lượt tập</h3><p className="text-xs text-on-surface-variant mt-0.5">Chọn đúng một lượt tập để xem và gửi nhận xét gắn với attemptId của lượt đó.</p></div>
+              </div>
+              {practiceAttemptsLoading ? (
+                <div className="flex items-center justify-center gap-2 py-10 text-sm text-on-surface-variant"><Loader2 className="w-5 h-5 animate-spin text-[#1D4532]" />Đang tải các lượt tập...</div>
+              ) : practiceAttemptsError ? (
+                <div className="m-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">{practiceAttemptsError}</div>
+              ) : practiceAttempts.length === 0 ? (
+                <div className="p-10 text-center text-sm text-on-surface-variant">Học viên chưa có lượt tập nào cho nhạc cụ đang xem.</div>
+              ) : (
+                <div className="grid grid-cols-1 xl:grid-cols-2 divide-y xl:divide-y-0 xl:divide-x divide-outline-variant/10">
+                  <div className="max-h-[440px] overflow-y-auto divide-y divide-outline-variant/10">
+                    {[...practiceAttempts].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).map((attempt) => {
+                      const rawScore = attempt.overall_score ?? (attempt as PracticeAttempt & { totalScore?: number; total_score?: number }).totalScore ?? (attempt as PracticeAttempt & { total_score?: number }).total_score;
+                      const selected = selectedAttemptId === attempt.id;
+                      return <button type="button" key={attempt.id} onClick={() => setSelectedAttemptId(attempt.id)} className={`w-full text-left p-4 flex items-center justify-between gap-3 transition-colors ${selected ? 'bg-[#EDF7F2] border-l-4 border-l-[#1D4532]' : 'hover:bg-[#fbf9f4]'}`}>
+                        <div className="min-w-0"><p className="text-xs font-bold text-[#1D4532]">{attempt.lessonName || 'Bài học'} · Lượt #{attempt.id}</p><p className="text-xs text-on-surface-variant mt-1 inline-flex items-center gap-1"><Clock3 className="w-3 h-3" />{attempt.createdAt ? new Date(attempt.createdAt).toLocaleString('vi-VN') : 'Chưa có thời gian'}</p></div>
+                        <span className="shrink-0 rounded-full bg-[#f7f5ef] px-2.5 py-1 text-xs font-bold text-[#574500]">{typeof rawScore === 'number' ? `${Math.round(rawScore * (rawScore <= 1 ? 100 : 1))}%` : '—'}</span>
+                      </button>;
+                    })}
+                  </div>
+                  <div className="p-5 bg-[#fbf9f4]/50 min-h-[300px]">
+                    {!selectedAttempt ? <div className="h-full flex items-center justify-center text-center text-sm text-on-surface-variant">Chọn một lượt tập ở bên trái để phản hồi.</div> : <>
+                      <div className="flex justify-between gap-3 mb-4"><div><p className="text-xs font-bold uppercase tracking-wide text-[#1D4532]">Lượt tập đang chọn</p><h4 className="font-bold mt-1">{selectedAttempt.lessonName || 'Bài học'} · #{selectedAttempt.id}</h4></div><span className="text-xs text-on-surface-variant">attemptId: {selectedAttempt.id}</span></div>
+                      <div className="space-y-2 max-h-40 overflow-y-auto mb-4">
+                        {feedbackLoading ? <div className="py-4 text-center"><Loader2 className="w-4 h-4 animate-spin inline text-[#1D4532]" /></div> : attemptFeedbacks.length === 0 ? <p className="rounded-lg border border-dashed border-outline-variant/30 p-3 text-xs text-on-surface-variant">Chưa có phản hồi cho lượt tập này.</p> : attemptFeedbacks.map((feedback) => <article key={feedback.id} className="rounded-lg bg-white border border-outline-variant/10 p-3"><p className="text-sm text-on-surface">{feedback.comment}</p><p className="text-[11px] text-on-surface-variant mt-1">{feedback.instructor_name || 'Giảng viên'} · {feedback.created_at ? new Date(feedback.created_at).toLocaleString('vi-VN') : ''}</p></article>)}
+                      </div>
+                      {feedbackError && <p className="mb-3 text-xs text-red-700">{feedbackError}</p>}
+                      <label className="block text-xs font-semibold text-on-surface-variant mb-2">Nhận xét cho lượt tập này</label>
+                      <textarea value={feedbackComment} onChange={(event) => setFeedbackComment(event.target.value)} maxLength={2000} placeholder="Nhập nhận xét cụ thể cho học viên..." className="w-full min-h-24 rounded-xl border border-outline-variant/25 bg-white p-3 text-sm outline-none focus:border-[#1D4532]" />
+                      <button type="button" disabled={feedbackSaving || !feedbackComment.trim()} onClick={() => void submitFeedback()} className="mt-3 inline-flex items-center gap-2 rounded-xl bg-[#1D4532] px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50"><Send className="w-4 h-4" />{feedbackSaving ? 'Đang gửi...' : 'Gửi phản hồi'}</button>
+                    </>}
+                  </div>
+                </div>
+              )}
+            </section>
 
             <section className="bg-white rounded-2xl shadow-sm border border-outline-variant/10 overflow-hidden">
               <div className="px-lg py-md border-b border-outline-variant/10 flex flex-col md:flex-row md:items-center md:justify-between gap-3">

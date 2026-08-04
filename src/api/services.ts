@@ -198,12 +198,14 @@ export const instructorStudentsApi = {
       options,
     ),
     
-  // POST /api/practice-attempts/{attemptId}/feedbacks
-  sendFeedback: (attemptId: number, content: string, type: string = 'TEXT') => 
-    apiRequest<FeedbackResponse>(`/api/practice-attempts/${attemptId}/feedbacks`, {
+  // OpenAPI: GET/POST /api/practice/attempts/{id}/feedback
+  getFeedbacks: (attemptId: number, options?: RequestOptions) =>
+    apiRequest<FeedbackResponse[]>(`/api/practice/attempts/${attemptId}/feedback`, options),
+  sendFeedback: (attemptId: number, comment: string) =>
+    apiRequest<FeedbackResponse>(`/api/practice/attempts/${attemptId}/feedback`, {
       method: 'POST',
-      body: { content, type }
-    })
+      body: { comment },
+    }),
 };
 
 export const uploadApi = {
