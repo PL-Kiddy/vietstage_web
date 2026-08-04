@@ -6,6 +6,8 @@ import {
   Plus,
   ChevronUp,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Edit2,
   Check,
   X,
@@ -93,6 +95,8 @@ const InstructorMedia = () => {
   // ── Fetch instruments & skill levels ─────────────────────────────────
   const [selectedInstrumentId, setSelectedInstrumentId] = useState<number | 'ALL'>('ALL');
   const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [perPage, setPerPage] = useState(5);
 
   const { data: instruments = [] } = useAxiosRequest<any[]>(
     (signal) => masterDataApi.instruments({ signal }),
@@ -268,16 +272,28 @@ const InstructorMedia = () => {
       const q = searchQuery.toLowerCase();
       const titleMatch = lesson.title.toLowerCase().includes(q);
       const descMatch = (lesson.description || '').toLowerCase().includes(q);
-      if (!titleMatch && !descMatch) return false;
+      
+      const instName = (lesson as any).instrument?.name ?? (lesson as any).instrumentName ?? '';
+      const instTranslated = getInstrumentTranslation(instName).toLowerCase();
+      const instMatch = instTranslated.includes(q);
+      
+      const rawDate = (lesson as any).updatedAt ?? (lesson as any).updated_at ?? (lesson as any).createdAt ?? (lesson as any).created_at;
+      const formattedDate = rawDate ? new Date(rawDate).toLocaleDateString('vi-VN').toLowerCase() : '';
+      const dateMatch = formattedDate.includes(q);
+      
+      if (!titleMatch && !descMatch && !instMatch && !dateMatch) return false;
     }
     return true;
   });
 
   const sortedLessons = [...filteredLessons].sort((a, b) => {
-    const oa = (a as any).orderIndex ?? (a as any).order_index ?? 9999;
-    const ob = (b as any).orderIndex ?? (b as any).order_index ?? 9999;
-    return oa - ob;
+    const dateA = new Date((a as any).updatedAt ?? (a as any).updated_at ?? (a as any).createdAt ?? (a as any).created_at ?? 0).getTime();
+    const dateB = new Date((b as any).updatedAt ?? (b as any).updated_at ?? (b as any).createdAt ?? (b as any).created_at ?? 0).getTime();
+    return dateB - dateA;
   });
+
+  const totalPages = Math.ceil(sortedLessons.length / perPage);
+  const paginatedLessons = sortedLessons.slice((currentPage - 1) * perPage, currentPage * perPage);
 
   return (
     <div className="space-y-lg">
@@ -285,7 +301,7 @@ const InstructorMedia = () => {
       <div className="flex items-end justify-between gap-md">
         <div>
           <h2 className="text-headline-lg font-bold text-[#1D4532]" style={{ fontFamily: "'Montserrat', sans-serif" }}>
-            Cấu trúc Giáo trình
+            Cấu hình Giáo trình
           </h2>
           <p className="text-on-surface-variant mt-1">
             Sắp xếp thứ tự bài học trong khóa học và cấu hình bài tập cho từng bài.
@@ -399,10 +415,10 @@ const InstructorMedia = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-outline-variant/10">
-                  {sortedLessons.map((lesson, idx) => {
+                  {paginatedLessons.map((lesson, idx) => {
                     const order = (lesson as any).orderIndex ?? (lesson as any).order_index ?? idx + 1;
                     const instName = (lesson as any).instrument?.name ?? (lesson as any).instrumentName ?? 'Chưa rõ';
-                    const rawDate = (lesson as any).createdAt ?? (lesson as any).created_at;
+                    const rawDate = (lesson as any).updatedAt ?? (lesson as any).updated_at ?? (lesson as any).createdAt ?? (lesson as any).created_at;
                     const formattedDate = rawDate
                       ? new Date(rawDate).toLocaleDateString('vi-VN')
                       : '---';
@@ -507,6 +523,66 @@ const InstructorMedia = () => {
                   })}
                 </tbody>
               </table>
+            </div>
+          )}
+
+          {/* Pagination Footer */}
+          {sortedLessons.length > 0 && (
+            <div className="mt-lg flex flex-col sm:flex-row justify-between items-center gap-md text-[12px] text-[#5e5e5b] pt-4">
+              <div className="flex items-center gap-lg">
+                <p>
+                  Hiển thị {(currentPage - 1) * perPage + 1} -{' '}
+                  {Math.min(currentPage * perPage, sortedLessons.length)} trong tổng số{' '}
+                  {sortedLessons.length} bài giảng
+                </p>
+
+                <div className="flex items-center gap-xs">
+                  <span>Số dòng mỗi trang:</span>
+                  <select
+                    value={perPage}
+                    onChange={(e) => {
+                      setPerPage(Number(e.target.value));
+                      setCurrentPage(1);
+                    }}
+                    className="bg-white border border-outline rounded px-2 py-1 text-label-md cursor-pointer outline-none font-semibold text-[#1D4532]"
+                  >
+                    <option value={5}>5 dòng</option>
+                    <option value={10}>10 dòng</option>
+                    <option value={20}>20 dòng</option>
+                    <option value={50}>50 dòng</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex gap-xs">
+                <button
+                  disabled={currentPage <= 1}
+                  onClick={() => setCurrentPage((p) => p - 1)}
+                  className="p-2 border border-outline rounded hover:bg-[#EDF7F2] transition-colors disabled:opacity-40"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+                  <button
+                    key={p}
+                    onClick={() => setCurrentPage(p)}
+                    className={`px-3 py-1 rounded font-bold transition-colors ${
+                      p === currentPage
+                        ? 'bg-[#1D4532] text-white'
+                        : 'border border-outline hover:bg-[#EDF7F2]'
+                    }`}
+                  >
+                    {p}
+                  </button>
+                ))}
+                <button
+                  disabled={currentPage >= totalPages}
+                  onClick={() => setCurrentPage((p) => p + 1)}
+                  className="p-2 border border-outline rounded hover:bg-[#EDF7F2] transition-colors disabled:opacity-40"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
             </div>
           )}
         </div>
