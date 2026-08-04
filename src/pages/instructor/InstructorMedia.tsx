@@ -494,26 +494,6 @@ const InstructorMedia = () => {
                                   <Edit2 className="w-4 h-4 text-[#1D4532]" />
                                   Chỉnh sửa bài học
                                 </button>
-                                <button
-                                  onClick={() => {
-                                    setOpenActionMenuId(null);
-                                    moveLesson(lesson, 'up');
-                                  }}
-                                  className="w-full flex items-center gap-2 px-4 py-2 hover:bg-[#EDF7F2] text-[13px] text-on-surface transition-colors"
-                                >
-                                  <ChevronUp className="w-4 h-4 text-[#1D4532]" />
-                                  Đẩy vị trí lên trên
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    setOpenActionMenuId(null);
-                                    moveLesson(lesson, 'down');
-                                  }}
-                                  className="w-full flex items-center gap-2 px-4 py-2 hover:bg-[#EDF7F2] text-[13px] text-on-surface transition-colors"
-                                >
-                                  <ChevronDown className="w-4 h-4 text-[#1D4532]" />
-                                  Đẩy vị trí xuống dưới
-                                </button>
                               </div>
                             </>
                           )}
