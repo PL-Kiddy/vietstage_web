@@ -16,6 +16,7 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Link } from 'react-router-dom';
 import { lessonsApi, masterDataApi, uploadApi, lessonAssetsApi, lessonTechniquesApi } from '../../api/services';
 import { lessonDetailApi } from '../../api/management';
 import type { Instrument, Lesson as ApiLesson, SkillLevel } from '../../api/types';
@@ -30,8 +31,6 @@ interface Lesson {
   updatedAt: string;
   status: ApiLesson['status'];
   description: string;
-  passingThreshold: number;
-  exercises: string[];
   orderIndex: number;
   backendStatus?: ApiLesson['status'];
 }
@@ -48,8 +47,6 @@ const mapLesson = (lesson: ApiLesson): Lesson => ({
   status: lesson.status,
   backendStatus: lesson.status,
   description: lesson.description ?? '',
-  passingThreshold: lesson.exercises?.[0]?.passThreshold ?? 80,
-  exercises: lesson.exercises?.map((exercise) => exercise.title) ?? [],
   orderIndex: lesson.orderIndex ?? 0,
 });
 
@@ -100,10 +97,7 @@ const InstructorLessons = () => {
   const [newSkillLevelId, setNewSkillLevelId] = useState(0);
   const [newStatus, setNewStatus] = useState<'public' | 'draft'>('draft');
   const [newDescription, setNewDescription] = useState('');
-  const [newPassingThreshold, setNewPassingThreshold] = useState<number>(80);
   const [newOrderIndex, setNewOrderIndex] = useState<number>(1);
-  const [newExercises, setNewExercises] = useState<string[]>([]);
-  const [currentExerciseInput, setCurrentExerciseInput] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingLesson, setEditingLesson] = useState<Lesson | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -180,10 +174,7 @@ const InstructorLessons = () => {
       setNewSkillLevelId(detail.skillLevel?.id ?? skillLevels[0]?.id ?? 0);
       setNewStatus(mapped.status === 'DRAFT' || mapped.status === 'REJECTED' ? 'draft' : 'public');
       setNewDescription(mapped.description);
-      setNewPassingThreshold(mapped.passingThreshold);
       setNewOrderIndex(mapped.orderIndex || 1);
-      setNewExercises(mapped.exercises);
-      setCurrentExerciseInput('');
     } catch (error) {
       alert(error instanceof Error ? error.message : 'Không thể tải chi tiết bài giảng.');
     }
@@ -195,10 +186,7 @@ const InstructorLessons = () => {
     setNewSkillLevelId(skillLevels[0]?.id ?? 0);
     setNewStatus('draft');
     setNewDescription('');
-    setNewPassingThreshold(80);
     setNewOrderIndex(1);
-    setNewExercises([]);
-    setCurrentExerciseInput('');
     setEditingLesson(null);
     setShowAddForm(false);
   };
@@ -226,8 +214,6 @@ const InstructorLessons = () => {
           description: newDescription,
           skillLevelId,
           orderIndex: newOrderIndex,
-          exercises: newExercises,
-          passThreshold: newPassingThreshold,
         });
         if (newDescription.trim()) {
           try {
@@ -252,8 +238,6 @@ const InstructorLessons = () => {
           skillLevelId,
           status: targetStatus,
           orderIndex: newOrderIndex,
-          exercises: newExercises,
-          passThreshold: newPassingThreshold,
         });
         if (createdLesson?.id && newDescription.trim()) {
           try {
@@ -544,6 +528,14 @@ const InstructorLessons = () => {
                               <div className={`absolute right-4 w-52 bg-white border border-[#d1e4fb] rounded-xl shadow-lg py-1 z-20 text-left ${
                                 idx >= paginatedLessons.length - 2 && paginatedLessons.length > 2 ? 'bottom-[85%] mb-1' : 'top-full mt-1'
                               }`}>
+                                <Link
+                                  to={`/instructor/lessons/${lesson.id}/content`}
+                                  onClick={() => setOpenActionMenuLessonId(null)}
+                                  className="w-full flex items-center gap-2 px-4 py-2 hover:bg-[#EDF7F2] text-[13px] text-on-surface transition-colors"
+                                >
+                                  <BookOpen className="w-4 h-4 text-[#1D4532]" />
+                                  Quản lý bài tập & Quiz
+                                </Link>
                                 <button
                                   onClick={() => {
                                     setOpenActionMenuLessonId(null);
@@ -759,27 +751,6 @@ const InstructorLessons = () => {
                     </div>
                   </div>
 
-                  {/* Score range */}
-                  <div className="flex flex-col gap-xs border-t border-outline-variant/10 pt-md">
-                    <div className="flex justify-between items-center">
-                      <label className="font-label-sm text-on-surface-variant font-semibold uppercase tracking-wider text-xs">
-                        Điểm AI tối thiểu để đạt
-                      </label>
-                      <span className="bg-primary/15 text-primary px-sm py-xs rounded font-bold text-sm">
-                        {newPassingThreshold}%
-                      </span>
-                    </div>
-                    <input
-                      type="range"
-                      min="50"
-                      max="95"
-                      step="5"
-                      value={newPassingThreshold}
-                      onChange={(e) => setNewPassingThreshold(Number(e.target.value))}
-                      className="w-full h-2 bg-[#eae8e3] rounded-lg appearance-none cursor-pointer accent-primary mt-2"
-                    />
-                  </div>
-
                   {/* Description */}
                   <div className="flex flex-col gap-xs border-t border-outline-variant/10 pt-md">
                     <label className="font-label-sm text-on-surface-variant font-semibold uppercase tracking-wider text-xs">
@@ -791,54 +762,6 @@ const InstructorLessons = () => {
                       placeholder="Mô tả kỹ thuật rung dây, nhấn vuốt, gảy ngón..."
                       className="w-full bg-[#fbf9f4] border border-outline-variant/30 rounded-xl p-md text-body-md focus:border-primary focus:ring-1 focus:ring-primary transition-all outline-none text-on-surface h-24"
                     />
-                  </div>
-
-                  {/* Exercises Manager */}
-                  <div className="border-t border-outline-variant/10 pt-md space-y-sm">
-                    <label className="font-label-sm text-on-surface-variant font-semibold uppercase tracking-wider text-xs block">
-                      Bài tập thực hành lòng bản
-                    </label>
-                    <div className="flex gap-sm">
-                      <input
-                        type="text"
-                        value={currentExerciseInput}
-                        onChange={(e) => setCurrentExerciseInput(e.target.value)}
-                        placeholder="Nhập tên bài tập nhỏ..."
-                        className="flex-grow bg-[#fbf9f4] border border-outline-variant/30 rounded-xl p-md text-body-md focus:border-primary focus:ring-1 focus:ring-primary transition-all outline-none text-on-surface"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (!currentExerciseInput.trim()) return;
-                          setNewExercises([...newExercises, currentExerciseInput.trim()]);
-                          setCurrentExerciseInput('');
-                        }}
-                        className="bg-[#1D4532] text-white px-xl py-md rounded-xl font-bold hover:bg-[#1D4532]/95 active:scale-95 transition-all shadow-sm"
-                      >
-                        Thêm bài tập
-                      </button>
-                    </div>
-
-                    {newExercises.length === 0 ? (
-                      <p className="text-on-surface-variant text-[12px] italic">
-                        Chưa có bài tập nhỏ nào được thêm. Học viên sẽ thực hành toàn bộ bài giảng làm 1 bài tập chính.
-                      </p>
-                    ) : (
-                      <ul className="space-y-sm bg-[#fbf9f4] p-md rounded-xl border border-outline-variant/10 max-h-40 overflow-y-auto custom-scrollbar">
-                        {newExercises.map((ex, idx) => (
-                          <li key={idx} className="flex justify-between items-center bg-white px-md py-sm rounded-lg border border-outline-variant/5 shadow-xs text-body-md text-on-surface">
-                            <span className="font-medium">{idx + 1}. {ex}</span>
-                            <button
-                              type="button"
-                              onClick={() => setNewExercises(newExercises.filter((_, i) => i !== idx))}
-                              className="text-error hover:scale-110 active:scale-95 transition-transform"
-                            >
-                              <X className="w-4 h-4" />
-                            </button>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
                   </div>
 
                   {/* Upload Section */}
