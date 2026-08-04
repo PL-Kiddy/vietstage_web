@@ -67,6 +67,30 @@ const getStatusMeta = (status: ApiLesson['status']) => {
       return { label: 'Bản nháp', className: 'bg-slate-50 text-slate-700 border-slate-200', dot: 'bg-slate-400' };
   }
 };
+
+const getLevelTranslation = (levelName: string) => {
+  switch (levelName.toLowerCase()) {
+    case 'beginner':
+      return 'Cơ bản';
+    case 'intermediate':
+      return 'Trung cấp';
+    case 'advanced':
+      return 'Nâng cao';
+    default:
+      return levelName;
+  }
+};
+
+const getInstrumentTranslation = (instName: string) => {
+  const nameLower = instName.toLowerCase();
+  if (nameLower.includes('tranh')) return 'Đàn Tranh';
+  if (nameLower.includes('bau')) return 'Đàn Bầu';
+  if (nameLower.includes('sao')) return 'Sáo Trúc';
+  if (nameLower.includes('nguyet')) return 'Đàn Nguyệt';
+  if (nameLower.includes('trong')) return 'Trống';
+  return instName;
+};
+
 const InstructorLessons = () => {
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [instruments, setInstruments] = useState<Instrument[]>([]);
@@ -464,12 +488,7 @@ const InstructorLessons = () => {
                     </tr>
                   ) : paginatedLessons.map((lesson, idx) => {
                     const rawInst = lesson.instrument || '';
-                    const instFormatted =
-                      rawInst.toLowerCase().includes('tranh') ? 'Đàn Tranh'
-                      : rawInst.toLowerCase().includes('bau') ? 'Đàn Bầu'
-                      : rawInst.toLowerCase().includes('sao') ? 'Sáo Trúc'
-                      : rawInst.toLowerCase().includes('nguyet') ? 'Đàn Nguyệt'
-                      : rawInst || 'Đàn Tranh';
+                    const instFormatted = getInstrumentTranslation(rawInst) || 'Đàn Tranh';
 
                     return (
                       <tr
@@ -699,7 +718,7 @@ const InstructorLessons = () => {
                       >
                         {instruments.map((instrument) => (
                           <option key={instrument.id} value={instrument.name}>
-                            {instrument.name}
+                            {getInstrumentTranslation(instrument.name)}
                           </option>
                         ))}
                       </select>
@@ -729,7 +748,9 @@ const InstructorLessons = () => {
                         className="w-full bg-[#fbf9f4] border border-outline-variant/30 rounded-xl p-md text-body-md focus:border-primary focus:ring-1 focus:ring-primary transition-all outline-none text-on-surface cursor-pointer"
                       >
                         {skillLevels.map((level) => (
-                          <option key={level.id} value={level.id}>{level.levelName}</option>
+                          <option key={level.id} value={level.id}>
+                            {getLevelTranslation(level.levelName)}
+                          </option>
                         ))}
                       </select>
                     </div>
@@ -742,8 +763,8 @@ const InstructorLessons = () => {
                         onChange={(e) => setNewStatus(e.target.value as 'public' | 'draft')}
                         className="w-full bg-[#fbf9f4] border border-outline-variant/30 rounded-xl p-md text-body-md focus:border-primary focus:ring-1 focus:ring-primary transition-all outline-none text-on-surface cursor-pointer"
                       >
-                        <option value="public">Công khai (Public)</option>
-                        <option value="draft">Bản nháp (Draft)</option>
+                        <option value="public">Công khai</option>
+                        <option value="draft">Bản nháp</option>
                       </select>
                     </div>
                   </div>
