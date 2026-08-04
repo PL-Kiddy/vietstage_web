@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from 'react';
-import { ArrowLeft, BookOpenCheck, BrainCircuit, Gamepad2, ListChecks, Pencil, Plus, Trash2, X } from 'lucide-react';
+import { ArrowLeft, GraduationCap, ClipboardList, HelpCircle, Gamepad2, Pencil, Plus, Trash2, X } from 'lucide-react';
 import { Link, useParams } from 'react-router-dom';
 import { lessonDetailApi } from '../../api/management';
 import {
@@ -16,6 +16,19 @@ import {
 import type { Lesson } from '../../api/types';
 
 type Tab = 'exercises' | 'quizzes' | 'minigames';
+
+const getChallengeTypeLabel = (type: string) => {
+  switch (type.toUpperCase()) {
+    case 'RHYTHM':
+      return 'Gõ theo nhịp';
+    case 'PITCH':
+      return 'Đoán cao độ';
+    case 'LISTENING':
+      return 'Luyện nghe';
+    default:
+      return type;
+  }
+};
 
 const emptyExercise: ExerciseInput = { title: '', description: '', passThreshold: 80, orderIndex: 1 };
 const emptyQuiz = { question: '', optionsText: '', correctAnswer: '', orderIndex: 1 };
@@ -172,8 +185,8 @@ const InstructorLessonContent = () => {
   };
 
   const tabs = [
-    { id: 'exercises' as const, label: 'Bài tập', count: exercises.length, icon: ListChecks },
-    { id: 'quizzes' as const, label: 'Quiz', count: quizzes.length, icon: BrainCircuit },
+    { id: 'exercises' as const, label: 'Bài tập', count: exercises.length, icon: ClipboardList },
+    { id: 'quizzes' as const, label: 'Quiz', count: quizzes.length, icon: HelpCircle },
     { id: 'minigames' as const, label: 'Minigame', count: minigames.length, icon: Gamepad2 },
   ];
 
@@ -190,12 +203,12 @@ const InstructorLessonContent = () => {
         <ArrowLeft className="w-4 h-4" /> Quay lại danh sách bài giảng
       </Link>
 
-      <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#1D4532] via-[#22523b] to-[#2e684d] text-white p-7 md:p-9 shadow-lg mb-7">
+      <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#1D4532] via-[#22523b] to-[#2e684d] text-white p-5 md:p-6 shadow-md mb-6">
         <div className="absolute -right-12 -top-16 w-56 h-56 rounded-full border-[34px] border-white/5" />
-        <BookOpenCheck className="w-9 h-9 mb-4 text-[#ffe088]" />
-        <p className="text-xs uppercase tracking-[0.22em] text-white/65 mb-2">Không gian biên soạn</p>
-        <h1 className="text-3xl md:text-4xl font-bold max-w-3xl">{lesson?.title ?? 'Nội dung bài giảng'}</h1>
-        <p className="mt-3 text-white/70 max-w-2xl">Xây dựng bài tập thực hành, câu hỏi kiểm tra và trải nghiệm tương tác trong cùng một luồng.</p>
+        <GraduationCap className="w-7 h-7 mb-2 text-[#ffe088]" />
+        <p className="text-[10px] uppercase tracking-[0.22em] text-white/65 mb-1">Không gian biên soạn</p>
+        <h1 className="text-xl md:text-2xl font-bold max-w-3xl">{lesson?.title ?? 'Nội dung bài giảng'}</h1>
+        <p className="mt-1.5 text-white/70 max-w-2xl text-xs md:text-sm">Xây dựng bài tập thực hành, câu hỏi kiểm tra và trải nghiệm tương tác trong cùng một luồng.</p>
       </section>
 
       {error && <div className="mb-5 rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-red-800">{error}</div>}
@@ -230,7 +243,7 @@ const InstructorLessonContent = () => {
             ))}
             {tab === 'minigames' && minigames.map((item) => (
               <article key={item.id} className="p-5 flex items-start justify-between gap-4 hover:bg-[#fbf9f4]">
-                <div><p className="text-xs text-[#1D4532] font-bold mb-1">{item.challengeType} · {item.difficulty || 'CHƯA PHÂN LOẠI'}</p><h3 className="font-bold text-lg">{item.title}</h3><p className="text-sm text-on-surface-variant mt-1">Điểm tối đa {item.maxScore} · Thứ tự {item.orderIndex}</p></div>
+                <div><p className="text-xs text-[#1D4532] font-bold mb-1">{getChallengeTypeLabel(item.challengeType)} · {item.difficulty || 'CHƯA PHÂN LOẠI'}</p><h3 className="font-bold text-lg">{item.title}</h3><p className="text-sm text-on-surface-variant mt-1">Điểm tối đa {item.maxScore} · Thứ tự {item.orderIndex}</p></div>
                 {itemActions(item.id, () => openMinigame(item))}
               </article>
             ))}
@@ -254,9 +267,9 @@ const InstructorLessonContent = () => {
                 <Field label="Tên bài tập"><input required value={exerciseForm.title} onChange={(e) => setExerciseForm({ ...exerciseForm, title: e.target.value })} className="input" /></Field>
                 <Field label="Mô tả"><textarea value={exerciseForm.description} onChange={(e) => setExerciseForm({ ...exerciseForm, description: e.target.value })} className="input min-h-28" /></Field>
                 <div className="grid grid-cols-2 gap-4"><Field label="Ngưỡng đạt (%)"><input type="number" min="0" max="100" required value={exerciseForm.passThreshold} onChange={(e) => setExerciseForm({ ...exerciseForm, passThreshold: Number(e.target.value) })} className="input" /></Field><Field label="Thứ tự"><input type="number" min="0" required value={exerciseForm.orderIndex} onChange={(e) => setExerciseForm({ ...exerciseForm, orderIndex: Number(e.target.value) })} className="input" /></Field></div>
-                <Field label={`Beat Map Asset ID${editingId ? ' (không bắt buộc khi cập nhật)' : ''}`}>
-                  <input type="number" min="1" required={!editingId} value={exerciseForm.beatMapAssetId ?? ''} onChange={(e) => setExerciseForm({ ...exerciseForm, beatMapAssetId: e.target.value ? Number(e.target.value) : undefined })} placeholder="Nhập ID asset BEAT_MAP" className="input" />
-                  <span className="mt-2 block text-xs text-on-surface-variant">API hiện tại cần một media asset hợp lệ để liên kết với bài tập mới.</span>
+                <Field label={`Mã tài nguyên bản đồ nhịp điệu (Beat Map Asset ID)${editingId ? ' (không bắt buộc khi cập nhật)' : ''}`}>
+                  <input type="number" min="1" required={!editingId} value={exerciseForm.beatMapAssetId ?? ''} onChange={(e) => setExerciseForm({ ...exerciseForm, beatMapAssetId: e.target.value ? Number(e.target.value) : undefined })} placeholder="Nhập ID tài nguyên BEAT_MAP" className="input" />
+                  <span className="mt-2 block text-xs text-on-surface-variant">Hệ thống cần một tài nguyên đa phương tiện hợp lệ để liên kết với bài tập mới.</span>
                 </Field>
               </>}
               {tab === 'quizzes' && <>
@@ -267,9 +280,22 @@ const InstructorLessonContent = () => {
               </>}
               {tab === 'minigames' && <>
                 <Field label="Tên minigame"><input required value={minigameForm.title} onChange={(e) => setMinigameForm({ ...minigameForm, title: e.target.value })} className="input" /></Field>
-                <div className="grid grid-cols-2 gap-4"><Field label="Loại thử thách"><input required value={minigameForm.challengeType} onChange={(e) => setMinigameForm({ ...minigameForm, challengeType: e.target.value })} className="input" /></Field><Field label="Độ khó"><select value={minigameForm.difficulty} onChange={(e) => setMinigameForm({ ...minigameForm, difficulty: e.target.value })} className="input"><option value="BEGINNER">Cơ bản</option><option value="INTERMEDIATE">Trung cấp</option><option value="ADVANCED">Nâng cao</option></select></Field></div>
+                <div className="grid grid-cols-2 gap-4">
+                  <Field label="Loại thử thách">
+                    <select
+                      value={minigameForm.challengeType}
+                      onChange={(e) => setMinigameForm({ ...minigameForm, challengeType: e.target.value })}
+                      className="input cursor-pointer"
+                    >
+                      <option value="RHYTHM">Gõ theo nhịp (Rhythm)</option>
+                      <option value="PITCH">Đoán cao độ (Pitch)</option>
+                      <option value="LISTENING">Luyện nghe cảm âm (Listening)</option>
+                    </select>
+                  </Field>
+                  <Field label="Độ khó"><select value={minigameForm.difficulty} onChange={(e) => setMinigameForm({ ...minigameForm, difficulty: e.target.value })} className="input cursor-pointer"><option value="BEGINNER">Cơ bản</option><option value="INTERMEDIATE">Trung cấp</option><option value="ADVANCED">Nâng cao</option></select></Field>
+                </div>
                 <div className="grid grid-cols-2 gap-4"><Field label="Điểm tối đa"><input type="number" min="1" required value={minigameForm.maxScore} onChange={(e) => setMinigameForm({ ...minigameForm, maxScore: Number(e.target.value) })} className="input" /></Field><Field label="Thứ tự"><input type="number" min="0" required value={minigameForm.orderIndex} onChange={(e) => setMinigameForm({ ...minigameForm, orderIndex: Number(e.target.value) })} className="input" /></Field></div>
-                <Field label="Cấu hình nội dung JSON"><textarea value={minigameForm.contentJson} onChange={(e) => setMinigameForm({ ...minigameForm, contentJson: e.target.value })} className="input min-h-40 font-mono text-sm" /></Field>
+                <Field label="Cấu hình chi tiết (JSON)"><textarea value={minigameForm.contentJson} onChange={(e) => setMinigameForm({ ...minigameForm, contentJson: e.target.value })} className="input min-h-40 font-mono text-sm" /></Field>
               </>}
               <button disabled={saving} className="w-full bg-[#1D4532] text-white rounded-xl py-3.5 font-bold disabled:opacity-60">{saving ? 'Đang lưu...' : editingId ? 'Lưu thay đổi' : 'Tạo nội dung'}</button>
             </form>
