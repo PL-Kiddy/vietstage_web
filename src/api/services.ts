@@ -189,17 +189,17 @@ export const learnerProgressApi = {
 };
 
 export const instructorStudentsApi = {
-  // Using Admin endpoint as placeholder for now, assuming frontend will filter by role='LEARNER'
   listStudents: (options?: RequestOptions) => apiRequest<AdminUser[]>('/api/admin/users', options),
   
-  // Fake endpoint based on Option A. Backend should implement /api/instructor/learners/{learnerId}/attempts
-  getAttempts: (learnerId: number, options?: RequestOptions) => 
-    apiRequest<PageResponse<PracticeAttempt>>(`/api/instructor/learners/${learnerId}/attempts`, options),
+  // GET /api/lessons/{id}/attempts?learner_id={learnerId}
+  getAttempts: (lessonId: number, learnerId: number, options?: RequestOptions) => 
+    apiRequest<PageResponse<PracticeAttempt>>(`/api/lessons/${lessonId}/attempts?learner_id=${learnerId}`, options),
     
-  sendFeedback: (attemptId: number, content: string, type: string) => 
-    apiRequest<FeedbackResponse>('/api/feedback', {
+  // POST /api/practice-attempts/{attemptId}/feedbacks
+  sendFeedback: (attemptId: number, content: string, type: string = 'TEXT') => 
+    apiRequest<FeedbackResponse>(`/api/practice-attempts/${attemptId}/feedbacks`, {
       method: 'POST',
-      body: { attemptId, content, type }
+      body: { content, type }
     })
 };
 
