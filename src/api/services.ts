@@ -192,8 +192,11 @@ export const instructorStudentsApi = {
   listStudents: (options?: RequestOptions) => apiRequest<AdminUser[]>('/api/admin/users', options),
   
   // GET /api/lessons/{id}/attempts?learner_id={learnerId}
-  getAttempts: (lessonId: number, learnerId: number, options?: RequestOptions) => 
-    apiRequest<PageResponse<PracticeAttempt>>(`/api/lessons/${lessonId}/attempts?learner_id=${learnerId}`, options),
+  getAttempts: (lessonId: number, learnerId: number, page = 0, size = 100, options?: RequestOptions) =>
+    apiRequest<PageResponse<PracticeAttempt>>(
+      `/api/lessons/${lessonId}/attempts?learner_id=${learnerId}&page=${page}&size=${size}`,
+      options,
+    ),
     
   // POST /api/practice-attempts/{attemptId}/feedbacks
   sendFeedback: (attemptId: number, content: string, type: string = 'TEXT') => 

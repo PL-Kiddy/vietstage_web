@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAxiosRequest } from '../../hooks/useAxiosRequest';
-import { usersApi, lessonsApi, learnerProgressApi } from '../../api/services';
-import { Search, X, Star, BookOpen, ChevronRight, Users, Loader2, GraduationCap, Check, HelpCircle } from 'lucide-react';
+import { usersApi, lessonsApi, learnerProgressApi, instructorStudentsApi } from '../../api/services';
+import type { PracticeAttempt } from '../../api/types';
+import { Search, X, BookOpen, ChevronRight, Users, Loader2, Check, HelpCircle, User, CalendarDays, BarChart3 } from 'lucide-react';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 interface LessonProgress {
@@ -15,14 +16,36 @@ interface LessonProgress {
   error: boolean;
 }
 
+const toDateInputValue = (date: Date) => date.toISOString().slice(0, 10);
+
+const getInitialDateFrom = () => {
+  const date = new Date();
+  date.setDate(date.getDate() - 29);
+  return toDateInputValue(date);
+};
+
+const CustomStar = ({ className }: { className?: string }) => (
+  <svg
+    viewBox="0 0 24 24"
+    className={className}
+    fill="currentColor"
+    stroke="currentColor"
+    strokeWidth="2.5"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+  </svg>
+);
+
 const StarDisplay = ({ count }: { count: number }) => (
   <div className="flex gap-1 items-center justify-center">
     {[1, 2, 3].map((i) => (
-      <Star
+      <CustomStar
         key={i}
-        className={`w-3.5 h-3.5 ${
+        className={`w-4 h-4 ${
           i <= count
-            ? 'text-amber-400 fill-amber-400 drop-shadow-xs'
+            ? 'text-amber-400 fill-amber-400 filter drop-shadow-[0_1px_2px_rgba(251,191,36,0.5)]'
             : 'text-gray-200 fill-gray-200'
         }`}
       />
@@ -37,6 +60,11 @@ const InstructorStudents = () => {
   const [studentPage, setStudentPage] = useState(1);
   const studentsPerPage = 5;
   const [lessonProgressMap, setLessonProgressMap] = useState<Record<number, LessonProgress>>({});
+  const [practiceAttempts, setPracticeAttempts] = useState<PracticeAttempt[]>([]);
+  const [practiceAttemptsLoading, setPracticeAttemptsLoading] = useState(false);
+  const [practiceAttemptsError, setPracticeAttemptsError] = useState('');
+  const [practiceDateFrom, setPracticeDateFrom] = useState(getInitialDateFrom);
+  const [practiceDateTo, setPracticeDateTo] = useState(() => toDateInputValue(new Date()));
   
   // Track currently selected instrument to filter the selected student's progress
   const [selectedStudentInstrument, setSelectedStudentInstrument] = useState<string>('');
@@ -209,6 +237,47 @@ const InstructorStudents = () => {
     });
   }, [selectedStudentId, studentLessons, fetchLessonProgress]);
 
+  // The current Instructor API exposes attempts by lesson and learner. Load every
+  // page so the frequency report is complete before applying the date filter below.
+  useEffect(() => {
+    if (!selectedStudentId || studentLessons.length === 0) {
+      setPracticeAttempts([]);
+      setPracticeAttemptsError('');
+      setPracticeAttemptsLoading(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    const loadAttempts = async () => {
+      setPracticeAttemptsLoading(true);
+      setPracticeAttemptsError('');
+      try {
+        const attemptsByLesson = await Promise.all(studentLessons.map(async (lesson: any) => {
+          const attempts: PracticeAttempt[] = [];
+          let page = 0;
+          let totalPages = 1;
+          while (page < totalPages) {
+            const result = await instructorStudentsApi.getAttempts(lesson.id, selectedStudentId, page, 100, { signal: controller.signal });
+            attempts.push(...(result.content ?? []));
+            totalPages = result.totalPages ?? 1;
+            page += 1;
+          }
+          return attempts;
+        }));
+        if (!controller.signal.aborted) setPracticeAttempts(attemptsByLesson.flat());
+      } catch (cause) {
+        if (!controller.signal.aborted) {
+          setPracticeAttempts([]);
+          setPracticeAttemptsError(cause instanceof Error ? cause.message : 'Không thể tải lịch sử luyện tập.');
+        }
+      } finally {
+        if (!controller.signal.aborted) setPracticeAttemptsLoading(false);
+      }
+    };
+    void loadAttempts();
+    return () => controller.abort();
+  }, [selectedStudentId, studentLessons]);
+
   // Summary stats aggregated from filtered student lessons
   const summaryStats = useMemo(() => {
     const rows = Object.values(lessonProgressMap).filter((r) => !r.loading && !r.error);
@@ -229,6 +298,31 @@ const InstructorStudents = () => {
     () => studentLessons.map((lesson: any) => ({ id: lesson.id, title: lesson.title, progress: lessonProgressMap[lesson.id] ?? null })),
     [studentLessons, lessonProgressMap]
   );
+
+  const frequencyReport = useMemo(() => {
+    const start = new Date(`${practiceDateFrom}T00:00:00`);
+    const end = new Date(`${practiceDateTo}T23:59:59.999`);
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || start > end) {
+      return { invalidRange: true, rows: [] as { date: string; label: string; attempts: number }[], total: 0, activeDays: 0 };
+    }
+
+    const counts = new Map<string, number>();
+    practiceAttempts.forEach((attempt) => {
+      const rawDate = attempt.createdAt ?? (attempt as PracticeAttempt & { created_at?: string }).created_at;
+      const date = rawDate ? new Date(rawDate) : null;
+      if (!date || Number.isNaN(date.getTime()) || date < start || date > end) return;
+      const key = toDateInputValue(date);
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    });
+
+    const rows: { date: string; label: string; attempts: number }[] = [];
+    for (const cursor = new Date(start); cursor <= end && rows.length < 366; cursor.setDate(cursor.getDate() + 1)) {
+      const date = toDateInputValue(cursor);
+      rows.push({ date, label: cursor.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }), attempts: counts.get(date) ?? 0 });
+    }
+    const total = rows.reduce((sum, row) => sum + row.attempts, 0);
+    return { invalidRange: false, rows, total, activeDays: rows.filter((row) => row.attempts > 0).length };
+  }, [practiceAttempts, practiceDateFrom, practiceDateTo]);
 
   return (
     <div className="max-w-[1400px] mx-auto">
@@ -318,7 +412,7 @@ const InstructorStudents = () => {
                           ? 'bg-[#1D4532] text-white border-transparent' 
                           : 'bg-[#EDF7F2] text-[#1D4532] border-[#1D4532]/25'
                       }`}>
-                        <GraduationCap className="w-4 h-4" />
+                        <User className="w-4 h-4" />
                       </div>
                       <div>
                         <h4 className={`font-label-md text-xs font-bold ${isSelected ? 'text-[#1D4532]' : 'text-on-surface'}`}>
@@ -385,10 +479,10 @@ const InstructorStudents = () => {
             {/* Student Info Banner */}
             <div className="bg-gradient-to-r from-[#1D4532] to-[#2D5A43] rounded-2xl p-lg text-white flex flex-wrap items-center gap-lg shadow-lg relative overflow-hidden">
               <div className="absolute right-0 top-0 translate-x-8 -translate-y-4 opacity-10">
-                <GraduationCap className="w-40 h-40" />
+                <Users className="w-40 h-40" />
               </div>
               <div className="w-14 h-14 rounded-xl bg-white/10 flex items-center justify-center text-white flex-shrink-0 border border-white/20">
-                <GraduationCap className="w-8 h-8" />
+                <User className="w-8 h-8" />
               </div>
               <div className="flex-1 min-w-0">
                 <h2 className="text-lg font-bold truncate">{selectedStudent.name}</h2>
@@ -494,8 +588,8 @@ const InstructorStudents = () => {
                             <td className="px-md py-md">
                               <div className="flex justify-center">
                                 {!p || p.loading ? (
-                                  <div className="flex gap-0.5">
-                                    {[1,2,3].map((i) => <Star key={i} className="w-3.5 h-3.5 text-gray-200 fill-gray-200" />)}
+                                  <div className="flex gap-1">
+                                    {[1,2,3].map((i) => <CustomStar key={i} className="w-4 h-4 text-gray-200 fill-gray-200" />)}
                                   </div>
                                 ) : (
                                   <StarDisplay count={p?.stars ?? 0} />
@@ -543,6 +637,54 @@ const InstructorStudents = () => {
                 </div>
               )}
             </div>
+
+            <section className="bg-white rounded-2xl shadow-sm border border-outline-variant/10 overflow-hidden">
+              <div className="px-lg py-md border-b border-outline-variant/10 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                <div className="flex items-center gap-sm">
+                  <BarChart3 className="w-4 h-4 text-[#1D4532]" />
+                  <div>
+                    <h3 className="text-sm font-bold text-[#1D4532]">Báo cáo tần suất luyện tập</h3>
+                    <p className="text-xs text-on-surface-variant mt-0.5">Tổng hợp lượt tập của học viên theo ngày trong khoảng đã chọn.</p>
+                  </div>
+                </div>
+                <div className="flex flex-wrap items-center gap-2 text-xs">
+                  <label className="inline-flex items-center gap-2 border rounded-lg px-2.5 py-2">
+                    <CalendarDays className="w-3.5 h-3.5 text-[#1D4532]" />
+                    <span>Từ</span><input type="date" value={practiceDateFrom} max={practiceDateTo} onChange={(event) => setPracticeDateFrom(event.target.value)} className="outline-none bg-transparent" />
+                  </label>
+                  <label className="inline-flex items-center gap-2 border rounded-lg px-2.5 py-2">
+                    <span>Đến</span><input type="date" value={practiceDateTo} min={practiceDateFrom} max={toDateInputValue(new Date())} onChange={(event) => setPracticeDateTo(event.target.value)} className="outline-none bg-transparent" />
+                  </label>
+                </div>
+              </div>
+
+              {practiceAttemptsLoading ? (
+                <div className="flex items-center justify-center gap-2 py-12 text-sm text-on-surface-variant"><Loader2 className="w-5 h-5 animate-spin text-[#1D4532]" />Đang tổng hợp lịch sử luyện tập...</div>
+              ) : practiceAttemptsError ? (
+                <div className="m-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">{practiceAttemptsError}</div>
+              ) : frequencyReport.invalidRange ? (
+                <div className="p-10 text-center text-sm text-red-700">Khoảng ngày không hợp lệ. Ngày bắt đầu phải không sau ngày kết thúc.</div>
+              ) : (
+                <div className="p-lg">
+                  <div className="grid grid-cols-3 gap-3 mb-5">
+                    <div className="rounded-xl bg-[#EDF7F2] p-3"><p className="text-[11px] uppercase tracking-wide text-[#1D4532]/70">Tổng lượt tập</p><p className="text-xl font-bold text-[#1D4532] mt-1">{frequencyReport.total}</p></div>
+                    <div className="rounded-xl bg-[#f7f5ef] p-3"><p className="text-[11px] uppercase tracking-wide text-on-surface-variant">Ngày có luyện tập</p><p className="text-xl font-bold text-on-surface mt-1">{frequencyReport.activeDays}</p></div>
+                    <div className="rounded-xl bg-[#fff8df] p-3"><p className="text-[11px] uppercase tracking-wide text-[#7b6100]">TB mỗi ngày</p><p className="text-xl font-bold text-[#574500] mt-1">{frequencyReport.rows.length ? (frequencyReport.total / frequencyReport.rows.length).toFixed(1) : '0.0'}</p></div>
+                  </div>
+                  {frequencyReport.rows.length === 0 ? <p className="py-5 text-center text-sm text-on-surface-variant">Không có ngày nào trong khoảng đã chọn.</p> : (
+                    <div className="overflow-x-auto pb-1">
+                      <div className="min-w-max flex items-end gap-2 h-40 px-1">
+                        {frequencyReport.rows.map((row) => {
+                          const peak = Math.max(...frequencyReport.rows.map((item) => item.attempts), 1);
+                          const height = row.attempts ? Math.max(12, (row.attempts / peak) * 112) : 3;
+                          return <div key={row.date} className="w-9 flex flex-col items-center gap-1.5" title={`${row.date}: ${row.attempts} lượt tập`}><span className="text-[10px] font-bold text-[#1D4532]">{row.attempts || ''}</span><div className="w-5 h-28 flex items-end"><div className="w-full rounded-t-md bg-[#1D4532]" style={{ height }} /></div><span className="text-[9px] text-on-surface-variant whitespace-nowrap">{row.label}</span></div>;
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </section>
           </section>
         )}
       </div>
