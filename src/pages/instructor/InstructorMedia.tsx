@@ -16,6 +16,7 @@ import {
   MoreVertical,
   ListChecks,
   Pencil,
+  Layers,
 } from 'lucide-react';
 import { useAxiosRequest } from '../../hooks/useAxiosRequest';
 import { lessonsApi, exercisesApi, masterDataApi, type ExerciseInput } from '../../api/services';
@@ -224,22 +225,13 @@ const InstructorMedia = () => {
   return (
     <div className="space-y-lg">
       {/* ── Page Header ──────────────────────────────────────────────── */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-md">
-        <div>
-          <h2 className="text-headline-lg font-bold text-[#1D4532]" style={{ fontFamily: "'Montserrat', sans-serif" }}>
-            Cấu hình Giáo trình
-          </h2>
-          <p className="text-on-surface-variant mt-1">
-            Tạo bài học, sắp xếp lộ trình và biên soạn Bài tập, Quiz, Minigame cùng ngưỡng điểm đạt.
-          </p>
-        </div>
-        <button
-          onClick={handleOpenCreateLesson}
-          className="bg-[#1D4532] text-white px-lg h-[42px] rounded-lg font-label-md hover:bg-[#1D4532]/95 transition-all flex items-center justify-center gap-xs shadow-md shrink-0 font-bold"
-        >
-          <Plus className="w-[18px] h-[18px]" />
-          Tạo bài học mới
-        </button>
+      <div>
+        <h2 className="text-headline-lg font-bold text-[#1D4532]" style={{ fontFamily: "'Montserrat', sans-serif" }}>
+          Cấu hình Giáo trình
+        </h2>
+        <p className="text-on-surface-variant mt-1">
+          Tạo bài học, sắp xếp lộ trình và biên soạn Bài tập, Quiz, Minigame cùng ngưỡng điểm đạt.
+        </p>
       </div>
 
       <div className="space-y-md">
@@ -289,6 +281,15 @@ const InstructorMedia = () => {
                 <option value="DRAFT">Bản nháp</option>
               </select>
             </div>
+
+            {/* Add Lesson Button - Right aligned inline with status filter */}
+            <button
+              onClick={handleOpenCreateLesson}
+              className="bg-[#1D4532] text-white px-lg h-[42px] rounded-lg font-label-md hover:bg-[#1D4532]/95 transition-all flex items-center justify-center gap-xs shadow-md shrink-0 font-bold whitespace-nowrap"
+            >
+              <Plus className="w-[18px] h-[18px]" />
+              Tạo bài học mới
+            </button>
           </div>
 
           {/* Lesson List Table */}
@@ -383,28 +384,28 @@ const InstructorMedia = () => {
                           {openActionMenuId === lesson.id && (
                             <>
                               <div className="fixed inset-0 z-10" onClick={() => setOpenActionMenuId(null)} />
-                              <div className="absolute right-6 mt-1 w-64 bg-white border border-[#d1e4fb] rounded-xl shadow-lg py-1 z-20 text-left">
+                              <div className="absolute right-6 mt-1 w-72 bg-white border border-[#d1e4fb] rounded-xl shadow-lg py-1 z-20 text-left overflow-hidden">
                                 <button
                                   onClick={() => handleOpenEditLesson(lesson)}
-                                  className="w-full flex items-center gap-2 px-4 py-2 hover:bg-[#EDF7F2] text-[13px] font-medium text-on-surface transition-colors"
+                                  className="w-full flex items-center gap-2.5 px-4 py-2.5 hover:bg-[#EDF7F2] text-[13px] font-medium text-on-surface transition-colors whitespace-nowrap"
                                 >
-                                  <Pencil className="w-4 h-4 text-[#1D4532]" />
+                                  <Pencil className="w-4 h-4 text-[#1D4532] flex-shrink-0" />
                                   Sửa thông tin bài học
                                 </button>
                                 <button
                                   onClick={() => handleOpenConfigModal(lesson)}
-                                  className="w-full flex items-center gap-2 px-4 py-2 hover:bg-[#EDF7F2] text-[13px] font-medium text-[#1D4532] transition-colors"
+                                  className="w-full flex items-center gap-2.5 px-4 py-2.5 hover:bg-[#EDF7F2] text-[13px] font-medium text-[#1D4532] transition-colors border-t border-[#d1e4fb]/30 whitespace-nowrap"
                                 >
-                                  <Target className="w-4 h-4 text-[#1D4532]" />
-                                  Cấu hình Bài tập & Điểm chuẩn
+                                  <Target className="w-4 h-4 text-[#1D4532] flex-shrink-0" />
+                                  Cấu hình Bài tập & Ngưỡng đạt
                                 </button>
                                 <Link
                                   to={`/instructor/lessons/${lesson.id}/content`}
                                   onClick={() => setOpenActionMenuId(null)}
-                                  className="w-full flex items-center gap-2 px-4 py-2 hover:bg-[#EDF7F2] text-[13px] text-on-surface transition-colors"
+                                  className="w-full flex items-center gap-2.5 px-4 py-2.5 hover:bg-[#EDF7F2] text-[13px] font-medium text-on-surface transition-colors border-t border-[#d1e4fb]/30 whitespace-nowrap"
                                 >
-                                  <ListChecks className="w-4 h-4 text-[#1D4532]" />
-                                  Biên soạn Chi tiết Quiz & Minigame
+                                  <Layers className="w-4 h-4 text-[#1D4532] flex-shrink-0" />
+                                  Biên soạn Quiz & Minigame
                                 </Link>
                               </div>
                             </>
