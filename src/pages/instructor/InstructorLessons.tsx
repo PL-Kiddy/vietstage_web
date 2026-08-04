@@ -380,7 +380,7 @@ const InstructorLessons = () => {
               <option value="Tất cả">Tất cả nhạc cụ</option>
               {Array.from(new Set(lessons.map((l) => l.instrument))).filter(Boolean).map((ins) => (
                 <option key={ins} value={ins}>
-                  {ins}
+                  {getInstrumentTranslation(ins)}
                 </option>
               ))}
             </select>

@@ -179,18 +179,18 @@ const InstructorLessonContent = () => {
 
   const itemActions = (id: number, onEdit: () => void) => (
     <div className="flex gap-2 shrink-0">
-      <button onClick={onEdit} className="p-2 rounded-lg border border-outline-variant/20 text-primary hover:bg-primary/5" title="Chỉnh sửa"><Pencil className="w-4 h-4" /></button>
+      <button onClick={onEdit} className="p-2 rounded-lg border border-outline-variant/20 text-[#1D4532] hover:bg-[#1D4532]/5" title="Chỉnh sửa"><Pencil className="w-4 h-4" /></button>
       <button onClick={() => void remove(id)} className="p-2 rounded-lg border border-red-200 text-red-700 hover:bg-red-50" title="Xóa"><Trash2 className="w-4 h-4" /></button>
     </div>
   );
 
   return (
     <div className="max-w-[1200px] mx-auto">
-      <Link to="/instructor/lessons" className="inline-flex items-center gap-2 text-sm font-semibold text-on-surface-variant hover:text-primary mb-5">
+      <Link to="/instructor/lessons" className="inline-flex items-center gap-2 text-sm font-semibold text-on-surface-variant hover:text-[#1D4532] mb-5">
         <ArrowLeft className="w-4 h-4" /> Quay lại danh sách bài giảng
       </Link>
 
-      <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#6f0000] via-[#950000] to-[#b42318] text-white p-7 md:p-9 shadow-lg mb-7">
+      <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#1D4532] via-[#22523b] to-[#2e684d] text-white p-7 md:p-9 shadow-lg mb-7">
         <div className="absolute -right-12 -top-16 w-56 h-56 rounded-full border-[34px] border-white/5" />
         <BookOpenCheck className="w-9 h-9 mb-4 text-[#ffe088]" />
         <p className="text-xs uppercase tracking-[0.22em] text-white/65 mb-2">Không gian biên soạn</p>
@@ -203,12 +203,12 @@ const InstructorLessonContent = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5">
         <div className="flex gap-2 bg-white p-1.5 rounded-xl border border-outline-variant/10 shadow-sm overflow-x-auto">
           {tabs.map(({ id, label, count, icon: Icon }) => (
-            <button key={id} onClick={() => { setTab(id); setEditorOpen(false); }} className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-semibold whitespace-nowrap transition-colors ${tab === id ? 'bg-primary text-white' : 'text-on-surface-variant hover:bg-[#f5f3ee]'}`}>
+            <button key={id} onClick={() => { setTab(id); setEditorOpen(false); }} className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-semibold whitespace-nowrap transition-colors ${tab === id ? 'bg-[#1D4532] text-white' : 'text-on-surface-variant hover:bg-[#f5f3ee]'}`}>
               <Icon className="w-4 h-4" /> {label} <span className={`text-xs px-2 py-0.5 rounded-full ${tab === id ? 'bg-white/20' : 'bg-[#eae8e3]'}`}>{count}</span>
             </button>
           ))}
         </div>
-        <button onClick={openCreate} className="inline-flex justify-center items-center gap-2 bg-primary text-white px-5 py-3 rounded-xl font-bold shadow-md hover:opacity-90">
+        <button onClick={openCreate} className="inline-flex justify-center items-center gap-2 bg-[#1D4532] text-white px-5 py-3 rounded-xl font-bold shadow-md hover:opacity-90">
           <Plus className="w-5 h-5" /> Thêm {tabs.find((item) => item.id === tab)?.label.toLowerCase()}
         </button>
       </div>
@@ -218,19 +218,19 @@ const InstructorLessonContent = () => {
           <div className="divide-y divide-outline-variant/10">
             {tab === 'exercises' && exercises.map((item) => (
               <article key={item.id} className="p-5 flex items-start justify-between gap-4 hover:bg-[#fbf9f4]">
-                <div><p className="text-xs text-primary font-bold mb-1">BÀI TẬP #{item.orderIndex}</p><h3 className="font-bold text-lg">{item.title}</h3><p className="text-sm text-on-surface-variant mt-1">{item.description || 'Chưa có mô tả'} · Ngưỡng đạt {item.passThreshold ?? 0}%</p></div>
+                <div><p className="text-xs text-[#1D4532] font-bold mb-1">BÀI TẬP #{item.orderIndex}</p><h3 className="font-bold text-lg">{item.title}</h3><p className="text-sm text-on-surface-variant mt-1">{item.description || 'Chưa có mô tả'} · Ngưỡng đạt {item.passThreshold ?? 0}%</p></div>
                 {itemActions(item.id, () => openExercise(item))}
               </article>
             ))}
             {tab === 'quizzes' && quizzes.map((item) => (
               <article key={item.id} className="p-5 flex items-start justify-between gap-4 hover:bg-[#fbf9f4]">
-                <div><p className="text-xs text-primary font-bold mb-1">CÂU HỎI #{item.orderIndex}</p><h3 className="font-bold text-lg">{item.question}</h3><div className="flex flex-wrap gap-2 mt-2">{parseOptions(item.options).map((option) => <span key={option} className="text-xs bg-[#f0eee9] px-3 py-1 rounded-full">{option}</span>)}</div></div>
+                <div><p className="text-xs text-[#1D4532] font-bold mb-1">CÂU HỎI #{item.orderIndex}</p><h3 className="font-bold text-lg">{item.question}</h3><div className="flex flex-wrap gap-2 mt-2">{parseOptions(item.options).map((option) => <span key={option} className="text-xs bg-[#f0eee9] px-3 py-1 rounded-full">{option}</span>)}</div></div>
                 {itemActions(item.id, () => openQuiz(item))}
               </article>
             ))}
             {tab === 'minigames' && minigames.map((item) => (
               <article key={item.id} className="p-5 flex items-start justify-between gap-4 hover:bg-[#fbf9f4]">
-                <div><p className="text-xs text-primary font-bold mb-1">{item.challengeType} · {item.difficulty || 'CHƯA PHÂN LOẠI'}</p><h3 className="font-bold text-lg">{item.title}</h3><p className="text-sm text-on-surface-variant mt-1">Điểm tối đa {item.maxScore} · Thứ tự {item.orderIndex}</p></div>
+                <div><p className="text-xs text-[#1D4532] font-bold mb-1">{item.challengeType} · {item.difficulty || 'CHƯA PHÂN LOẠI'}</p><h3 className="font-bold text-lg">{item.title}</h3><p className="text-sm text-on-surface-variant mt-1">Điểm tối đa {item.maxScore} · Thứ tự {item.orderIndex}</p></div>
                 {itemActions(item.id, () => openMinigame(item))}
               </article>
             ))}
@@ -244,7 +244,7 @@ const InstructorLessonContent = () => {
       {editorOpen && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex justify-end" onMouseDown={() => setEditorOpen(false)}>
           <div className="w-full max-w-xl h-full bg-white p-6 md:p-8 overflow-y-auto shadow-2xl" onMouseDown={(event) => event.stopPropagation()}>
-            <div className="flex justify-between items-start mb-7"><div><p className="text-xs tracking-widest text-primary font-bold uppercase">{editingId ? 'Chỉnh sửa' : 'Tạo mới'}</p><h2 className="text-2xl font-bold mt-1">{tabs.find((item) => item.id === tab)?.label}</h2></div><button onClick={() => setEditorOpen(false)} className="p-2 rounded-full hover:bg-[#f0eee9]"><X className="w-5 h-5" /></button></div>
+            <div className="flex justify-between items-start mb-7"><div><p className="text-xs tracking-widest text-[#1D4532] font-bold uppercase">{editingId ? 'Chỉnh sửa' : 'Tạo mới'}</p><h2 className="text-2xl font-bold mt-1">{tabs.find((item) => item.id === tab)?.label}</h2></div><button onClick={() => setEditorOpen(false)} className="p-2 rounded-full hover:bg-[#f0eee9]"><X className="w-5 h-5" /></button></div>
             {error && (
               <div className="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
                 {error}
@@ -271,7 +271,7 @@ const InstructorLessonContent = () => {
                 <div className="grid grid-cols-2 gap-4"><Field label="Điểm tối đa"><input type="number" min="1" required value={minigameForm.maxScore} onChange={(e) => setMinigameForm({ ...minigameForm, maxScore: Number(e.target.value) })} className="input" /></Field><Field label="Thứ tự"><input type="number" min="0" required value={minigameForm.orderIndex} onChange={(e) => setMinigameForm({ ...minigameForm, orderIndex: Number(e.target.value) })} className="input" /></Field></div>
                 <Field label="Cấu hình nội dung JSON"><textarea value={minigameForm.contentJson} onChange={(e) => setMinigameForm({ ...minigameForm, contentJson: e.target.value })} className="input min-h-40 font-mono text-sm" /></Field>
               </>}
-              <button disabled={saving} className="w-full bg-primary text-white rounded-xl py-3.5 font-bold disabled:opacity-60">{saving ? 'Đang lưu...' : editingId ? 'Lưu thay đổi' : 'Tạo nội dung'}</button>
+              <button disabled={saving} className="w-full bg-[#1D4532] text-white rounded-xl py-3.5 font-bold disabled:opacity-60">{saving ? 'Đang lưu...' : editingId ? 'Lưu thay đổi' : 'Tạo nội dung'}</button>
             </form>
           </div>
         </div>
