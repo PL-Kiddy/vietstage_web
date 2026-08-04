@@ -1,8 +1,5 @@
 import { useState, useEffect, useCallback, type FormEvent } from 'react';
 import {
-  Plus,
-  Edit2,
-  Trash2,
   Music,
   FileText,
   X,
@@ -14,12 +11,12 @@ import {
   MoreVertical,
   ChevronLeft,
   ChevronRight,
+  UploadCloud,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Link } from 'react-router-dom';
-import { lessonsApi, masterDataApi, uploadApi, lessonAssetsApi, lessonTechniquesApi } from '../../api/services';
+import { lessonsApi, lessonAssetsApi, lessonTechniquesApi } from '../../api/services';
 import { lessonDetailApi } from '../../api/management';
-import type { Instrument, Lesson as ApiLesson, SkillLevel } from '../../api/types';
+import type { Lesson as ApiLesson } from '../../api/types';
 import { useAxiosRequest } from '../../hooks/useAxiosRequest';
 
 interface Lesson {
@@ -63,19 +60,6 @@ const getStatusMeta = (status: ApiLesson['status']) => {
   }
 };
 
-const getLevelTranslation = (levelName: string) => {
-  switch (levelName.toLowerCase()) {
-    case 'beginner':
-      return 'Cơ bản';
-    case 'intermediate':
-      return 'Trung cấp';
-    case 'advanced':
-      return 'Nâng cao';
-    default:
-      return levelName;
-  }
-};
-
 const getInstrumentTranslation = (instName: string) => {
   const nameLower = instName.toLowerCase();
   if (nameLower.includes('tranh')) return 'Đàn Tranh';
@@ -88,17 +72,9 @@ const getInstrumentTranslation = (instName: string) => {
 
 const InstructorLessons = () => {
   const [lessons, setLessons] = useState<Lesson[]>([]);
-  const [instruments, setInstruments] = useState<Instrument[]>([]);
-  const [skillLevels, setSkillLevels] = useState<SkillLevel[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
-  const [newTitle, setNewTitle] = useState('');
-  const [newInstrument, setNewInstrument] = useState('Đàn Nguyệt');
-  const [newSkillLevelId, setNewSkillLevelId] = useState(0);
-  const [newStatus, setNewStatus] = useState<'public' | 'draft'>('draft');
   const [newDescription, setNewDescription] = useState('');
-  const [newOrderIndex, setNewOrderIndex] = useState<number>(1);
-  const [showAddForm, setShowAddForm] = useState(false);
   const [editingLesson, setEditingLesson] = useState<Lesson | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedInstrumentFilter, setSelectedInstrumentFilter] = useState('Tất cả');
@@ -106,19 +82,12 @@ const InstructorLessons = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [perPage, setPerPage] = useState(5);
   const [openActionMenuLessonId, setOpenActionMenuLessonId] = useState<string | null>(null);
+
   const { execute: requestLessons } = useAxiosRequest<Lesson[]>(async (signal) => {
     const params = new URLSearchParams({ page: '1', size: '100' });
     const response = await lessonsApi.list(params, { signal });
     return Array.isArray(response.content) ? response.content.map(mapLesson) : [];
   }, { auto: false });
-  const { execute: requestInstruments } = useAxiosRequest<Instrument[]>(
-    (signal) => masterDataApi.instruments({ signal }),
-    { auto: false },
-  );
-  const { execute: requestSkillLevels } = useAxiosRequest<SkillLevel[]>(
-    (signal) => masterDataApi.skillLevels({ signal }),
-    { auto: false },
-  );
 
   const loadLessons = useCallback(async (signal?: AbortSignal) => {
     setIsLoading(true);
@@ -134,138 +103,54 @@ const InstructorLessons = () => {
     }
   }, [requestLessons]);
 
-  const loadMasterData = useCallback(async (signal?: AbortSignal) => {
-    try {
-      const [instrumentData, skillLevelData] = await Promise.all([
-        requestInstruments(signal),
-        requestSkillLevels(signal),
-      ]);
-      if (!instrumentData || !skillLevelData) return;
-      setInstruments(instrumentData);
-      setSkillLevels(skillLevelData);
-      if (instrumentData[0]) setNewInstrument(instrumentData[0].name);
-      if (skillLevelData[0]) setNewSkillLevelId(skillLevelData[0].id);
-    } catch (error) {
-      setInstruments([]);
-      setSkillLevels([]);
-      setLoadError((current) => current || (error instanceof Error ? error.message : 'Không thể tải dữ liệu nhạc cụ và trình độ.'));
-    }
-  }, [requestInstruments, requestSkillLevels]);
-
   useEffect(() => {
     const controller = new AbortController();
     const timer = window.setTimeout(() => {
       void loadLessons(controller.signal);
-      void loadMasterData(controller.signal);
     }, 0);
     return () => {
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [loadLessons, loadMasterData]);
+  }, [loadLessons]);
 
   const handleEditClick = async (lesson: Lesson) => {
     try {
       const detail = await lessonDetailApi.get(Number(lesson.id));
       const mapped = mapLesson(detail);
       setEditingLesson(mapped);
-      setNewTitle(mapped.title);
-      setNewInstrument(mapped.instrument);
-      setNewSkillLevelId(detail.skillLevel?.id ?? skillLevels[0]?.id ?? 0);
-      setNewStatus(mapped.status === 'DRAFT' || mapped.status === 'REJECTED' ? 'draft' : 'public');
       setNewDescription(mapped.description);
-      setNewOrderIndex(mapped.orderIndex || 1);
     } catch (error) {
       alert(error instanceof Error ? error.message : 'Không thể tải chi tiết bài giảng.');
     }
   };
 
   const handleCloseModal = () => {
-    setNewTitle('');
-    setNewInstrument(instruments[0]?.name ?? 'Đàn Nguyệt');
-    setNewSkillLevelId(skillLevels[0]?.id ?? 0);
-    setNewStatus('draft');
     setNewDescription('');
-    setNewOrderIndex(1);
     setEditingLesson(null);
-    setShowAddForm(false);
   };
 
-  const handleAddLesson = async (e: FormEvent) => {
+  const handleSaveAssets = async (e: FormEvent) => {
     e.preventDefault();
-    if (!newTitle.trim()) {
-      alert('Vui lòng nhập tên bài giảng');
-      return;
-    }
-
-    const instrument = instruments.find((item) => item.name === newInstrument);
-    if (!instrument) {
-      alert('Vui lòng chọn nhạc cụ hợp lệ từ dữ liệu hệ thống.');
-      return;
-    }
-    const skillLevelId = newSkillLevelId || undefined;
-    const targetStatus = newStatus === 'public' ? 'PENDING' : 'DRAFT';
+    if (!editingLesson) return;
 
     try {
-      if (editingLesson) {
+      if (newDescription.trim()) {
         const lessonIdNum = Number(editingLesson.id);
-        await lessonsApi.update(lessonIdNum, {
-          title: newTitle.trim(),
-          description: newDescription,
-          skillLevelId,
-          orderIndex: newOrderIndex,
-        });
-        if (newDescription.trim()) {
-          try {
-            await lessonTechniquesApi.create(lessonIdNum, {
-              name: 'Ghi chú kỹ thuật gảy/thổi',
-              description: newDescription.trim(),
-            });
-          } catch {
-            // fallback
-          }
+        try {
+          await lessonTechniquesApi.create(lessonIdNum, {
+            name: 'Ghi chú kỹ thuật gảy/thổi',
+            description: newDescription.trim(),
+          });
+        } catch {
+          // fallback
         }
-        if (editingLesson.backendStatus !== targetStatus
-            && !(editingLesson.backendStatus === 'APPROVED' && targetStatus === 'PENDING')) {
-          await lessonsApi.updateStatus(lessonIdNum, targetStatus);
-        }
-        alert('Đã cập nhật bài giảng thành công!');
-      } else {
-        const createdLesson = await lessonsApi.create({
-          title: newTitle.trim(),
-          description: newDescription,
-          instrumentId: instrument.id,
-          skillLevelId,
-          status: targetStatus,
-          orderIndex: newOrderIndex,
-        });
-        if (createdLesson?.id && newDescription.trim()) {
-          try {
-            await lessonTechniquesApi.create(createdLesson.id, {
-              name: 'Ghi chú kỹ thuật gảy/thổi',
-              description: newDescription.trim(),
-            });
-          } catch {
-            // fallback
-          }
-        }
-        alert('Đã thêm bài giảng mới!');
       }
+      alert('Đã lưu thông tin học liệu thành công!');
       await loadLessons();
       handleCloseModal();
     } catch (error) {
-      alert(error instanceof Error ? error.message : 'Không thể lưu bài giảng.');
-    }
-  };
-
-  const handleDelete = async (id: string) => {
-    if (confirm('Bạn có chắc chắn muốn xóa bài giảng này không?')) {
-      try {
-        await lessonsApi.remove(Number(id));
-        await loadLessons();
-      } catch (error) {
-        alert(error instanceof Error ? error.message : 'Không thể xóa bài giảng.');
-      }
+      alert(error instanceof Error ? error.message : 'Không thể lưu học liệu.');
     }
   };
 
@@ -387,18 +272,6 @@ const InstructorLessons = () => {
             </select>
           </div>
 
-          {/* Add Lesson Button */}
-          <button
-            onClick={() => {
-              const nextOrder = lessons.length > 0 ? Math.max(...lessons.map(l => l.orderIndex)) + 1 : 1;
-              setNewOrderIndex(nextOrder);
-              setShowAddForm(true);
-            }}
-            className="bg-[#1D4532] text-white px-lg h-[42px] rounded-lg font-label-md hover:bg-[#1D4532]/95 transition-all flex items-center justify-center gap-xs shadow-md shrink-0"
-          >
-            <Plus className="w-[18px] h-[18px]" />
-            Thêm bài giảng
-          </button>
         </div>
       </div>
 
@@ -408,7 +281,7 @@ const InstructorLessons = () => {
             <AlertCircle className="w-5 h-5 mt-0.5 shrink-0" />
             <span>{loadError}</span>
           </div>
-          <button onClick={() => { void loadLessons(); void loadMasterData(); }} className="inline-flex items-center justify-center gap-2 font-bold whitespace-nowrap hover:underline">
+          <button onClick={() => { void loadLessons(); }} className="inline-flex items-center justify-center gap-2 font-bold whitespace-nowrap hover:underline">
             <RefreshCw className="w-4 h-4" /> Thử lại
           </button>
         </div>
@@ -461,10 +334,7 @@ const InstructorLessons = () => {
                             <BookOpen className="h-7 w-7" />
                           </div>
                           <h3 className="text-lg font-bold text-on-surface">Chưa có bài giảng nào</h3>
-                          <p className="mt-1 text-sm text-on-surface-variant">Tạo bài giảng đầu tiên để bắt đầu đăng tải học liệu giảng dạy.</p>
-                          <button onClick={() => setShowAddForm(true)} className="mt-5 inline-flex items-center gap-2 rounded-lg bg-[#1D4532] px-5 py-2.5 font-bold text-white hover:opacity-90">
-                            <Plus className="h-4 w-4" /> Thêm bài giảng
-                          </button>
+                          <p className="mt-1 text-sm text-on-surface-variant">Hãy sang mục Cấu hình Giáo trình để tạo bài giảng mới.</p>
                         </div>
                       </td>
                     </tr>
@@ -528,33 +398,15 @@ const InstructorLessons = () => {
                               <div className={`absolute right-4 w-52 bg-white border border-[#d1e4fb] rounded-xl shadow-lg py-1 z-20 text-left ${
                                 idx >= paginatedLessons.length - 2 && paginatedLessons.length > 2 ? 'bottom-[85%] mb-1' : 'top-full mt-1'
                               }`}>
-                                <Link
-                                  to={`/instructor/lessons/${lesson.id}/content`}
-                                  onClick={() => setOpenActionMenuLessonId(null)}
-                                  className="w-full flex items-center gap-2 px-4 py-2 hover:bg-[#EDF7F2] text-[13px] text-on-surface transition-colors"
-                                >
-                                  <BookOpen className="w-4 h-4 text-[#1D4532]" />
-                                  Quản lý bài tập & Quiz
-                                </Link>
                                 <button
                                   onClick={() => {
                                     setOpenActionMenuLessonId(null);
                                     void handleEditClick(lesson);
                                   }}
-                                  className="w-full flex items-center gap-2 px-4 py-2 hover:bg-[#EDF7F2] text-[13px] text-on-surface transition-colors"
+                                  className="w-full flex items-center gap-2 px-4 py-2 hover:bg-[#EDF7F2] text-[13px] text-on-surface transition-colors font-medium text-[#1D4532]"
                                 >
-                                  <Edit2 className="w-4 h-4 text-[#1D4532]" />
-                                  Sửa bài giảng & học liệu
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    setOpenActionMenuLessonId(null);
-                                    void handleDelete(lesson.id);
-                                  }}
-                                  className="w-full flex items-center gap-2 px-4 py-2 hover:bg-red-50 text-[13px] text-red-700 transition-colors border-t border-[#d1e4fb]/40"
-                                >
-                                  <Trash2 className="w-4 h-4 text-red-600" />
-                                  Xóa bài giảng
+                                  <UploadCloud className="w-4 h-4 text-[#1D4532]" />
+                                  Quản lý học liệu
                                 </button>
                               </div>
                             </>
@@ -632,7 +484,7 @@ const InstructorLessons = () => {
 
       {/* Drawer Form Overlay - Slide from right */}
       <AnimatePresence>
-        {Boolean(showAddForm || editingLesson) && (
+        {Boolean(editingLesson) && (
           <>
             {/* Backdrop Blur Overlay */}
             <motion.div
@@ -655,10 +507,10 @@ const InstructorLessons = () => {
               <div className="px-xl py-lg border-b border-outline-variant/10 flex justify-between items-center bg-[#EDF7F2]">
                 <div>
                   <h4 className="text-headline-md font-bold text-[#1D4532] font-sans">
-                    {editingLesson ? 'Chỉnh sửa cấu hình bài giảng' : 'Thêm bài giảng mới'}
+                    Quản lý Học liệu
                   </h4>
                   <p className="text-label-sm text-on-surface-variant text-[13px] mt-xs">
-                    Tạo lộ trình và tiêu chí đánh giá kỹ năng bài học.
+                    Đăng tải file âm thanh, sheet nhạc và mô tả kỹ thuật.
                   </p>
                 </div>
                 <button
@@ -671,84 +523,12 @@ const InstructorLessons = () => {
               </div>
 
               {/* Drawer Body */}
-              <form onSubmit={handleAddLesson} className="flex-1 overflow-y-auto p-xl space-y-xl custom-scrollbar flex flex-col justify-between">
+              <form onSubmit={handleSaveAssets} className="flex-1 overflow-y-auto p-xl space-y-xl custom-scrollbar flex flex-col justify-between">
                 <div className="bg-white/95 backdrop-blur-md border border-outline-variant/10 rounded-2xl p-lg shadow-sm space-y-lg">
-                  {/* Title & Instrument & Status */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-md">
-                    <div className="flex flex-col gap-xs">
-                      <label className="font-label-sm text-on-surface-variant font-semibold uppercase tracking-wider text-xs">
-                        Tên bài giảng
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        value={newTitle}
-                        onChange={(e) => setNewTitle(e.target.value)}
-                        placeholder="Nhập tên bài giảng..."
-                        className="w-full bg-[#fbf9f4] border border-outline-variant/30 rounded-xl p-md text-body-md focus:border-primary focus:ring-1 focus:ring-primary transition-all outline-none text-on-surface"
-                      />
-                    </div>
-                    <div className="flex flex-col gap-xs">
-                      <label className="font-label-sm text-on-surface-variant font-semibold uppercase tracking-wider text-xs">
-                        Nhạc cụ giảng dạy
-                      </label>
-                      <select
-                        value={newInstrument}
-                        onChange={(e) => setNewInstrument(e.target.value)}
-                        disabled={editingLesson !== null}
-                        className="w-full bg-[#fbf9f4] border border-outline-variant/30 rounded-xl p-md text-body-md focus:border-primary focus:ring-1 focus:ring-primary transition-all outline-none text-on-surface cursor-pointer"
-                      >
-                        {instruments.map((instrument) => (
-                          <option key={instrument.id} value={instrument.name}>
-                            {getInstrumentTranslation(instrument.name)}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-md">
-                    <div className="flex flex-col gap-xs">
-                      <label className="font-label-sm text-on-surface-variant font-semibold uppercase tracking-wider text-xs">
-                        Thứ tự trong giáo trình
-                      </label>
-                      <input
-                        type="number"
-                        min="1"
-                        value={newOrderIndex}
-                        onChange={(e) => setNewOrderIndex(Number(e.target.value))}
-                        className="w-full bg-[#fbf9f4] border border-outline-variant/30 rounded-xl p-md text-body-md focus:border-primary focus:ring-1 focus:ring-primary transition-all outline-none text-on-surface"
-                      />
-                    </div>
-                    <div className="flex flex-col gap-xs">
-                      <label className="font-label-sm text-on-surface-variant font-semibold uppercase tracking-wider text-xs">
-                        Trình độ
-                      </label>
-                      <select
-                        value={newSkillLevelId}
-                        onChange={(e) => setNewSkillLevelId(Number(e.target.value))}
-                        className="w-full bg-[#fbf9f4] border border-outline-variant/30 rounded-xl p-md text-body-md focus:border-primary focus:ring-1 focus:ring-primary transition-all outline-none text-on-surface cursor-pointer"
-                      >
-                        {skillLevels.map((level) => (
-                          <option key={level.id} value={level.id}>
-                            {getLevelTranslation(level.levelName)}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="flex flex-col gap-xs">
-                      <label className="font-label-sm text-on-surface-variant font-semibold uppercase tracking-wider text-xs">
-                        Trạng thái hiển thị
-                      </label>
-                      <select
-                        value={newStatus}
-                        onChange={(e) => setNewStatus(e.target.value as 'public' | 'draft')}
-                        className="w-full bg-[#fbf9f4] border border-outline-variant/30 rounded-xl p-md text-body-md focus:border-primary focus:ring-1 focus:ring-primary transition-all outline-none text-on-surface cursor-pointer"
-                      >
-                        <option value="public">Công khai</option>
-                        <option value="draft">Bản nháp</option>
-                      </select>
-                    </div>
+                  {/* Context Info */}
+                  <div className="bg-[#f8f9fa] rounded-xl p-4 border border-outline-variant/10">
+                     <p className="text-sm font-semibold text-[#1D4532] mb-1">Bài học: <span className="text-on-surface ml-1">{editingLesson?.title}</span></p>
+                     <p className="text-sm font-semibold text-[#1D4532]">Nhạc cụ: <span className="text-on-surface ml-1">{editingLesson?.instrument}</span></p>
                   </div>
 
                   {/* Description */}
@@ -781,10 +561,8 @@ const InstructorLessons = () => {
                               try {
                                 if (editingLesson) {
                                   await lessonAssetsApi.uploadAsset(Number(editingLesson.id), file, 'REFERENCE_AUDIO');
-                                } else {
-                                  await uploadApi.uploadFile(file);
+                                  alert(`Đã tải lên âm thanh: ${file.name}`);
                                 }
-                                alert(`Đã tải lên âm thanh: ${file.name}`);
                               } catch (err) {
                                 alert(`Tải âm thanh thất bại: ${err instanceof Error ? err.message : 'Lỗi không xác định'}`);
                               }
@@ -810,10 +588,8 @@ const InstructorLessons = () => {
                               try {
                                 if (editingLesson) {
                                   await lessonAssetsApi.uploadAsset(Number(editingLesson.id), file, 'SHEET_MUSIC');
-                                } else {
-                                  await uploadApi.uploadFile(file);
+                                  alert(`Đã tải lên ký âm: ${file.name}`);
                                 }
-                                alert(`Đã tải lên ký âm: ${file.name}`);
                               } catch (err) {
                                 alert(`Tải ký âm thất bại: ${err instanceof Error ? err.message : 'Lỗi không xác định'}`);
                               }
@@ -832,30 +608,16 @@ const InstructorLessons = () => {
                   <button
                     type="button"
                     onClick={handleCloseModal}
-                    className="flex-1 flex items-center justify-center gap-sm bg-[#ba1a1a] text-white py-lg rounded-xl font-bold hover:bg-[#a61717] active:scale-[0.98] transition-all shadow-sm"
+                    className="flex-1 flex items-center justify-center gap-sm bg-white border border-[#d1e4fb] text-[#1D4532] py-lg rounded-xl font-bold hover:bg-[#EDF7F2] active:scale-[0.98] transition-all shadow-sm"
                   >
-                    <X className="w-5 h-5" />
-                    Hủy
+                    Đóng
                   </button>
-                  {editingLesson && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        handleDelete(editingLesson.id);
-                        handleCloseModal();
-                      }}
-                      className="flex-1 flex items-center justify-center gap-sm bg-black/60 text-white py-lg rounded-xl font-bold hover:bg-black/70 active:scale-[0.98] transition-all shadow-sm"
-                    >
-                      <Trash2 className="w-5 h-5 text-white" />
-                      Xóa
-                    </button>
-                  )}
                   <button
                     type="submit"
                     className="flex-1 flex items-center justify-center gap-sm bg-[#1b5e20] text-white py-lg rounded-xl font-bold hover:bg-[#154618] active:scale-[0.98] transition-all shadow-sm"
                   >
                     <Check className="w-5 h-5" />
-                    Lưu
+                    Lưu Ghi chú
                   </button>
                 </div>
               </form>
