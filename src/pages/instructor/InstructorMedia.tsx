@@ -19,7 +19,7 @@ import {
   Award,
 } from 'lucide-react';
 import { useAxiosRequest } from '../../hooks/useAxiosRequest';
-import { lessonsApi, exercisesApi, masterDataApi, type ExerciseInput } from '../../api/services';
+import { lessonsApi, exercisesApi, masterDataApi, lessonTechniquesApi, type ExerciseInput } from '../../api/services';
 import type { Lesson, SkillLevel } from '../../api/types';
 
 // ─── Tab definitions ──────────────────────────────────────────────────────────
@@ -142,6 +142,16 @@ const InstructorMedia = () => {
         orderIndex: editingLesson.orderIndex,
         skillLevelId: editingLesson.skillLevelId,
       });
+      if (editingLesson.description.trim()) {
+        try {
+          await lessonTechniquesApi.create(editingLesson.id, {
+            name: 'Ghi chú Kỹ thuật biểu diễn',
+            description: editingLesson.description.trim(),
+          });
+        } catch {
+          // fallback if endpoint returns 404 or duplicate
+        }
+      }
       await refetchLessons();
       setEditingLesson(null);
     } catch (err) {
@@ -174,7 +184,7 @@ const InstructorMedia = () => {
     setIsCreating(true);
     setCreateError(null);
     try {
-      await lessonsApi.create({
+      const createdLesson = await lessonsApi.create({
         title: createTitle.trim(),
         description: createDesc.trim(),
         orderIndex: createOrder,
@@ -182,6 +192,16 @@ const InstructorMedia = () => {
         skillLevelId: createSkillLevelId,
         status: (createStatus as 'DRAFT' | 'PENDING') || 'DRAFT',
       });
+      if (createdLesson?.id && createDesc.trim()) {
+        try {
+          await lessonTechniquesApi.create(createdLesson.id, {
+            name: 'Ghi chú Kỹ thuật biểu diễn',
+            description: createDesc.trim(),
+          });
+        } catch {
+          // fallback
+        }
+      }
       await refetchLessons();
       setShowCreateForm(false);
       setCreateTitle('');

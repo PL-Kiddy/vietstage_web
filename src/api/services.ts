@@ -203,6 +203,32 @@ export const instructorStudentsApi = {
     })
 };
 
+export const uploadApi = {
+  uploadFile: async (file: File): Promise<string> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return apiRequest<string>('/api/upload', {
+      method: 'POST',
+      body: formData as any,
+    });
+  },
+};
+
+export const lessonTechniquesApi = {
+  list: (lessonId: number, options?: RequestOptions) =>
+    apiRequest<{ id: number; name: string; description?: string }[]>(`/api/lessons/${lessonId}/techniques`, options),
+  create: (lessonId: number, body: { name: string; description?: string }) =>
+    apiRequest<{ id: number; name: string; description?: string }>(`/api/lessons/${lessonId}/techniques`, {
+      method: 'POST',
+      body,
+    }),
+  remove: (lessonId: number, techniqueId: number, options?: RequestOptions) =>
+    apiRequest<void>(`/api/lessons/${lessonId}/techniques/${techniqueId}`, {
+      ...options,
+      method: 'DELETE',
+    }),
+};
+
 export const lessonAssetsApi = {
   getAssets: (lessonId: number, options?: RequestOptions) =>
     apiRequest<LessonAsset[]>(`/api/lessons/${lessonId}/assets`, options),
@@ -214,10 +240,9 @@ export const lessonAssetsApi = {
     if (tempoBpm) url += `&tempo_bpm=${tempoBpm}`;
     if (durationSec) url += `&duration_sec=${durationSec}`;
     
-    // Note: apiRequest needs to handle FormData without setting application/json
     return apiRequest<LessonAsset>(url, {
       method: 'POST',
-      body: formData as any // The client.ts should ideally omit Content-Type for FormData
+      body: formData as any
     });
   },
   

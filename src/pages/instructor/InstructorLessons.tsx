@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { lessonsApi, masterDataApi } from '../../api/services';
+import { lessonsApi, masterDataApi, uploadApi, lessonAssetsApi } from '../../api/services';
 import { lessonDetailApi } from '../../api/management';
 import type { Instrument, Lesson as ApiLesson, SkillLevel } from '../../api/types';
 import { useAxiosRequest } from '../../hooks/useAxiosRequest';
@@ -717,19 +717,59 @@ const InstructorLessons = () => {
                       <label className="font-label-sm text-on-surface-variant font-semibold uppercase tracking-wider text-xs">
                         Âm thanh (.wav/.mp3)
                       </label>
-                      <div className="border border-dashed border-outline-variant/40 rounded-xl p-md flex flex-col items-center justify-center bg-[#fbf9f4] hover:bg-[#ffe088]/10 transition-all cursor-pointer">
+                      <label className="border border-dashed border-outline-variant/40 rounded-xl p-md flex flex-col items-center justify-center bg-[#fbf9f4] hover:bg-[#ffe088]/10 transition-all cursor-pointer relative">
+                        <input
+                          type="file"
+                          accept="audio/*"
+                          className="hidden"
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              try {
+                                if (editingLesson) {
+                                  await lessonAssetsApi.uploadAsset(Number(editingLesson.id), file, 'REFERENCE_AUDIO');
+                                } else {
+                                  await uploadApi.uploadFile(file);
+                                }
+                                alert(`Đã tải lên âm thanh: ${file.name}`);
+                              } catch (err) {
+                                alert(`Tải âm thanh thất bại: ${err instanceof Error ? err.message : 'Lỗi không xác định'}`);
+                              }
+                            }
+                          }}
+                        />
                         <Music className="w-8 h-8 text-primary mb-xs" />
                         <span className="font-label-sm text-primary font-bold text-xs">Tải lên file âm thanh</span>
-                      </div>
+                      </label>
                     </div>
                     <div className="flex flex-col gap-xs">
                       <label className="font-label-sm text-on-surface-variant font-semibold uppercase tracking-wider text-xs">
                         Ký âm / Sheet nhạc
                       </label>
-                      <div className="border border-dashed border-outline-variant/40 rounded-xl p-md flex flex-col items-center justify-center bg-[#fbf9f4] hover:bg-[#ffe088]/10 transition-all cursor-pointer">
+                      <label className="border border-dashed border-outline-variant/40 rounded-xl p-md flex flex-col items-center justify-center bg-[#fbf9f4] hover:bg-[#ffe088]/10 transition-all cursor-pointer relative">
+                        <input
+                          type="file"
+                          accept="image/*,.pdf"
+                          className="hidden"
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              try {
+                                if (editingLesson) {
+                                  await lessonAssetsApi.uploadAsset(Number(editingLesson.id), file, 'SHEET_MUSIC');
+                                } else {
+                                  await uploadApi.uploadFile(file);
+                                }
+                                alert(`Đã tải lên ký âm: ${file.name}`);
+                              } catch (err) {
+                                alert(`Tải ký âm thất bại: ${err instanceof Error ? err.message : 'Lỗi không xác định'}`);
+                              }
+                            }
+                          }}
+                        />
                         <FileText className="w-8 h-8 text-primary mb-xs" />
                         <span className="font-label-sm text-primary font-bold text-xs">Tải lên bản ký âm</span>
-                      </div>
+                      </label>
                     </div>
                   </div>
                 </div>
