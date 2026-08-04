@@ -117,62 +117,64 @@ const AdminTopbar = ({ userName, userRole }: AdminTopbarProps) => {
 
           {/* Notification Dropdown */}
           {isNotifOpen && (
-            <div className="absolute right-0 top-full mt-2 w-80 bg-white border border-[#d1e4fb] rounded-2xl shadow-xl z-50 overflow-hidden">
+            <div className="absolute right-0 top-full mt-2 w-[380px] bg-white border border-outline-variant/20 rounded-2xl shadow-xl shadow-black/5 z-50 overflow-hidden">
               {/* Header */}
-              <div className="flex items-center justify-between px-4 py-3 border-b border-[#d1e4fb] bg-[#f7f9ff]">
-                <span className="font-semibold text-sm text-on-surface">
-                  Thông báo {unread > 0 && <span className="text-red-500">({unread} chưa đọc)</span>}
+              <div className="flex items-center justify-between px-5 py-3.5 border-b border-outline-variant/10 bg-white">
+                <span className="font-bold text-[15px] text-[#1D4532] truncate pr-2">
+                  Thông báo {unread > 0 && <span className="text-red-500 text-sm">({unread} mới)</span>}
                 </span>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1 shrink-0">
                   {unread > 0 && (
                     <button
                       onClick={handleMarkAllAsRead}
-                      className="flex items-center gap-1 text-xs text-primary hover:underline"
+                      className="flex items-center gap-1 text-xs font-semibold text-[#1D4532] hover:bg-[#EDF7F2] px-2 py-1.5 rounded-lg transition-colors whitespace-nowrap"
                       title="Đánh dấu tất cả đã đọc"
                     >
-                      <CheckCheck className="w-3.5 h-3.5" />
+                      <CheckCheck className="w-4 h-4" />
                       Đọc tất cả
                     </button>
                   )}
                   <button
                     onClick={() => setIsNotifOpen(false)}
-                    className="text-[#5e5e5b] hover:text-red-500 transition-colors"
+                    className="p-1.5 rounded-lg text-on-surface-variant hover:bg-red-50 hover:text-red-500 transition-colors"
                   >
-                    <X className="w-4 h-4" />
+                    <X className="w-4.5 h-4.5" />
                   </button>
                 </div>
               </div>
 
               {/* Body */}
-              <div className="max-h-72 overflow-y-auto">
+              <div className="max-h-80 overflow-y-auto bg-[#fbf9f4]/30">
                 {loading ? (
-                  <div className="flex items-center justify-center py-8 text-sm text-[#5e5e5b]">
+                  <div className="flex items-center justify-center py-8 text-sm text-on-surface-variant font-medium">
                     <div className="animate-spin w-4 h-4 border-2 border-[#1D4532] border-t-transparent rounded-full mr-2" />
                     Đang tải...
                   </div>
                 ) : notifications.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-10 gap-2">
-                    <Bell className="w-8 h-8 text-[#d1e4fb]" />
-                    <p className="text-sm text-[#5e5e5b]">Không có thông báo nào</p>
+                  <div className="flex flex-col items-center justify-center py-12 gap-3">
+                    <Bell className="w-8 h-8 text-on-surface-variant/30" />
+                    <p className="text-sm font-medium text-on-surface-variant">Không có thông báo nào</p>
                   </div>
                 ) : (
                   notifications.slice(0, 10).map((n) => (
                     <button
                       key={n.id}
                       onClick={() => handleMarkAsRead(n.id)}
-                      className={`w-full text-left px-4 py-3 hover:bg-[#edf4ff] transition-colors border-b border-[#d1e4fb]/30 last:border-0 ${
-                        !n.read ? 'bg-[#f0f7ff]' : ''
-                      }`}
+                      className={`w-full text-left px-4 py-3.5 transition-colors border-b border-outline-variant/10 last:border-0 ${!n.read ? 'bg-[#EDF7F2] hover:bg-[#e4f1ea]' : 'hover:bg-white'
+                        }`}
                     >
-                      <div className="flex items-start gap-2">
+                      <div className="flex items-start gap-3">
                         {!n.read && (
-                          <span className="mt-1.5 w-2 h-2 bg-primary rounded-full flex-shrink-0" />
+                          <span className="mt-1.5 w-2 h-2 bg-[#1D4532] rounded-full flex-shrink-0 shadow-[0_0_8px_rgba(29,69,50,0.3)]" />
                         )}
-                        <div className={!n.read ? '' : 'ml-4'}>
-                          <div className="font-medium text-sm text-on-surface leading-tight">{n.title}</div>
-                          <div className="text-xs text-[#5e5e5b] mt-0.5 line-clamp-2">{n.message}</div>
-                          <div className="text-[10px] text-[#5e5e5b]/60 mt-1">
-                            {new Date(n.createdAt).toLocaleString('vi-VN')}
+                        <div className={`flex-1 ${!n.read ? '' : 'ml-5'}`}>
+                          <div className={`text-sm leading-snug ${!n.read ? 'font-bold text-[#1D4532]' : 'font-medium text-on-surface'}`}>{n.title}</div>
+                          <div className="text-[13px] text-on-surface-variant mt-1 line-clamp-2">{n.message}</div>
+                          <div className="text-[11px] font-medium text-on-surface-variant/60 mt-2">
+                            {new Date(n.createdAt).toLocaleString('vi-VN', { 
+                              hour: '2-digit', minute: '2-digit', 
+                              day: '2-digit', month: '2-digit', year: 'numeric' 
+                            })}
                           </div>
                         </div>
                       </div>
