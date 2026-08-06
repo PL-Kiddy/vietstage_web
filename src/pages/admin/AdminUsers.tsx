@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, type FormEvent } from 'react';
+import { useState, useMemo, useEffect, useCallback, type FormEvent } from 'react';
 import { useLocation } from 'react-router-dom';
 import {
   UserPlus,
@@ -19,7 +19,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { createPortal } from 'react-dom';
 import { masterDataApi, usersApi } from '../../api/services';
-import type { AdminUser as ApiAdminUser, Instrument } from '../../api/types';
+import type { AdminUser as ApiAdminUser, Instrument, PageResponse } from '../../api/types';
 import { useAxiosRequest } from '../../hooks/useAxiosRequest';
 
 // Extended type to support 'pending' status
@@ -86,18 +86,25 @@ const mapExtendedUser = (user: ApiAdminUser): ExtendedAdminUser => ({
   id: String((user as any).userId ?? (user as any).user_id ?? user.id),
 });
 
+const getRegisteredTimestamp = (user: ApiAdminUser): number => {
+  const value = (user as any).registeredAt ?? (user as any).createdAt ?? (user as any).created_at;
+  if (!value) return 0;
+  const parsed = new Date(value).getTime();
+  return Number.isNaN(parsed) ? 0 : parsed;
+};
+
 const AdminUsers = () => {
   const location = useLocation();
   const isLearnersMode = location.pathname.includes('/learners');
 
-  const [roleFilter, setRoleFilter] = useState('Tất cả');
-  const [statusFilter, setStatusFilter] = useState('Tất cả');
+  const [roleFilter, setRoleFilter] = useState<'ALL' | 'ADMIN' | 'INSTRUCTOR'>('ALL');
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'active' | 'locked' | 'pending'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
 
   // Reset filters when switching between modes
   useEffect(() => {
-    setRoleFilter('Tất cả');
-    setStatusFilter('Tất cả');
+    setRoleFilter('ALL');
+    setStatusFilter('ALL');
     setSearchQuery('');
     setCurrentPage(1);
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -132,12 +139,65 @@ const AdminUsers = () => {
   // Action Menu state
   const [openActionMenuUserId, setOpenActionMenuUserId] = useState<string | null>(null);
 
+  const requestedRole = isLearnersMode ? 'LEARNER' : roleFilter === 'ALL' ? undefined : roleFilter;
+  const loadUsersRequest = useCallback(
+    async (signal?: AbortSignal) => {
+      const params = {
+        search: searchQuery.trim(),
+        sortBy: 'createdAt',
+        sortDir: 'desc',
+      };
+
+      // The API accepts a single role only. For the Staff page's "All" view,
+      // fetch the two allowed roles separately so a page of learners cannot make
+      // a staff page look empty.
+      if (!isLearnersMode && roleFilter === 'ALL') {
+        const fetchRole = async (role: 'ADMIN' | 'INSTRUCTOR') => {
+          const first = await usersApi.list({ signal, params: { ...params, role, page: 0, size: 100 } });
+          const all = [...(first.content ?? [])];
+          for (let page = 1; page < (first.totalPages ?? 1); page += 1) {
+            const next = await usersApi.list({ signal, params: { ...params, role, page, size: 100 } });
+            all.push(...(next.content ?? []));
+          }
+          return all;
+        };
+
+        const [admins, instructors] = await Promise.all([fetchRole('ADMIN'), fetchRole('INSTRUCTOR')]);
+        const staff = [...admins, ...instructors].sort(
+          (left, right) => getRegisteredTimestamp(right) - getRegisteredTimestamp(left),
+        );
+        const totalElements = staff.length;
+        const totalPages = Math.max(1, Math.ceil(totalElements / perPage));
+        return {
+          content: staff.slice((currentPage - 1) * perPage, currentPage * perPage),
+          page: currentPage - 1,
+          size: perPage,
+          totalElements,
+          totalPages,
+          last: currentPage >= totalPages,
+        };
+      }
+
+      return usersApi.list({
+        signal,
+        params: { ...params, page: currentPage - 1, size: perPage, ...(requestedRole ? { role: requestedRole } : {}) },
+      });
+    },
+    [currentPage, isLearnersMode, perPage, requestedRole, roleFilter, searchQuery],
+  );
+
   const {
-    data: usersData = [],
+    data: usersData,
     error: usersError,
     loading: isLoading,
     execute: loadUsers,
-  } = useAxiosRequest<ApiAdminUser[]>((signal) => usersApi.list({ signal }), { initialData: [] });
+  } = useAxiosRequest<PageResponse<ApiAdminUser>>(loadUsersRequest, { auto: false });
+
+  useEffect(() => {
+    const controller = new AbortController();
+    void loadUsers(controller.signal).catch(() => undefined);
+    return () => controller.abort();
+  }, [loadUsers, loadUsersRequest]);
 
   const { data: instruments = [] } = useAxiosRequest<Instrument[]>(
     (signal) => masterDataApi.instruments({ signal }),
@@ -145,24 +205,7 @@ const AdminUsers = () => {
   );
 
   const users = useMemo(() => {
-    // usersData may be: paginated {content:[]} OR array [] depending on API
-    let rawList: any[] = [];
-    if (Array.isArray(usersData)) {
-      rawList = usersData;
-    } else if ((usersData as any)?.content) {
-      rawList = (usersData as any).content;
-    } else if ((usersData as any)?.data?.content) {
-      rawList = (usersData as any).data.content;
-    }
-    // DEBUG: log raw API response
-    if (rawList.length > 0) {
-      console.log('[AdminUsers] Total users from API:', rawList.length);
-      console.log('[AdminUsers] Sample user keys:', Object.keys(rawList[0]));
-      console.log('[AdminUsers] Sample user role field:', rawList[0].role, '| roleId:', rawList[0].roleId, '| role_id:', rawList[0].role_id);
-    } else {
-      console.log('[AdminUsers] usersData raw value:', usersData);
-    }
-    return rawList.map(mapExtendedUser);
+    return (usersData?.content ?? []).map(mapExtendedUser);
   }, [usersData]);
 
   useEffect(() => {
@@ -176,57 +219,17 @@ const AdminUsers = () => {
     : INSTRUMENT_OPTIONS;
 
   /* ── Filter ──────────────────────────────────────────────── */
-  const filtered = useMemo(() => {
+  const pageUsers = useMemo(() => {
     let result = users;
 
-    if (isLearnersMode) {
-      result = result.filter((u) => u.role === 'Người học');
-    } else {
-      result = result.filter((u) => u.role === 'Admin' || u.role === 'Giảng viên');
+    if (statusFilter !== 'ALL') {
+      result = result.filter((u) => u.status === statusFilter);
     }
+    return result;
+  }, [statusFilter, users]);
 
-    if (roleFilter !== 'Tất cả') {
-      result = result.filter((u) => u.role === roleFilter);
-    }
-    if (statusFilter !== 'Tất cả') {
-      if (statusFilter === 'Hoạt động') {
-        result = result.filter((u) => u.status === 'active');
-      } else if (statusFilter === 'Đã khóa') {
-        result = result.filter((u) => u.status === 'locked');
-      } else if (statusFilter === 'Chờ kích hoạt') {
-        result = result.filter((u) => u.status === 'pending');
-      }
-    }
-    if (searchQuery.trim() !== '') {
-      const q = searchQuery.toLowerCase();
-      result = result.filter(
-        (u) =>
-          u.name.toLowerCase().includes(q) ||
-          u.email.toLowerCase().includes(q)
-      );
-    }
-
-    // Sort by registration date descending (latest registered users first)
-    const parseRegisteredDate = (user: any): number => {
-      const raw = user.registeredAt || user.createdAt || user.created_at || '';
-      if (!raw) return Number(user.id) || 0;
-      // Handle "DD/MM/YYYY" format (what the API returns)
-      const ddmmyyyy = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-      if (ddmmyyyy) {
-        return new Date(Number(ddmmyyyy[3]), Number(ddmmyyyy[2]) - 1, Number(ddmmyyyy[1])).getTime();
-      }
-      // Handle ISO 8601 or other standard formats
-      const ts = new Date(raw).getTime();
-      return isNaN(ts) ? (Number(user.id) || 0) : ts;
-    };
-    return [...result].sort((a, b) => parseRegisteredDate(b) - parseRegisteredDate(a));
-  }, [isLearnersMode, roleFilter, statusFilter, searchQuery, users]);
-
-  const totalPages = Math.max(1, Math.ceil(filtered.length / perPage));
-  const pageUsers = filtered.slice(
-    (currentPage - 1) * perPage,
-    currentPage * perPage
-  );
+  const totalUsers = usersData?.totalElements ?? users.length;
+  const totalPages = Math.max(1, usersData?.totalPages ?? 1);
 
   /* ── Validation helpers ──────────────────────────────────── */
   const isEmailValid = (email: string) => {
@@ -397,14 +400,14 @@ alert('Backend hiện chưa cung cấp endpoint cập nhật thông tin người
               <select
                 value={roleFilter}
                 onChange={(e) => {
-                  setRoleFilter(e.target.value);
+                  setRoleFilter(e.target.value as 'ALL' | 'ADMIN' | 'INSTRUCTOR');
                   setCurrentPage(1);
                 }}
                 className="bg-transparent border-none text-label-md font-semibold text-[#1D4532] focus:ring-0 cursor-pointer"
               >
-                <option>Tất cả</option>
-                <option>Admin</option>
-                <option>Giảng viên</option>
+                <option value="ALL">Tất cả</option>
+                <option value="ADMIN">Admin</option>
+                <option value="INSTRUCTOR">Giảng viên</option>
               </select>
             </div>
           )}
@@ -415,15 +418,15 @@ alert('Backend hiện chưa cung cấp endpoint cập nhật thông tin người
             <select
               value={statusFilter}
               onChange={(e) => {
-                setStatusFilter(e.target.value);
+                setStatusFilter(e.target.value as 'ALL' | 'active' | 'locked' | 'pending');
                 setCurrentPage(1);
               }}
               className="bg-transparent border-none text-label-md font-semibold text-[#1D4532] focus:ring-0 cursor-pointer"
             >
-              <option>Tất cả</option>
-              <option>Hoạt động</option>
-              <option>Đã khóa</option>
-              <option>Chờ kích hoạt</option>
+              <option value="ALL">Tất cả</option>
+              <option value="active">Hoạt động</option>
+              <option value="locked">Đã khóa</option>
+              <option value="pending">Chờ kích hoạt</option>
             </select>
           </div>
 
@@ -640,8 +643,9 @@ alert('Backend hiện chưa cung cấp endpoint cập nhật thông tin người
         <div className="flex items-center gap-lg">
           <p>
             Hiển thị {(currentPage - 1) * perPage + 1} -{' '}
-            {Math.min(currentPage * perPage, filtered.length)} trong tổng số{' '}
-            {filtered.length} người dùng
+            {totalUsers === 0 ? 0 : (currentPage - 1) * perPage + 1} -{' '}
+            {Math.min(currentPage * perPage, totalUsers)} trong tổng số{' '}
+            {totalUsers} người dùng
           </p>
 
           <div className="flex items-center gap-xs">

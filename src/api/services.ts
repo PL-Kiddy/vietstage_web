@@ -1,5 +1,6 @@
 import { apiRequest, type RequestOptions } from './client';
 import type {
+  AdminUser,
   AuthResponse,
   Instrument,
   Lesson,
@@ -48,7 +49,7 @@ export const authApi = {
 };
 
 export const usersApi = {
-  list: (options?: RequestOptions) => apiRequest<any>('/api/admin/users', { ...options, params: { size: 200, ...options?.params } }),
+  list: (options?: RequestOptions) => apiRequest<PageResponse<AdminUser>>('/api/admin/users', options),
   updateStatus: (id: number, status: 'active' | 'locked') =>
     apiRequest<void>(`/api/admin/users/${id}/status`, {
       method: 'PUT',
