@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback, type FormEvent } from 'react';
+import { useState, useMemo, useEffect, useCallback, type FormEvent, type MouseEvent } from 'react';
 import { useLocation } from 'react-router-dom';
 import {
   UserPlus,
@@ -93,6 +93,13 @@ const getRegisteredTimestamp = (user: ApiAdminUser): number => {
   return Number.isNaN(parsed) ? 0 : parsed;
 };
 
+const isStaffAccount = (user: any): boolean => {
+  const role = normalizeRole(user);
+  return role === 'Admin' || role === 'Giảng viên';
+};
+
+const getUserKey = (user: ApiAdminUser): string => String((user as any).userId ?? (user as any).user_id ?? user.id);
+
 const AdminUsers = () => {
   const location = useLocation();
   const isLearnersMode = location.pathname.includes('/learners');
@@ -138,6 +145,45 @@ const AdminUsers = () => {
 
   // Action Menu state
   const [openActionMenuUserId, setOpenActionMenuUserId] = useState<string | null>(null);
+  const [actionMenuPosition, setActionMenuPosition] = useState<{ top: number; left: number } | null>(null);
+
+  const toggleActionMenu = (event: MouseEvent<HTMLButtonElement>, userId: string) => {
+    if (openActionMenuUserId === userId) {
+      setOpenActionMenuUserId(null);
+      setActionMenuPosition(null);
+      return;
+    }
+
+    const rect = event.currentTarget.getBoundingClientRect();
+    const menuWidth = 192;
+    const menuHeight = 190;
+    const viewportPadding = 16;
+    const left = Math.min(
+      Math.max(viewportPadding, rect.right - menuWidth),
+      window.innerWidth - menuWidth - viewportPadding,
+    );
+    const belowTop = rect.bottom + 4;
+    const top = belowTop + menuHeight <= window.innerHeight - viewportPadding
+      ? belowTop
+      : Math.max(viewportPadding, rect.top - menuHeight - 4);
+
+    setActionMenuPosition({ top, left });
+    setOpenActionMenuUserId(userId);
+  };
+
+  useEffect(() => {
+    if (!openActionMenuUserId) return;
+    const closeMenu = () => {
+      setOpenActionMenuUserId(null);
+      setActionMenuPosition(null);
+    };
+    window.addEventListener('resize', closeMenu);
+    window.addEventListener('scroll', closeMenu, true);
+    return () => {
+      window.removeEventListener('resize', closeMenu);
+      window.removeEventListener('scroll', closeMenu, true);
+    };
+  }, [openActionMenuUserId]);
 
   const requestedRole = isLearnersMode ? 'LEARNER' : roleFilter === 'ALL' ? undefined : roleFilter;
   const loadUsersRequest = useCallback(
@@ -163,7 +209,14 @@ const AdminUsers = () => {
         };
 
         const [admins, instructors] = await Promise.all([fetchRole('ADMIN'), fetchRole('INSTRUCTOR')]);
-        const staff = [...admins, ...instructors].sort(
+        // Some current deployments ignore the role query. Filter and de-duplicate
+        // defensively so learner records and duplicate action menus never leak into
+        // the Staff screen.
+        const uniqueStaff = new Map<string, ApiAdminUser>();
+        [...admins, ...instructors].forEach((user) => {
+          if (isStaffAccount(user)) uniqueStaff.set(getUserKey(user), user);
+        });
+        const staff = [...uniqueStaff.values()].sort(
           (left, right) => getRegisteredTimestamp(right) - getRegisteredTimestamp(left),
         );
         const totalElements = staff.length;
@@ -222,14 +275,20 @@ const AdminUsers = () => {
   const pageUsers = useMemo(() => {
     let result = users;
 
+    result = isLearnersMode
+      ? result.filter((user) => !isStaffAccount(user))
+      : result.filter(isStaffAccount);
+
     if (statusFilter !== 'ALL') {
       result = result.filter((u) => u.status === statusFilter);
     }
     return result;
-  }, [statusFilter, users]);
+  }, [isLearnersMode, statusFilter, users]);
 
   const totalUsers = usersData?.totalElements ?? users.length;
   const totalPages = Math.max(1, usersData?.totalPages ?? 1);
+  const displayStart = totalUsers === 0 ? 0 : (currentPage - 1) * perPage + 1;
+  const displayEnd = totalUsers === 0 ? 0 : Math.min(currentPage * perPage, totalUsers);
 
   /* ── Validation helpers ──────────────────────────────────── */
   const isEmailValid = (email: string) => {
@@ -549,17 +608,26 @@ alert('Backend hiện chưa cung cấp endpoint cập nhật thông tin người
                     {/* Actions Menu */}
                     <td className="px-lg py-md text-right relative" onClick={(e) => e.stopPropagation()}>
                       <button
-                        onClick={() => setOpenActionMenuUserId(openActionMenuUserId === user.id ? null : user.id)}
+                        onClick={(event) => toggleActionMenu(event, user.id)}
                         className="p-2 hover:bg-[#EDF7F2] rounded-full transition-colors text-on-surface-variant hover:text-on-surface"
                       >
                         <MoreVertical className="w-5 h-5" />
                       </button>
 
-                      {openActionMenuUserId === user.id && (
+                      {openActionMenuUserId === user.id && actionMenuPosition && createPortal(
                         <>
                           {/* Menu Backdrop */}
-                          <div className="fixed inset-0 z-10" onClick={() => setOpenActionMenuUserId(null)} />
-                          <div className="absolute right-4 mt-1 w-48 bg-white border border-[#d1e4fb] rounded-xl shadow-lg py-1 z-20 text-left">
+                          <div
+                            className="fixed inset-0 z-[1100]"
+                            onClick={() => {
+                              setOpenActionMenuUserId(null);
+                              setActionMenuPosition(null);
+                            }}
+                          />
+                          <div
+                            className="fixed w-48 bg-white border border-[#d1e4fb] rounded-xl shadow-lg py-1 z-[1101] text-left"
+                            style={{ top: actionMenuPosition.top, left: actionMenuPosition.left }}
+                          >
                             <button
                               onClick={() => {
                                 setOpenActionMenuUserId(null);
@@ -626,7 +694,8 @@ alert('Backend hiện chưa cung cấp endpoint cập nhật thông tin người
                               </button>
                             )}
                           </div>
-                        </>
+                        </>,
+                        document.body,
                       )}
                     </td>
                   </tr>
@@ -642,9 +711,7 @@ alert('Backend hiện chưa cung cấp endpoint cập nhật thông tin người
       <div className="mt-lg flex flex-col sm:flex-row justify-between items-center gap-md text-[12px] text-[#5e5e5b] pt-4">
         <div className="flex items-center gap-lg">
           <p>
-            Hiển thị {(currentPage - 1) * perPage + 1} -{' '}
-            {totalUsers === 0 ? 0 : (currentPage - 1) * perPage + 1} -{' '}
-            {Math.min(currentPage * perPage, totalUsers)} trong tổng số{' '}
+            Hiển thị {displayStart}–{displayEnd} trong tổng số{' '}
             {totalUsers} người dùng
           </p>
 
@@ -703,15 +770,15 @@ alert('Backend hiện chưa cung cấp endpoint cập nhật thông tin người
          ═══════════════════════════════════════════════════════ */}
       {selectedUser && (
         <div
-          className="fixed inset-0 bg-on-surface/40 backdrop-blur-sm z-50 flex items-center justify-end p-lg"
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[999]"
           onClick={() => setSelectedUser(null)}
         >
           <div
-            className="w-full max-w-xl h-full bg-white shadow-2xl rounded-xl flex flex-col border-l border-outline-variant animate-[slideIn_0.3s_ease-out]"
+            className="fixed top-0 right-0 h-full w-[100%] sm:w-[65%] md:w-[55%] lg:w-[45%] bg-[#fbf9f4] border-l border-outline-variant/15 shadow-2xl z-[1000] overflow-hidden flex flex-col animate-[slideIn_0.3s_ease-out]"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}
-            <div className="p-lg border-b border-[#d1e4fb] flex justify-between items-center">
+            <div className="px-xl py-lg border-b border-outline-variant/10 flex justify-between items-center bg-[#f5f3ee]/30">
               <div className="flex items-center gap-md">
                 <div className={`w-16 h-16 rounded-full flex items-center justify-center font-bold text-xl ${getAvatarStyle(selectedUser.role)}`}>
                   {selectedUser.initials}
@@ -738,7 +805,7 @@ alert('Backend hiện chưa cung cấp endpoint cập nhật thông tin người
             </div>
 
             {/* Modal Content */}
-            <div className="flex-1 overflow-y-auto p-lg space-y-10 custom-scrollbar">
+            <div className="flex-1 overflow-y-auto p-xl space-y-10 custom-scrollbar">
               {/* Status Header Badge */}
               <div className="flex justify-between items-center bg-[#EDF7F2] p-md rounded-lg border border-[#d1e4fb]/40">
                 <span className="text-body-md font-semibold text-on-surface">Trạng thái hệ thống:</span>
@@ -851,7 +918,7 @@ alert('Backend hiện chưa cung cấp endpoint cập nhật thông tin người
             </div>
 
             {/* Modal Actions */}
-            <div className="p-lg border-t border-[#d1e4fb] bg-[#EDF7F2] flex gap-md justify-end">
+            <div className="px-xl py-lg border-t border-outline-variant/10 bg-[#f5f3ee]/40 flex gap-md justify-end">
               <button
                 onClick={() => {
                   setSelectedUser(null);
