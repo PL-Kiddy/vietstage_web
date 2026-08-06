@@ -146,7 +146,9 @@ export interface PracticeAttempt {
 export interface FeedbackResponse {
   id: number;
   comment: string;
+  instructorName?: string;
   instructor_name?: string;
+  createdAt?: string;
   created_at?: string;
 }
 

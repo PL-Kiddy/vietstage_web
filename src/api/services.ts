@@ -143,27 +143,6 @@ export const learnerProgressApi = {
       totalQuizAttempts: number;
     }>(`/api/lessons/${lessonId}/learners/${learnerId}/progress`, options),
 
-  // GET /api/users/{learnerId}/progress/summary or fallback endpoint
-  getLearnerProgressSummary: (learnerId: number, options?: RequestOptions) =>
-    apiRequest<{
-      total_stars: number;
-      completed_lessons: number;
-      current_streak: number;
-      longest_streak: number;
-      total_points: number;
-      adaptive_difficulty: number;
-    }>(`/api/instructor/learners/${learnerId}/progress/summary`, options).catch(() =>
-      // Fallback for demo: return default summary object
-      Promise.resolve({
-        total_stars: 0,
-        completed_lessons: 0,
-        current_streak: 0,
-        longest_streak: 0,
-        total_points: 0,
-        adaptive_difficulty: 1,
-      })
-    ),
-
   // GET /api/users/me/progress
   getMyProgress: (instrumentId?: number, skillLevelId?: number, options?: RequestOptions) => {
     const params = new URLSearchParams();
@@ -191,16 +170,18 @@ export const learnerProgressApi = {
 export const instructorStudentsApi = {
   listStudents: (options?: RequestOptions) => apiRequest<AdminUser[]>('/api/admin/users', options),
   
-  // GET /api/lessons/{id}/attempts?learner_id={learnerId}
+  // 1. GET /api/lessons/{id}/attempts?learner_id={learnerId}&page={page}&size={size}
   getAttempts: (lessonId: number, learnerId: number, page = 0, size = 100, options?: RequestOptions) =>
     apiRequest<PageResponse<PracticeAttempt>>(
       `/api/lessons/${lessonId}/attempts?learner_id=${learnerId}&page=${page}&size=${size}`,
       options,
     ),
     
-  // OpenAPI: GET/POST /api/practice/attempts/{id}/feedback
+  // 2. OpenAPI: GET /api/practice/attempts/{attemptId}/feedback
   getFeedbacks: (attemptId: number, options?: RequestOptions) =>
-    apiRequest<FeedbackResponse[]>(`/api/practice/attempts/${attemptId}/feedback`, options),
+    apiRequest<FeedbackResponse[] | PageResponse<FeedbackResponse>>(`/api/practice/attempts/${attemptId}/feedback`, options),
+
+  // 3. OpenAPI: POST /api/practice/attempts/{attemptId}/feedback
   sendFeedback: (attemptId: number, comment: string) =>
     apiRequest<FeedbackResponse>(`/api/practice/attempts/${attemptId}/feedback`, {
       method: 'POST',

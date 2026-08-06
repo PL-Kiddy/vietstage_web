@@ -75,25 +75,11 @@ const InstructorStudents = () => {
   // Track currently selected instrument to filter the selected student's progress
   const [selectedStudentInstrument, setSelectedStudentInstrument] = useState<string>('');
 
-  // 1. Fetch all users (learner list) with graceful 403 fallback for Instructor role
+  // The learner list must come from the server; never substitute demo identities
+  // when an authorization or connectivity error occurs.
   const { data: usersRaw, loading: usersLoading, error: usersError } = useAxiosRequest(
-    async (signal) => {
-      try {
-        return await usersApi.list({ signal, params: { size: 200 } });
-      } catch (err: any) {
-        // Fallback demo learners (some with multi-instrument setups for realistic scenarios)
-        return {
-          content: [
-            { id: 101, fullName: 'Nguyễn Văn An', email: 'an.nguyen@gmail.com', role: 'LEARNER', userCode: 'HV-001', instrumentName: 'Đàn Tranh, Đàn Bầu' },
-            { id: 102, fullName: 'Trần Thị Bình', email: 'binh.tran@gmail.com', role: 'LEARNER', userCode: 'HV-002', instrumentName: 'Đàn Bầu' },
-            { id: 103, fullName: 'Lê Hoàng Cường', email: 'cuong.le@gmail.com', role: 'LEARNER', userCode: 'HV-003', instrumentName: 'Sáo Trúc' },
-            { id: 104, fullName: 'Phạm Minh Đức', email: 'duc.pham@gmail.com', role: 'LEARNER', userCode: 'HV-004', instrumentName: 'Đàn Tranh' },
-            { id: 105, fullName: 'Vũ Thị Hoa', email: 'hoa.vu@gmail.com', role: 'LEARNER', userCode: 'HV-005', instrumentName: 'Đàn Bầu, Sáo Trúc' },
-          ]
-        };
-      }
-    },
-    { auto: true }
+    (signal) => usersApi.list({ signal, params: { size: 200 } }),
+    { auto: true },
   );
 
   const allStudents = useMemo(() => {
@@ -244,10 +230,10 @@ const InstructorStudents = () => {
     });
   }, [selectedStudentId, studentLessons, fetchLessonProgress]);
 
-  // The current Instructor API exposes attempts by lesson and learner. Load every
-  // page so the frequency report is complete before applying the date filter below.
+  // Load all attempts belonging to the selected learner across the instructor's
+  // lessons. The instrument selector only scopes the scorecard above.
   useEffect(() => {
-    if (!selectedStudentId || studentLessons.length === 0) {
+    if (!selectedStudentId || lessons.length === 0) {
       setPracticeAttempts([]);
       setPracticeAttemptsError('');
       setPracticeAttemptsLoading(false);
@@ -259,7 +245,7 @@ const InstructorStudents = () => {
       setPracticeAttemptsLoading(true);
       setPracticeAttemptsError('');
       try {
-        const attemptsByLesson = await Promise.all(studentLessons.map(async (lesson: any) => {
+        const attemptsByLesson = await Promise.all(lessons.map(async (lesson: any) => {
           const attempts: PracticeAttempt[] = [];
           let page = 0;
           let totalPages = 1;
@@ -283,7 +269,7 @@ const InstructorStudents = () => {
     };
     void loadAttempts();
     return () => controller.abort();
-  }, [selectedStudentId, studentLessons]);
+  }, [selectedStudentId, lessons]);
 
   useEffect(() => {
     if (!selectedAttemptId) {
@@ -298,7 +284,14 @@ const InstructorStudents = () => {
       setFeedbackError('');
       try {
         const result = await instructorStudentsApi.getFeedbacks(selectedAttemptId, { signal: controller.signal });
-        if (!controller.signal.aborted) setAttemptFeedbacks(result ?? []);
+        if (!controller.signal.aborted) {
+          const list = Array.isArray(result)
+            ? result
+            : (result as any)?.content && Array.isArray((result as any).content)
+              ? (result as any).content
+              : result ? [result] : [];
+          setAttemptFeedbacks(list);
+        }
       } catch (cause) {
         if (!controller.signal.aborted) {
           setAttemptFeedbacks([]);
@@ -369,8 +362,22 @@ const InstructorStudents = () => {
     setFeedbackError('');
     try {
       const created = await instructorStudentsApi.sendFeedback(selectedAttemptId, feedbackComment.trim());
-      setAttemptFeedbacks((current) => [...current, created]);
+      if (created) {
+        setAttemptFeedbacks((current) => [...current, created]);
+      }
       setFeedbackComment('');
+      // Refresh list to ensure consistency with backend
+      try {
+        const freshList = await instructorStudentsApi.getFeedbacks(selectedAttemptId);
+        const list = Array.isArray(freshList)
+          ? freshList
+          : (freshList as any)?.content && Array.isArray((freshList as any).content)
+            ? (freshList as any).content
+            : freshList ? [freshList] : [];
+        if (list.length > 0) setAttemptFeedbacks(list);
+      } catch {
+        // Ignore refresh error if optimistic update succeeded
+      }
     } catch (cause) {
       setFeedbackError(cause instanceof Error ? cause.message : 'Không thể gửi phản hồi.');
     } finally {
@@ -540,6 +547,7 @@ const InstructorStudents = () => {
               </div>
               <div className="flex-1 min-w-0">
                 <h2 className="text-lg font-bold truncate">{selectedStudent.name}</h2>
+                <p className="mt-0.5 text-[11px] font-medium text-white/65">Tổng quan scorecard cho nhạc cụ đang chọn</p>
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-2 mt-1">
                   <span className="bg-white/10 px-2 py-0.5 rounded font-semibold text-xs text-white">
                     {selectedStudent.userCode}
@@ -702,7 +710,7 @@ const InstructorStudents = () => {
               ) : practiceAttemptsError ? (
                 <div className="m-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">{practiceAttemptsError}</div>
               ) : practiceAttempts.length === 0 ? (
-                <div className="p-10 text-center text-sm text-on-surface-variant">Học viên chưa có lượt tập nào cho nhạc cụ đang xem.</div>
+                <div className="p-10 text-center text-sm text-on-surface-variant">Học viên chưa có lượt tập nào trong các bài học được quản lý.</div>
               ) : (
                 <div className="grid grid-cols-1 xl:grid-cols-2 divide-y xl:divide-y-0 xl:divide-x divide-outline-variant/10">
                   <div className="max-h-[440px] overflow-y-auto divide-y divide-outline-variant/10">
@@ -717,13 +725,13 @@ const InstructorStudents = () => {
                   </div>
                   <div className="p-5 bg-[#fbf9f4]/50 min-h-[300px]">
                     {!selectedAttempt ? <div className="h-full flex items-center justify-center text-center text-sm text-on-surface-variant">Chọn một lượt tập ở bên trái để phản hồi.</div> : <>
-                      <div className="flex justify-between gap-3 mb-4"><div><p className="text-xs font-bold uppercase tracking-wide text-[#1D4532]">Lượt tập đang chọn</p><h4 className="font-bold mt-1">{selectedAttempt.lessonName || 'Bài học'} · #{selectedAttempt.id}</h4></div><span className="text-xs text-on-surface-variant">attemptId: {selectedAttempt.id}</span></div>
+                      <div className="flex justify-between gap-3 mb-4"><div><p className="text-xs font-bold uppercase tracking-wide text-[#1D4532]">Lượt tập đang chọn</p><h4 className="font-bold mt-1">{selectedAttempt.lessonName || 'Bài học'} · #{selectedAttempt.id}</h4></div><span className="text-xs font-semibold text-[#1D4532] bg-[#EDF7F2] px-2 py-1 rounded">attemptId: {selectedAttempt.id}</span></div>
                       <div className="space-y-2 max-h-40 overflow-y-auto mb-4">
-                        {feedbackLoading ? <div className="py-4 text-center"><Loader2 className="w-4 h-4 animate-spin inline text-[#1D4532]" /></div> : attemptFeedbacks.length === 0 ? <p className="rounded-lg border border-dashed border-outline-variant/30 p-3 text-xs text-on-surface-variant">Chưa có phản hồi cho lượt tập này.</p> : attemptFeedbacks.map((feedback) => <article key={feedback.id} className="rounded-lg bg-white border border-outline-variant/10 p-3"><p className="text-sm text-on-surface">{feedback.comment}</p><p className="text-[11px] text-on-surface-variant mt-1">{feedback.instructor_name || 'Giảng viên'} · {feedback.created_at ? new Date(feedback.created_at).toLocaleString('vi-VN') : ''}</p></article>)}
+                        {feedbackLoading ? <div className="py-4 text-center"><Loader2 className="w-4 h-4 animate-spin inline text-[#1D4532]" /></div> : attemptFeedbacks.length === 0 ? <p className="rounded-lg border border-dashed border-outline-variant/30 p-3 text-xs text-on-surface-variant">Chưa có phản hồi cho lượt tập này (attemptId: {selectedAttempt.id}).</p> : attemptFeedbacks.map((feedback) => <article key={feedback.id} className="rounded-lg bg-white border border-outline-variant/10 p-3"><p className="text-sm text-on-surface">{feedback.comment}</p><p className="text-[11px] text-on-surface-variant mt-1">{feedback.instructorName || feedback.instructor_name || 'Giảng viên'} · {(feedback.createdAt || feedback.created_at) ? new Date(feedback.createdAt || feedback.created_at!).toLocaleString('vi-VN') : ''}</p></article>)}
                       </div>
                       {feedbackError && <p className="mb-3 text-xs text-red-700">{feedbackError}</p>}
-                      <label className="block text-xs font-semibold text-on-surface-variant mb-2">Nhận xét cho lượt tập này</label>
-                      <textarea value={feedbackComment} onChange={(event) => setFeedbackComment(event.target.value)} maxLength={2000} placeholder="Nhập nhận xét cụ thể cho học viên..." className="w-full min-h-24 rounded-xl border border-outline-variant/25 bg-white p-3 text-sm outline-none focus:border-[#1D4532]" />
+                      <label className="block text-xs font-semibold text-on-surface-variant mb-2">Nhận xét cho lượt tập này (gắn trực tiếp với attemptId: {selectedAttempt.id})</label>
+                      <textarea value={feedbackComment} onChange={(event) => setFeedbackComment(event.target.value)} maxLength={2000} placeholder="Ví dụ: Cần giữ nhịp đều hơn ở ô nhịp thứ hai." className="w-full min-h-24 rounded-xl border border-outline-variant/25 bg-white p-3 text-sm outline-none focus:border-[#1D4532]" />
                       <button type="button" disabled={feedbackSaving || !feedbackComment.trim()} onClick={() => void submitFeedback()} className="mt-3 inline-flex items-center gap-2 rounded-xl bg-[#1D4532] px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50"><Send className="w-4 h-4" />{feedbackSaving ? 'Đang gửi...' : 'Gửi phản hồi'}</button>
                     </>}
                   </div>
@@ -737,7 +745,7 @@ const InstructorStudents = () => {
                   <BarChart3 className="w-4 h-4 text-[#1D4532]" />
                   <div>
                     <h3 className="text-sm font-bold text-[#1D4532]">Báo cáo tần suất luyện tập</h3>
-                    <p className="text-xs text-on-surface-variant mt-0.5">Tổng hợp lượt tập của học viên theo ngày trong khoảng đã chọn.</p>
+                    <p className="text-xs text-on-surface-variant mt-0.5">Tổng hợp toàn bộ lượt tập của học viên theo ngày trong khoảng đã chọn.</p>
                   </div>
                 </div>
                 <div className="flex flex-wrap items-center gap-2 text-xs">

@@ -14,7 +14,6 @@ import {
   Loader2,
   Search,
   MoreVertical,
-  ListChecks,
   Pencil,
   Layers,
 } from 'lucide-react';
