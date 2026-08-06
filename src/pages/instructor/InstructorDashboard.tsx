@@ -20,9 +20,9 @@ const InstructorDashboard = () => {
   const { data: dashboardStats } = useAxiosRequest(fetchStats, { auto: true });
 
   // 2. Fallbacks: Fetch all students to count
-  const fetchStudents = useCallback(() => instructorStudentsApi.listStudents(), []);
+  const fetchStudents = useCallback(() => instructorStudentsApi.listStudents(0, 100), []);
   const { data: studentsResponse } = useAxiosRequest(fetchStudents, { auto: true });
-  const studentsCount = (studentsResponse || []).filter(
+  const studentsCount = (((studentsResponse as any)?.content ?? []) as any[]).filter(
     (u: any) =>
       u.role === 'Người học' ||
       u.role === 'LEARNER' ||

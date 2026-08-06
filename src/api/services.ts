@@ -1,6 +1,5 @@
 import { apiRequest, type RequestOptions } from './client';
 import type {
-  AdminUser,
   AuthResponse,
   Instrument,
   Lesson,
@@ -11,6 +10,7 @@ import type {
   FeedbackResponse,
   LessonAsset,
   DashboardStats,
+  InstructorLearner,
 } from './types';
 
 export const authApi = {
@@ -168,7 +168,12 @@ export const learnerProgressApi = {
 };
 
 export const instructorStudentsApi = {
-  listStudents: (options?: RequestOptions) => apiRequest<AdminUser[]>('/api/admin/users', options),
+  // Returns only learners the authenticated instructor is allowed to monitor.
+  listStudents: (page = 0, size = 100, search?: string, options?: RequestOptions) => {
+    const params = new URLSearchParams({ page: String(page), size: String(size) });
+    if (search?.trim()) params.set('search', search.trim());
+    return apiRequest<PageResponse<InstructorLearner>>(`/api/instructor/learners?${params.toString()}`, options);
+  },
   
   // 1. GET /api/lessons/{id}/attempts?learner_id={learnerId}&page={page}&size={size}
   getAttempts: (lessonId: number, learnerId: number, page = 0, size = 100, options?: RequestOptions) =>

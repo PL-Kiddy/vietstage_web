@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAxiosRequest } from '../../hooks/useAxiosRequest';
-import { usersApi, lessonsApi, learnerProgressApi, instructorStudentsApi } from '../../api/services';
+import { lessonsApi, learnerProgressApi, instructorStudentsApi } from '../../api/services';
 import type { FeedbackResponse, PracticeAttempt } from '../../api/types';
 import { Search, X, BookOpen, ChevronRight, Users, Loader2, Check, HelpCircle, User, CalendarDays, BarChart3, Clock3, MessageSquareText, Send } from 'lucide-react';
 
@@ -77,48 +77,27 @@ const InstructorStudents = () => {
 
   // The learner list must come from the server; never substitute demo identities
   // when an authorization or connectivity error occurs.
-  const { data: usersRaw, loading: usersLoading, error: usersError } = useAxiosRequest(
-    (signal) => usersApi.list({ signal, params: { size: 200 } }),
+  const { data: learnersPage, loading: usersLoading, error: usersError } = useAxiosRequest(
+    (signal) => instructorStudentsApi.listStudents(0, 100, undefined, { signal }),
     { auto: true },
   );
 
   const allStudents = useMemo(() => {
-    let rawList: any[] = [];
-    if (Array.isArray(usersRaw)) {
-      rawList = usersRaw;
-    } else if ((usersRaw as any)?.content) {
-      rawList = (usersRaw as any).content;
-    } else if ((usersRaw as any)?.data?.content) {
-      rawList = (usersRaw as any).data.content;
-    } else if ((usersRaw as any)?.data) {
-      rawList = Array.isArray((usersRaw as any).data) ? (usersRaw as any).data : [];
-    }
+    const rawList = Array.isArray((learnersPage as any)?.content)
+      ? (learnersPage as any).content
+      : [];
 
     const mapped = rawList.map((u: any) => ({
       id: u.id,
-      name: u.fullName || u.name || u.email || `Học viên #${u.id}`,
-      email: u.email || '',
-      role: u.role || 'LEARNER',
-      userCode: u.userCode || u.user_code || `HV-${u.id}`,
-      instrument: u.instrumentName || u.instrument?.name || 'Đàn Tranh',
-      // Parse instruments array if it is a comma-separated string
-      instrumentsList: (u.instrumentName || u.instrument?.name || 'Đàn Tranh')
-        .split(',')
-        .map((x: string) => x.trim())
-        .filter(Boolean),
+      name: u.fullName,
+      email: u.email,
+      userCode: u.userCode,
+      instrument: u.instrumentName,
+      instrumentsList: u.instrumentName ? [u.instrumentName] : [],
     }));
 
-    // Filter out Admin & Instructor roles
-    const learnersOnly = mapped.filter(
-      (u: any) =>
-        u.role !== 'ADMIN' &&
-        u.role !== 'admin' &&
-        u.role !== 'INSTRUCTOR' &&
-        u.role !== 'instructor'
-    );
-
-    return learnersOnly.length > 0 ? learnersOnly : mapped;
-  }, [usersRaw]);
+    return mapped;
+  }, [learnersPage]);
 
   const filteredStudents = useMemo(() => {
     return allStudents.filter((s: any) => {

@@ -65,6 +65,15 @@ export interface AdminUser {
   activities?: { title: string; time: string }[];
 }
 
+/** Learner visible to the currently authenticated instructor. */
+export interface InstructorLearner {
+  id: number;
+  fullName: string;
+  email: string;
+  userCode: string;
+  instrumentName: string;
+}
+
 export interface Instrument {
   id: number;
   instrumentCode?: string;
