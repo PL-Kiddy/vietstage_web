@@ -43,11 +43,10 @@ const StarDisplay = ({ count }: { count: number }) => (
     {[1, 2, 3].map((i) => (
       <CustomStar
         key={i}
-        className={`w-4 h-4 ${
-          i <= count
-            ? 'text-amber-400 fill-amber-400 filter drop-shadow-[0_1px_2px_rgba(251,191,36,0.5)]'
-            : 'text-gray-200 fill-gray-200'
-        }`}
+        className={`w-4 h-4 ${i <= count
+          ? 'text-amber-400 fill-amber-400 filter drop-shadow-[0_1px_2px_rgba(251,191,36,0.5)]'
+          : 'text-gray-200 fill-gray-200'
+          }`}
       />
     ))}
   </div>
@@ -71,7 +70,7 @@ const InstructorStudents = () => {
   const [feedbackLoading, setFeedbackLoading] = useState(false);
   const [feedbackSaving, setFeedbackSaving] = useState(false);
   const [feedbackError, setFeedbackError] = useState('');
-  
+
   // Track currently selected instrument to filter the selected student's progress
   const [selectedStudentInstrument, setSelectedStudentInstrument] = useState<string>('');
 
@@ -108,7 +107,7 @@ const InstructorStudents = () => {
         (s.userCode && s.userCode.toLowerCase().includes(searchQuery.toLowerCase()));
 
       const matchesInstrument =
-        instrumentFilter === 'ALL' || 
+        instrumentFilter === 'ALL' ||
         s.instrumentsList.some((inst: string) => inst.toLowerCase() === instrumentFilter.toLowerCase());
 
       return matchesSearch && matchesInstrument;
@@ -382,7 +381,7 @@ const InstructorStudents = () => {
     <div className="max-w-[1400px] mx-auto">
       <div className="mb-xl">
         <h2 className="text-headline-lg font-bold text-[#1D4532]">
-          Phân tích Tiến trình Học tập
+          Tiến độ & Phản hồi
         </h2>
         <p className="text-on-surface-variant font-body-md mt-base">
           Theo dõi và đánh giá chi tiết kỹ năng biểu diễn của từng học viên.
@@ -454,18 +453,16 @@ const InstructorStudents = () => {
                   <div
                     key={st.id}
                     onClick={() => setSelectedStudentId(st.id)}
-                    className={`p-md rounded-xl border transition-all flex items-center justify-between cursor-pointer ${
-                      isSelected
-                        ? 'bg-[#EDF7F2] border-[#1D4532]/30 shadow-sm border-l-4 border-l-[#1D4532]'
-                        : 'bg-white hover:bg-[#EDF7F2]/30 border-outline-variant/10'
-                    }`}
+                    className={`p-md rounded-xl border transition-all flex items-center justify-between cursor-pointer ${isSelected
+                      ? 'bg-[#EDF7F2] border-[#1D4532]/30 shadow-sm border-l-4 border-l-[#1D4532]'
+                      : 'bg-white hover:bg-[#EDF7F2]/30 border-outline-variant/10'
+                      }`}
                   >
                     <div className="flex items-center gap-md">
-                      <div className={`w-9 h-9 rounded-full flex items-center justify-center border transition-all ${
-                        isSelected 
-                          ? 'bg-[#1D4532] text-white border-transparent' 
-                          : 'bg-[#EDF7F2] text-[#1D4532] border-[#1D4532]/25'
-                      }`}>
+                      <div className={`w-9 h-9 rounded-full flex items-center justify-center border transition-all ${isSelected
+                        ? 'bg-[#1D4532] text-white border-transparent'
+                        : 'bg-[#EDF7F2] text-[#1D4532] border-[#1D4532]/25'
+                        }`}>
                         <User className="w-4 h-4" />
                       </div>
                       <div>
@@ -547,7 +544,7 @@ const InstructorStudents = () => {
                   </span>
                   <span className="text-xs text-white/80">{selectedStudent.email}</span>
                   <span className="text-white/40">•</span>
-                  
+
                   {/* Multi-instrument Toggle Dropdown */}
                   <div className="flex items-center gap-1 bg-white/15 px-2 py-0.5 rounded-lg border border-white/10">
                     <span className="text-[11px] font-medium text-white/80">Xem nhạc cụ:</span>
@@ -644,7 +641,7 @@ const InstructorStudents = () => {
                               <div className="flex justify-center">
                                 {!p || p.loading ? (
                                   <div className="flex gap-1">
-                                    {[1,2,3].map((i) => <CustomStar key={i} className="w-4 h-4 text-gray-200 fill-gray-200" />)}
+                                    {[1, 2, 3].map((i) => <CustomStar key={i} className="w-4 h-4 text-gray-200 fill-gray-200" />)}
                                   </div>
                                 ) : (
                                   <StarDisplay count={p?.stars ?? 0} />
@@ -666,11 +663,10 @@ const InstructorStudents = () => {
                               ) : p.error ? (
                                 <span className="text-on-surface-variant/40 text-xs">—</span>
                               ) : (
-                                <span className={`text-xs font-bold ${
-                                  p.bestPracticeScore >= 0.8 ? 'text-emerald-600'
+                                <span className={`text-xs font-bold ${p.bestPracticeScore >= 0.8 ? 'text-emerald-600'
                                   : p.bestPracticeScore >= 0.5 ? 'text-amber-600'
-                                  : 'text-rose-500'
-                                }`}>
+                                    : 'text-rose-500'
+                                  }`}>
                                   {(p.bestPracticeScore * 100).toFixed(0)}%
                                 </span>
                               )}
