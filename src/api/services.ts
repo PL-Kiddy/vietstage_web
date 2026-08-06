@@ -174,19 +174,35 @@ export const instructorStudentsApi = {
     if (search?.trim()) params.set('search', search.trim());
     return apiRequest<PageResponse<InstructorLearner>>(`/api/instructor/learners?${params.toString()}`, options);
   },
+
+  // Instructor-scoped attempt history. Do not use the learner-facing lesson
+  // attempt endpoint here; it returns 403 for an instructor session.
+  getInstructorAttempts: (
+    filters: {
+      learnerId: number;
+      lessonId?: number;
+      fromDate?: string;
+      toDate?: string;
+      page?: number;
+      size?: number;
+    },
+    options?: RequestOptions,
+  ) => {
+    const params = new URLSearchParams();
+    params.set('learnerId', String(filters.learnerId));
+    if (filters.lessonId !== undefined) params.set('lessonId', String(filters.lessonId));
+    if (filters.fromDate) params.set('fromDate', filters.fromDate);
+    if (filters.toDate) params.set('toDate', filters.toDate);
+    params.set('page', String(filters.page ?? 0));
+    params.set('size', String(filters.size ?? 100));
+    return apiRequest<PageResponse<PracticeAttempt>>(`/api/instructor/practice-attempts?${params.toString()}`, options);
+  },
   
-  // 1. GET /api/lessons/{id}/attempts?learner_id={learnerId}&page={page}&size={size}
-  getAttempts: (lessonId: number, learnerId: number, page = 0, size = 100, options?: RequestOptions) =>
-    apiRequest<PageResponse<PracticeAttempt>>(
-      `/api/lessons/${lessonId}/attempts?learner_id=${learnerId}&page=${page}&size=${size}`,
-      options,
-    ),
-    
-  // 2. OpenAPI: GET /api/practice/attempts/{attemptId}/feedback
+  // OpenAPI: GET /api/practice/attempts/{attemptId}/feedback
   getFeedbacks: (attemptId: number, options?: RequestOptions) =>
     apiRequest<FeedbackResponse[] | PageResponse<FeedbackResponse>>(`/api/practice/attempts/${attemptId}/feedback`, options),
 
-  // 3. OpenAPI: POST /api/practice/attempts/{attemptId}/feedback
+  // OpenAPI: POST /api/practice/attempts/{attemptId}/feedback
   sendFeedback: (attemptId: number, comment: string) =>
     apiRequest<FeedbackResponse>(`/api/practice/attempts/${attemptId}/feedback`, {
       method: 'POST',

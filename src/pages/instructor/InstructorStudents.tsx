@@ -209,12 +209,19 @@ const InstructorStudents = () => {
     });
   }, [selectedStudentId, studentLessons, fetchLessonProgress]);
 
-  // Load all attempts belonging to the selected learner across the instructor's
-  // lessons. The instrument selector only scopes the scorecard above.
+  // Load attempts via the Instructor endpoint. Both feedback and frequency
+  // reporting use this same authorized attempt set.
   useEffect(() => {
-    if (!selectedStudentId || lessons.length === 0) {
+    if (!selectedStudentId) {
       setPracticeAttempts([]);
       setPracticeAttemptsError('');
+      setPracticeAttemptsLoading(false);
+      return;
+    }
+
+    if (practiceDateFrom > practiceDateTo) {
+      setPracticeAttempts([]);
+      setPracticeAttemptsError('Khoảng ngày không hợp lệ. Ngày bắt đầu phải không sau ngày kết thúc.');
       setPracticeAttemptsLoading(false);
       return;
     }
@@ -223,20 +230,27 @@ const InstructorStudents = () => {
     const loadAttempts = async () => {
       setPracticeAttemptsLoading(true);
       setPracticeAttemptsError('');
+      setSelectedAttemptId(null);
       try {
-        const attemptsByLesson = await Promise.all(lessons.map(async (lesson: any) => {
-          const attempts: PracticeAttempt[] = [];
-          let page = 0;
-          let totalPages = 1;
-          while (page < totalPages) {
-            const result = await instructorStudentsApi.getAttempts(lesson.id, selectedStudentId, page, 100, { signal: controller.signal });
-            attempts.push(...(result.content ?? []));
-            totalPages = result.totalPages ?? 1;
-            page += 1;
-          }
-          return attempts.map((attempt) => ({ ...attempt, lessonName: lesson.title }));
-        }));
-        if (!controller.signal.aborted) setPracticeAttempts(attemptsByLesson.flat());
+        const attempts: PracticeAttempt[] = [];
+        let page = 0;
+        let totalPages = 1;
+        while (page < totalPages) {
+          const result = await instructorStudentsApi.getInstructorAttempts(
+            {
+              learnerId: selectedStudentId,
+              fromDate: practiceDateFrom,
+              toDate: practiceDateTo,
+              page,
+              size: 100,
+            },
+            { signal: controller.signal },
+          );
+          attempts.push(...(result.content ?? []));
+          totalPages = result.totalPages ?? 1;
+          page += 1;
+        }
+        if (!controller.signal.aborted) setPracticeAttempts(attempts);
       } catch (cause) {
         if (!controller.signal.aborted) {
           setPracticeAttempts([]);
@@ -248,7 +262,7 @@ const InstructorStudents = () => {
     };
     void loadAttempts();
     return () => controller.abort();
-  }, [selectedStudentId, lessons]);
+  }, [selectedStudentId, practiceDateFrom, practiceDateTo]);
 
   useEffect(() => {
     if (!selectedAttemptId) {
