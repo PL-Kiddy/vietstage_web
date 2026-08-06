@@ -245,7 +245,15 @@ const InstructorStudents = () => {
             },
             { signal: controller.signal },
           );
-          attempts.push(...(result.content ?? []));
+          attempts.push(...(result.content ?? []).map((attempt) => ({
+            id: attempt.attemptId,
+            createdAt: attempt.createdAt,
+            lessonName: attempt.lessonTitle,
+            overall_score: attempt.totalScore,
+            pitch_score: attempt.pitchScore,
+            rhythm_score: attempt.rhythmScore,
+            duration: attempt.durationSeconds ? String(attempt.durationSeconds) : undefined,
+          })));
           totalPages = result.totalPages ?? 1;
           page += 1;
         }

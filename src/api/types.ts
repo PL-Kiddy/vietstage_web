@@ -152,6 +152,27 @@ export interface PracticeAttempt {
   duration?: string;
 }
 
+/** Attempt projection returned by GET /api/instructor/practice-attempts. */
+export interface PracticeAttemptDetailResponse {
+  attemptId: number;
+  learnerId: number;
+  learnerName: string;
+  lessonId: number;
+  lessonTitle: string;
+  exerciseId: number;
+  exerciseTitle: string;
+  pitchScore?: number;
+  rhythmScore?: number;
+  dynamicsScore?: number;
+  totalScore?: number;
+  stars?: number;
+  pointsEarned?: number;
+  isPassed?: boolean;
+  syncStatus?: string;
+  durationSeconds?: number;
+  createdAt: string;
+}
+
 export interface FeedbackResponse {
   id: number;
   comment: string;

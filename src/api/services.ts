@@ -7,7 +7,7 @@ import type {
   PageResponse,
   ReviewItem,
   SkillLevel,
-  PracticeAttempt,
+  PracticeAttemptDetailResponse,
   FeedbackResponse,
   LessonAsset,
   DashboardStats,
@@ -196,7 +196,7 @@ export const instructorStudentsApi = {
     if (filters.toDate) params.set('toDate', filters.toDate);
     params.set('page', String(filters.page ?? 0));
     params.set('size', String(filters.size ?? 100));
-    return apiRequest<PageResponse<PracticeAttempt>>(`/api/instructor/practice-attempts?${params.toString()}`, options);
+    return apiRequest<PageResponse<PracticeAttemptDetailResponse>>(`/api/instructor/practice-attempts?${params.toString()}`, options);
   },
   
   // OpenAPI: GET /api/practice/attempts/{attemptId}/feedback
