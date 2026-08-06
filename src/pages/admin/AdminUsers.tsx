@@ -86,19 +86,10 @@ const mapExtendedUser = (user: ApiAdminUser): ExtendedAdminUser => ({
   id: String((user as any).userId ?? (user as any).user_id ?? user.id),
 });
 
-const getRegisteredTimestamp = (user: ApiAdminUser): number => {
-  const value = (user as any).registeredAt ?? (user as any).createdAt ?? (user as any).created_at;
-  if (!value) return 0;
-  const parsed = new Date(value).getTime();
-  return Number.isNaN(parsed) ? 0 : parsed;
-};
-
 const isStaffAccount = (user: any): boolean => {
   const role = normalizeRole(user);
   return role === 'Admin' || role === 'Giảng viên';
 };
-
-const getUserKey = (user: ApiAdminUser): string => String((user as any).userId ?? (user as any).user_id ?? user.id);
 
 const AdminUsers = () => {
   const location = useLocation();
@@ -185,58 +176,32 @@ const AdminUsers = () => {
     };
   }, [openActionMenuUserId]);
 
-  const requestedRole = isLearnersMode ? 'LEARNER' : roleFilter === 'ALL' ? undefined : roleFilter;
   const loadUsersRequest = useCallback(
     async (signal?: AbortSignal) => {
-      const params = {
+      const params = new URLSearchParams({
+        page: String(currentPage - 1),
+        size: String(perPage),
         search: searchQuery.trim(),
         sortBy: 'createdAt',
         sortDir: 'desc',
-      };
+      });
 
-      // The API accepts a single role only. For the Staff page's "All" view,
-      // fetch the two allowed roles separately so a page of learners cannot make
-      // a staff page look empty.
-      if (!isLearnersMode && roleFilter === 'ALL') {
-        const fetchRole = async (role: 'ADMIN' | 'INSTRUCTOR') => {
-          const first = await usersApi.list({ signal, params: { ...params, role, page: 0, size: 100 } });
-          const all = [...(first.content ?? [])];
-          for (let page = 1; page < (first.totalPages ?? 1); page += 1) {
-            const next = await usersApi.list({ signal, params: { ...params, role, page, size: 100 } });
-            all.push(...(next.content ?? []));
-          }
-          return all;
-        };
-
-        const [admins, instructors] = await Promise.all([fetchRole('ADMIN'), fetchRole('INSTRUCTOR')]);
-        // Some current deployments ignore the role query. Filter and de-duplicate
-        // defensively so learner records and duplicate action menus never leak into
-        // the Staff screen.
-        const uniqueStaff = new Map<string, ApiAdminUser>();
-        [...admins, ...instructors].forEach((user) => {
-          if (isStaffAccount(user)) uniqueStaff.set(getUserKey(user), user);
-        });
-        const staff = [...uniqueStaff.values()].sort(
-          (left, right) => getRegisteredTimestamp(right) - getRegisteredTimestamp(left),
-        );
-        const totalElements = staff.length;
-        const totalPages = Math.max(1, Math.ceil(totalElements / perPage));
-        return {
-          content: staff.slice((currentPage - 1) * perPage, currentPage * perPage),
-          page: currentPage - 1,
-          size: perPage,
-          totalElements,
-          totalPages,
-          last: currentPage >= totalPages,
-        };
+      if (isLearnersMode) {
+        params.append('roles', 'LEARNER');
+      } else if (roleFilter === 'ALL') {
+        params.append('roles', 'ADMIN');
+        params.append('roles', 'INSTRUCTOR');
+      } else {
+        params.append('roles', roleFilter);
       }
 
-      return usersApi.list({
-        signal,
-        params: { ...params, page: currentPage - 1, size: perPage, ...(requestedRole ? { role: requestedRole } : {}) },
-      });
+      if (statusFilter !== 'ALL') {
+        params.set('status', statusFilter);
+      }
+
+      return usersApi.list({ signal, params });
     },
-    [currentPage, isLearnersMode, perPage, requestedRole, roleFilter, searchQuery],
+    [currentPage, isLearnersMode, perPage, roleFilter, searchQuery, statusFilter],
   );
 
   const {
@@ -279,11 +244,8 @@ const AdminUsers = () => {
       ? result.filter((user) => !isStaffAccount(user))
       : result.filter(isStaffAccount);
 
-    if (statusFilter !== 'ALL') {
-      result = result.filter((u) => u.status === statusFilter);
-    }
     return result;
-  }, [isLearnersMode, statusFilter, users]);
+  }, [isLearnersMode, users]);
 
   const totalUsers = usersData?.totalElements ?? users.length;
   const totalPages = Math.max(1, usersData?.totalPages ?? 1);
@@ -436,9 +398,9 @@ alert('Backend hiện chưa cung cấp endpoint cập nhật thông tin người
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-md w-full">
+        <div className="flex flex-wrap items-center gap-sm w-full">
           {/* Search bar */}
-          <div className="flex items-center gap-xs px-md py-sm bg-white border border-[#d1e4fb] rounded-lg w-full sm:w-80 shadow-sm focus-within:ring-1 focus-within:ring-[#1D4532] transition-all">
+          <div className="flex items-center gap-xs px-md py-sm bg-white border border-[#d1e4fb] rounded-lg flex-1 min-w-[20rem] shadow-sm focus-within:ring-1 focus-within:ring-[#1D4532] transition-all">
             <Search className="w-5 h-5 text-[#5e5e5b]" />
             <input
               type="text"
@@ -454,7 +416,7 @@ alert('Backend hiện chưa cung cấp endpoint cập nhật thông tin người
 
           {/* Role Filter */}
           {!isLearnersMode && (
-            <div className="flex items-center gap-xs px-md py-sm bg-white border border-outline-variant rounded-lg shadow-sm">
+            <div className="flex items-center gap-1.5 px-3 py-sm bg-white border border-outline-variant rounded-lg shadow-sm">
               <span className="font-label-md text-[#5e5e5b]">Vai trò:</span>
               <select
                 value={roleFilter}
@@ -462,7 +424,7 @@ alert('Backend hiện chưa cung cấp endpoint cập nhật thông tin người
                   setRoleFilter(e.target.value as 'ALL' | 'ADMIN' | 'INSTRUCTOR');
                   setCurrentPage(1);
                 }}
-                className="bg-transparent border-none text-label-md font-semibold text-[#1D4532] focus:ring-0 cursor-pointer"
+                className="bg-transparent border-none py-0 pl-0 pr-4 text-label-md font-semibold text-[#1D4532] focus:ring-0 cursor-pointer"
               >
                 <option value="ALL">Tất cả</option>
                 <option value="ADMIN">Admin</option>
@@ -472,7 +434,7 @@ alert('Backend hiện chưa cung cấp endpoint cập nhật thông tin người
           )}
 
           {/* Status Filter */}
-          <div className="flex items-center gap-xs px-md py-sm bg-white border border-outline-variant rounded-lg shadow-sm">
+          <div className="flex items-center gap-1.5 px-3 py-sm bg-white border border-outline-variant rounded-lg shadow-sm">
             <span className="font-label-md text-[#5e5e5b]">Trạng thái:</span>
             <select
               value={statusFilter}
@@ -480,7 +442,7 @@ alert('Backend hiện chưa cung cấp endpoint cập nhật thông tin người
                 setStatusFilter(e.target.value as 'ALL' | 'active' | 'locked' | 'pending');
                 setCurrentPage(1);
               }}
-              className="bg-transparent border-none text-label-md font-semibold text-[#1D4532] focus:ring-0 cursor-pointer"
+              className="bg-transparent border-none py-0 pl-0 pr-4 text-label-md font-semibold text-[#1D4532] focus:ring-0 cursor-pointer"
             >
               <option value="ALL">Tất cả</option>
               <option value="active">Hoạt động</option>
@@ -493,7 +455,7 @@ alert('Backend hiện chưa cung cấp endpoint cập nhật thông tin người
           {!isLearnersMode && (
             <button
               onClick={handleAddUserClick}
-              className="bg-[#1D4532] text-white px-lg py-sm rounded-lg font-label-md hover:bg-[#1D4532]/95 transition-all flex items-center gap-xs shadow-md ml-auto"
+              className="bg-[#1D4532] text-white px-md py-sm rounded-lg font-label-md hover:bg-[#1D4532]/95 transition-all flex items-center gap-xs shadow-md whitespace-nowrap"
             >
               <UserPlus className="w-[18px] h-[18px]" />
               Thêm thành viên
