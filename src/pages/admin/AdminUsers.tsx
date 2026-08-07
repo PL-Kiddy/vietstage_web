@@ -33,6 +33,30 @@ const INSTRUMENT_OPTIONS = [
   'Trống'
 ];
 
+const stripVietnameseDiacritics = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase().trim();
+
+const normalizeInstrumentName = (value: string): string => {
+  const key = stripVietnameseDiacritics(value);
+  if (key === 'dan bau') return 'Đàn Bầu';
+  if (key === 'dan tranh') return 'Đàn Tranh';
+  if (key === 'sao' || key === 'sao truc') return 'Sáo Trúc';
+  if (key === 'trong') return 'Trống';
+  return value.trim();
+};
+
+const normalizeInstrumentText = (value: string) => value
+  .replace(/đàn\s*bầu|dan\s*bau/gi, 'Đàn Bầu')
+  .replace(/đàn\s*tranh|dan\s*tranh/gi, 'Đàn Tranh')
+  .replace(/sáo\s*trúc|sao\s*truc|sáo/gi, 'Sáo Trúc')
+  .replace(/trống|trong/gi, 'Trống');
+
+const uniqueInstrumentOptions = (values: string[]) => Array.from(
+  new Map(values.map((value) => {
+    const normalized = normalizeInstrumentName(value);
+    return [stripVietnameseDiacritics(normalized), normalized];
+  })).values(),
+);
+
 /* ── Role badge colours ───────────────────────────────────── */
 const roleBadge: Record<string, string> = {
   Admin: 'bg-[#1D4532]/10 text-[#1D4532]',
@@ -87,6 +111,8 @@ const mapExtendedUser = (user: ApiAdminUser): ExtendedAdminUser => ({
     (user as any).profileImage ||
     (user as any).profile?.avatarUrl ||
     (user as any).profile?.avatar,
+  specialty: user.specialty ? normalizeInstrumentText(user.specialty) : user.specialty,
+  instruments: user.instruments ? uniqueInstrumentOptions(user.instruments) : user.instruments,
   role: normalizeRole(user),
   id: String((user as any).userId ?? (user as any).user_id ?? user.id),
 });
@@ -138,6 +164,8 @@ const AdminUsers = () => {
     type: 'lock' | 'unlock' | 'reset_password' | 'activate';
     user: ExtendedAdminUser;
   } | null>(null);
+  const [isActionSubmitting, setIsActionSubmitting] = useState(false);
+  const [actionFeedback, setActionFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   // Action Menu state
   const [openActionMenuUserId, setOpenActionMenuUserId] = useState<string | null>(null);
@@ -237,9 +265,9 @@ const AdminUsers = () => {
     }
   }, [usersError]);
 
-  const instrumentOptions = instruments.length > 0
-    ? instruments.map((instrument) => instrument.name)
-    : INSTRUMENT_OPTIONS;
+  const instrumentOptions = uniqueInstrumentOptions(
+    instruments.length > 0 ? instruments.map((instrument) => instrument.name) : INSTRUMENT_OPTIONS,
+  );
 
   /* ── Filter ──────────────────────────────────────────────── */
   const pageUsers = useMemo(() => {
@@ -284,19 +312,23 @@ const AdminUsers = () => {
   const handleConfirmAction = async () => {
     if (!confirmModalData) return;
     const { type, user } = confirmModalData;
+    setIsActionSubmitting(true);
+    setActionFeedback(null);
 
     try {
       if (type === 'lock' || type === 'unlock' || type === 'activate') {
         const status = type === 'lock' ? 'locked' : 'active';
         await usersApi.updateStatus(Number(user.id), status);
-        await loadUsers();
         setSelectedUser((current) => current?.id === user.id ? { ...current, status } : current);
+        setActionFeedback({ type: 'success', message: type === 'lock' ? 'Đã khóa tài khoản thành công.' : type === 'unlock' ? 'Đã mở khóa tài khoản thành công.' : 'Đã kích hoạt tài khoản thành công.' });
+        void loadUsers().catch(() => undefined);
       } else {
         alert('Luồng đặt lại mật khẩu quản trị sẽ sử dụng API quên mật khẩu.');
       }
     } catch (error) {
-      alert(error instanceof Error ? error.message : 'Không thể cập nhật trạng thái tài khoản.');
+      setActionFeedback({ type: 'error', message: error instanceof Error ? error.message : 'Không thể cập nhật trạng thái tài khoản.' });
     } finally {
+      setIsActionSubmitting(false);
       setConfirmModalData(null);
     }
   };
@@ -366,9 +398,10 @@ const AdminUsers = () => {
     // Parse primary instrument from specialty or instruments
     let defaultInst = 'Đàn Bầu';
     if (user.instruments && user.instruments.length > 0) {
-      defaultInst = user.instruments[0];
+      defaultInst = normalizeInstrumentName(user.instruments[0]);
     } else if (user.specialty) {
-      const found = instrumentOptions.find(inst => user.specialty?.includes(inst));
+      const normalizedSpecialty = normalizeInstrumentText(user.specialty);
+      const found = instrumentOptions.find(inst => normalizedSpecialty.includes(inst));
       if (found) defaultInst = found;
     }
     setEditInstrument(defaultInst);
@@ -914,7 +947,7 @@ const AdminUsers = () => {
               ) : (
                 <button
                   onClick={() => triggerConfirmModal(selectedUser.status === 'active' ? 'lock' : 'unlock', selectedUser)}
-                  className={`px-lg py-sm font-label-md rounded-lg hover:opacity-90 transition-opacity text-white ${selectedUser.status === 'active' ? 'bg-error' : 'bg-[#5e5e5b]'
+                  className={`px-lg py-sm font-label-md rounded-lg hover:opacity-90 transition-opacity text-white ${selectedUser.status === 'active' ? 'bg-error' : 'bg-[#1D4532]'
                     }`}
                 >
                   {selectedUser.status === 'active' ? 'Khóa tài khoản' : 'Mở khóa'}
@@ -1089,7 +1122,7 @@ const AdminUsers = () => {
                       disabled={!isAddFormValid}
                       className={`flex-1 flex items-center justify-center gap-sm py-md rounded-lg font-bold active:scale-[0.98] transition-all shadow-md ${isAddFormValid
                           ? 'bg-[#1D4532] text-white hover:bg-[#1D4532]/95 cursor-pointer'
-                          : 'bg-[#1D4532]/40 text-white/60 cursor-not-allowed'
+                          : 'bg-[#6f8f80] text-white/90 cursor-not-allowed'
                         }`}
                     >
                       <Check className="w-5 h-5" />
@@ -1261,8 +1294,15 @@ const AdminUsers = () => {
       )}
 
       {/* ── CONFIRMATION MODALS ──────────────────────────────── */}
+      {actionFeedback && (
+        <div className={`fixed right-6 top-6 z-[3000] flex items-center gap-3 rounded-lg border px-4 py-3 text-sm font-semibold shadow-xl ${actionFeedback.type === 'success' ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-red-200 bg-red-50 text-red-800'}`}>
+          <span className={`h-2.5 w-2.5 rounded-full ${actionFeedback.type === 'success' ? 'bg-emerald-500' : 'bg-red-500'}`} />
+          {actionFeedback.message}
+          <button aria-label="Đóng thông báo" onClick={() => setActionFeedback(null)} className="ml-2 text-lg leading-none opacity-60 hover:opacity-100">×</button>
+        </div>
+      )}
       {confirmModalData && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/60 backdrop-blur-sm">
           <div className="bg-white rounded-xl max-w-md w-full p-xl shadow-2xl border border-outline-variant/30 animate-in fade-in zoom-in-95 duration-200">
             <div className="flex items-start gap-md mb-md">
               <div className={`p-md rounded-full flex-shrink-0 ${confirmModalData.type === 'lock'
@@ -1303,7 +1343,8 @@ const AdminUsers = () => {
               </button>
               <button
                 onClick={handleConfirmAction}
-                className={`text-white font-label-md px-lg py-md rounded-lg transition-colors ${confirmModalData.type === 'lock'
+                disabled={isActionSubmitting}
+                className={`text-white font-label-md px-lg py-md rounded-lg transition-colors disabled:cursor-wait disabled:opacity-60 ${confirmModalData.type === 'lock'
                     ? 'bg-[#ba1a1a] hover:bg-[#a61717]'
                     : 'bg-[#1D4532] hover:bg-[#1D4532]/95'
                   }`}
