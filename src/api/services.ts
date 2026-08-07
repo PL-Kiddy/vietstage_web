@@ -71,6 +71,28 @@ export const masterDataApi = {
   skillLevels: (options?: RequestOptions) => apiRequest<SkillLevel[]>('/api/skill-levels', options),
 };
 
+export interface AppConfig {
+  key: string;
+  value: string;
+  description?: string;
+  config_group?: string;
+  updated_by?: string;
+  updated_at?: string;
+}
+
+export const appConfigsApi = {
+  list: (group?: string, options?: RequestOptions) => {
+    const query = group ? `?group=${encodeURIComponent(group)}` : '';
+    return apiRequest<AppConfig[]>(`/api/admin/configs${query}`, options);
+  },
+  update: (key: string, value: string, options?: RequestOptions) =>
+    apiRequest<AppConfig>(`/api/admin/configs/${encodeURIComponent(key)}`, {
+      ...options,
+      method: 'PUT',
+      body: { value },
+    }),
+};
+
 export interface LessonInput {
   title: string;
   description?: string;
