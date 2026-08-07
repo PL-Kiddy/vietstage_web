@@ -121,7 +121,8 @@ export const exercisesApi = {
 };
 
 export const reviewsApi = {
-  list: (options?: RequestOptions) => apiRequest<ReviewItem[]>('/api/admin/reviews', options),
+  list: (params?: URLSearchParams, options?: RequestOptions) =>
+    apiRequest<PageResponse<ReviewItem>>(`/api/admin/reviews${params && params.size > 0 ? `?${params.toString()}` : ''}`, options),
   approve: (id: number) =>
     apiRequest<void>(`/api/admin/reviews/${id}/approve`, { method: 'POST' }),
   reject: (id: number, feedback: string) =>

@@ -13,7 +13,6 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { reviewsApi } from '../../api/services';
 import type { ReviewItem as ApiReviewItem } from '../../api/types';
-import { useAxiosRequest } from '../../hooks/useAxiosRequest';
 
 interface ReviewItem {
   id: string;
@@ -26,6 +25,7 @@ interface ReviewItem {
   duration: string;
   description: string;
   technicalNotes: string;
+  lessonId?: number;
   status: 'draft' | 'pending' | 'approved' | 'rejected';
   feedback?: string;
   approvedBy?: string;
@@ -44,6 +44,7 @@ const normalizeReview = (item: ApiReviewItem): ReviewItem => {
 
   return {
     id: String(item.id),
+    lessonId: item.lessonId,
     title: item.title || 'Bài giảng chưa đặt tên',
     instrument: item.instrument || 'Chưa xác định',
     instructor: item.instructor || 'Chưa xác định',
@@ -64,24 +65,48 @@ const AdminReview = () => {
   const [items, setItems] = useState<ReviewItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
-  const { execute: requestReviews } = useAxiosRequest<ReviewItem[]>(async (signal) => {
-    const reviewData = await reviewsApi.list({ signal });
-    return Array.isArray(reviewData) ? reviewData.map(normalizeReview) : [];
-  }, { auto: false });
+  const [statusFilter, setStatusFilter] = useState<'all' | 'draft' | 'pending' | 'approved' | 'rejected'>('all');
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [selectedInstrument, setSelectedInstrument] = useState<string>('all');
+  const [selectedInstructor, setSelectedInstructor] = useState<string>('all');
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [perPage, setPerPage] = useState<number>(10);
+  const [pageInfo, setPageInfo] = useState({ totalElements: 0, totalPages: 1 });
+  const [reviewCounts, setReviewCounts] = useState({ all: 0, pending: 0, approved: 0, rejected: 0 });
 
   const loadReviews = useCallback(async (signal?: AbortSignal) => {
     setIsLoading(true);
     setLoadError('');
     try {
-      const reviewData = await requestReviews(signal);
-      if (reviewData) setItems(reviewData);
+      const createParams = (status?: string, page = currentPage - 1, size = perPage) => {
+        const params = new URLSearchParams({ page: String(page), size: String(size) });
+        if (status) params.set('status', status);
+        return params;
+      };
+      const activeStatus = statusFilter === 'all' ? undefined : statusFilter.toUpperCase();
+      const [reviewPage, allPage, pendingPage, approvedPage, rejectedPage] = await Promise.all([
+        reviewsApi.list(createParams(activeStatus), { signal }),
+        reviewsApi.list(createParams(undefined, 0, 1), { signal }),
+        reviewsApi.list(createParams('PENDING', 0, 1), { signal }),
+        reviewsApi.list(createParams('APPROVED', 0, 1), { signal }),
+        reviewsApi.list(createParams('REJECTED', 0, 1), { signal }),
+      ]);
+      setItems((reviewPage.content ?? []).map(normalizeReview));
+      setPageInfo({ totalElements: reviewPage.totalElements ?? 0, totalPages: reviewPage.totalPages ?? 1 });
+      setReviewCounts({
+        all: allPage.totalElements ?? 0,
+        pending: pendingPage.totalElements ?? 0,
+        approved: approvedPage.totalElements ?? 0,
+        rejected: rejectedPage.totalElements ?? 0,
+      });
     } catch (error) {
       setItems([]);
+      setPageInfo({ totalElements: 0, totalPages: 1 });
       setLoadError(error instanceof Error ? error.message : 'Không thể tải danh sách kiểm duyệt.');
     } finally {
       if (!signal?.aborted) setIsLoading(false);
     }
-  }, [requestReviews]);
+  }, [currentPage, perPage, statusFilter]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -91,14 +116,6 @@ const AdminReview = () => {
       controller.abort();
     };
   }, [loadReviews]);
-  // Filtering states
-  const [statusFilter, setStatusFilter] = useState<'all' | 'draft' | 'pending' | 'approved' | 'rejected'>('all');
-  const [searchQuery, setSearchQuery] = useState<string>('');
-  const [selectedInstrument, setSelectedInstrument] = useState<string>('all');
-  const [selectedInstructor, setSelectedInstructor] = useState<string>('all');
-  const [currentPage, setCurrentPage] = useState<number>(1);
-  const [perPage, setPerPage] = useState<number>(10);
-
   const [selectedItem, setSelectedItem] = useState<ReviewItem | null>(null);
   const [feedback, setFeedback] = useState<string>('');
   const [feedbackError, setFeedbackError] = useState<string>('');
@@ -251,18 +268,15 @@ const AdminReview = () => {
   }, [moderationItems, statusFilter, searchQuery, selectedInstrument, selectedInstructor]);
 
   // Pagination calculations
-  const totalPages = Math.max(1, Math.ceil(filteredItems.length / perPage));
-  const paginatedItems = useMemo(() => {
-    return filteredItems.slice(
-      (currentPage - 1) * perPage,
-      currentPage * perPage
-    );
-  }, [filteredItems, currentPage, perPage]);
+  const totalPages = Math.max(1, pageInfo.totalPages);
+  const paginatedItems = filteredItems;
+  const displayStart = pageInfo.totalElements === 0 ? 0 : (currentPage - 1) * perPage + 1;
+  const displayEnd = Math.min((currentPage - 1) * perPage + items.length, pageInfo.totalElements);
 
   // Status counts
-  const pendingCount = moderationItems.filter((i) => i.status === 'pending').length;
-  const approvedCount = moderationItems.filter((i) => i.status === 'approved').length;
-  const rejectedCount = moderationItems.filter((i) => i.status === 'rejected').length;
+  const pendingCount = reviewCounts.pending;
+  const approvedCount = reviewCounts.approved;
+  const rejectedCount = reviewCounts.rejected;
   const instrumentOptions = useMemo(
     () => Array.from(new Set(moderationItems.map((item) => item.instrument))).filter(Boolean),
     [moderationItems],
@@ -386,7 +400,7 @@ const AdminReview = () => {
               : 'border-transparent text-[#5e5e5b] hover:bg-[#EDF7F2]/50'
           }`}
         >
-          Tất cả ({moderationItems.length})
+          Tất cả ({reviewCounts.all})
         </button>
         <button
           onClick={() => {
@@ -558,13 +572,11 @@ const AdminReview = () => {
       </div>
 
       {/* Pagination Controls */}
-      {filteredItems.length > 0 && (
+      {pageInfo.totalElements > 0 && (
         <div className="mt-lg flex flex-col sm:flex-row justify-between items-center gap-md text-[12px] text-[#5e5e5b] pt-4">
           <div className="flex items-center gap-lg">
             <p>
-              Hiển thị {(currentPage - 1) * perPage + 1} -{' '}
-              {Math.min(currentPage * perPage, filteredItems.length)} trong tổng số{' '}
-              {filteredItems.length} học liệu
+              Hiển thị {displayStart} - {displayEnd} trong tổng số {pageInfo.totalElements} học liệu
             </p>
 
             <div className="flex items-center gap-xs">

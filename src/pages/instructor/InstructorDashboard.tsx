@@ -45,7 +45,7 @@ const InstructorDashboard = () => {
     { auto: true }
   );
 
-  const reviews = reviewsResponse || [];
+  const reviews = reviewsResponse?.content ?? [];
   const pendingReviewsCount = reviews.filter((r) => r.status === 'pending').length;
 
   // Stats calculation with fallback mechanism

@@ -121,6 +121,7 @@ export interface Lesson {
 
 export interface ReviewItem {
   id: number;
+  lessonId?: number;
   title: string;
   instrument: string;
   instructor: string;
