@@ -2,6 +2,12 @@ import { apiRequest, type RequestOptions } from './client';
 import type { Instrument, Lesson, SkillLevel } from './types';
 
 export interface DashboardStats {
+  /** Các trường legacy hiện có trong response cũ; không được dùng để thay thế analytics yêu cầu. */
+  totalUsers?: number;
+  totalRevenue?: number;
+  totalLessons?: number;
+  activeInstructors?: number;
+  chartData?: Array<{ name?: string; users?: number; revenue?: number }>;
   /** Số người dùng hoạt động trong khoảng thời gian mà API trả về. */
   activeUsers?: number;
   popularInstruments?: Array<{

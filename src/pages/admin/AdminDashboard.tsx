@@ -20,9 +20,19 @@ const AdminDashboard = () => {
   const topInstrument = instruments[0];
   const latestSession = sessions.at(-1);
   const latestRetention = retention.at(-1);
+  const hasAnalyticsData = activeUsers !== null || instruments.length > 0 || sessions.length > 0 || retention.length > 0;
+  const receivedLegacyDashboard = Boolean(
+    stats && (
+      stats.totalUsers !== undefined ||
+      stats.totalRevenue !== undefined ||
+      stats.totalLessons !== undefined ||
+      stats.activeInstructors !== undefined ||
+      (stats.chartData?.length ?? 0) > 0
+    ),
+  );
 
   if (loading) {
-    return <div className="p-xl text-center text-[#1D4532]">Đang tải phân tích hệ thống...</div>;
+    return <div className="p-xl text-center text-[#1D4532]">Đang tải dashboard tổng...</div>;
   }
 
   const cards = [
@@ -51,13 +61,19 @@ const AdminDashboard = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-headline-lg font-bold text-[#1D4532]">Phân tích hệ thống</h2>
+        <h2 className="text-headline-lg font-bold text-[#1D4532]">Dashboard tổng</h2>
         <p className="mt-1 text-on-surface-variant">
-          Theo dõi người dùng hoạt động, nhạc cụ phổ biến, thời lượng phiên học và chỉ số duy trì.
+          Phân tích hệ thống về người dùng, nhạc cụ và hoạt động luyện tập.
         </p>
       </div>
 
       {error && <div className="rounded-lg bg-error-container text-on-error-container p-md">{error}</div>}
+
+      {!error && !hasAnalyticsData && receivedLegacyDashboard && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-900">
+          Máy chủ chưa cung cấp dữ liệu cho bốn chỉ số System analytics. Dashboard không dùng số liệu tổng quát cũ để thay thế các chỉ số này.
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {cards.map((card) => (

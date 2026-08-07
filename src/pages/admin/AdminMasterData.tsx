@@ -336,7 +336,7 @@ const AdminMasterData = () => {
       {/* Page Header */}
       <div className="flex flex-col gap-4 mb-2">
         <div>
-          <h2 className="text-headline-lg font-bold text-[#1D4532]">Dữ liệu nền</h2>
+          <h2 className="text-headline-lg font-bold text-[#1D4532]">Danh mục tham chiếu</h2>
           <p className="text-on-surface-variant">Quản lý nhạc cụ, trình độ và kỹ thuật biểu diễn.</p>
         </div>
 
