@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   Play,
   Pause,
@@ -9,11 +9,10 @@ import {
   ZoomIn,
   ChevronLeft,
   ChevronRight,
-  AlertTriangle,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { lessonsApi, reviewsApi } from '../../api/services';
-import type { Lesson, ReviewItem as ApiReviewItem } from '../../api/types';
+import { reviewsApi } from '../../api/services';
+import type { ReviewItem as ApiReviewItem } from '../../api/types';
 import { useAxiosRequest } from '../../hooks/useAxiosRequest';
 
 interface ReviewItem {
@@ -48,38 +47,13 @@ const normalizeReview = (item: ApiReviewItem): ReviewItem => ({
   approvedAt: item.approvedAt,
 });
 
-const lessonToReview = (lesson: Lesson): ReviewItem => {
-  const assets = lesson.mediaAssets ?? [];
-  const sheet = assets.find((asset) => ['SHEET_MUSIC', 'SHEET_IMAGE', 'DOCUMENT'].includes(asset.assetType));
-  const audio = assets.find((asset) => ['AUDIO', 'REFERENCE_AUDIO', 'VIDEO'].includes(asset.assetType));
-  const duration = Math.max(0, Math.round(audio?.durationSec ?? 0));
-
-  return {
-    id: String(lesson.id),
-    title: lesson.title || 'Bài giảng chưa đặt tên',
-    instrument: lesson.instrument?.name || 'Chưa xác định',
-    instructor: lesson.createdBy?.fullName || 'Chưa xác định',
-    date: lesson.createdAt ? new Date(lesson.createdAt).toLocaleDateString('vi-VN') : '',
-    sheetMusicUrl: sheet?.assetUrl || '',
-    audioUrl: audio?.assetUrl || '',
-    duration: `${String(Math.floor(duration / 60)).padStart(2, '0')}:${String(duration % 60).padStart(2, '0')}`,
-    description: lesson.description || '',
-    status: String(lesson.status || 'PENDING').trim().toLowerCase() as ReviewItem['status'],
-  };
-};
-
 const AdminReview = () => {
   const [items, setItems] = useState<ReviewItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const { execute: requestReviews } = useAxiosRequest<ReviewItem[]>(async (signal) => {
     const reviewData = await reviewsApi.list({ signal });
-    if (Array.isArray(reviewData) && reviewData.length > 0) return reviewData.map(normalizeReview);
-
-    // Some deployments expose pending lessons before the review projection is populated.
-    const params = new URLSearchParams({ page: '1', size: '100' });
-    const lessonData = await lessonsApi.list(params, { signal });
-    return (lessonData?.content ?? []).map(lessonToReview);
+    return Array.isArray(reviewData) ? reviewData.map(normalizeReview) : [];
   }, { auto: false });
 
   const loadReviews = useCallback(async (signal?: AbortSignal) => {
@@ -117,43 +91,12 @@ const AdminReview = () => {
   const [feedbackError, setFeedbackError] = useState<string>('');
   const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
   const [isPreviewZoomed, setIsPreviewZoomed] = useState<boolean>(false);
-  const [revokeModalItem, setRevokeModalItem] = useState<ReviewItem | null>(null);
 
   // Audio Player State
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [currentTime, setCurrentTime] = useState<number>(0);
-
-  const durationSecs = selectedItem
-    ? selectedItem.duration === '03:30'
-      ? 210
-      : selectedItem.duration === '05:00'
-      ? 300
-      : selectedItem.duration === '02:45'
-      ? 165
-      : selectedItem.duration === '03:15'
-      ? 195
-      : selectedItem.duration === '03:50'
-      ? 230
-      : 252
-    : 252;
-
-  useEffect(() => {
-    let interval: ReturnType<typeof setInterval> | undefined;
-    if (isPlaying) {
-      interval = setInterval(() => {
-        setCurrentTime((prev) => {
-          if (prev >= durationSecs) {
-            setIsPlaying(false);
-            return 0;
-          }
-          return prev + 1;
-        });
-      }, 1000);
-    } else {
-      clearInterval(interval);
-    }
-    return () => clearInterval(interval);
-  }, [isPlaying, durationSecs]);
+  const [audioDuration, setAudioDuration] = useState<number>(0);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const formatTime = (secs: number) => {
     const m = Math.floor(secs / 60).toString().padStart(2, '0');
@@ -167,13 +110,29 @@ const AdminReview = () => {
     setFeedbackError('');
     setIsPlaying(false);
     setCurrentTime(0);
+    setAudioDuration(0);
     setIsDrawerOpen(true);
   };
 
   const closeDrawer = () => {
+    audioRef.current?.pause();
     setIsDrawerOpen(false);
     setIsPlaying(false);
     setCurrentTime(0);
+  };
+
+  const toggleAudioPlayback = async () => {
+    const audio = audioRef.current;
+    if (!audio || !selectedItem?.audioUrl) return;
+    if (audio.paused) {
+      try {
+        await audio.play();
+      } catch {
+        setIsPlaying(false);
+      }
+      return;
+    }
+    audio.pause();
   };
 
   const handleApprove = async () => {
@@ -204,14 +163,6 @@ const AdminReview = () => {
     }
   };
 
-const handleResetToPending = async (item: ReviewItem) => {
-    alert('Backend hiện chưa cung cấp endpoint đưa ' + item.title + ' về trạng thái chờ.');
-  };
-
-  const handleRevoke = async (item: ReviewItem) => {
-    await handleResetToPending(item);
-  };
-
   // Get instrument color tag style
   const getInstrumentTagClass = (ins: string) => {
     const lower = ins.toLowerCase();
@@ -227,9 +178,38 @@ const handleResetToPending = async (item: ReviewItem) => {
     return 'bg-[#eae8e3] border border-outline-variant text-on-surface-variant';
   };
 
+  const parseReviewDate = (value: string) => {
+    const matched = value.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?/);
+    if (matched) {
+      return new Date(
+        Number(matched[3]),
+        Number(matched[2]) - 1,
+        Number(matched[1]),
+        Number(matched[4] ?? 0),
+        Number(matched[5] ?? 0),
+        Number(matched[6] ?? 0),
+      ).getTime();
+    }
+    const directTimestamp = Date.parse(value);
+    return Number.isNaN(directTimestamp) ? 0 : directTimestamp;
+  };
+
+  const instructorOptions = useMemo(
+    () => Array.from(new Set(
+      items
+        .filter((item) => item.status !== 'draft')
+        .filter((item) => selectedInstrument === 'all' || item.instrument === selectedInstrument)
+        .map((item) => item.instructor)
+        .filter(Boolean),
+    )).sort((a, b) => a.localeCompare(b, 'vi')),
+    [items, selectedInstrument],
+  );
+
   // Filter items based on criteria
+  const moderationItems = useMemo(() => items.filter((item) => item.status !== 'draft'), [items]);
+
   const filteredItems = useMemo(() => {
-    return items.filter((item) => {
+    return moderationItems.filter((item) => {
       // 1. Status Filter
       if (statusFilter !== 'all' && item.status !== statusFilter) {
         return false;
@@ -254,8 +234,8 @@ const handleResetToPending = async (item: ReviewItem) => {
         return false;
       }
       return true;
-    });
-  }, [items, statusFilter, searchQuery, selectedInstrument, selectedInstructor]);
+    }).sort((a, b) => parseReviewDate(b.date) - parseReviewDate(a.date));
+  }, [moderationItems, statusFilter, searchQuery, selectedInstrument, selectedInstructor]);
 
   // Pagination calculations
   const totalPages = Math.max(1, Math.ceil(filteredItems.length / perPage));
@@ -267,13 +247,12 @@ const handleResetToPending = async (item: ReviewItem) => {
   }, [filteredItems, currentPage, perPage]);
 
   // Status counts
-  const draftCount = items.filter((i) => i.status === 'draft').length;
-  const pendingCount = items.filter((i) => i.status === 'pending').length;
-  const approvedCount = items.filter((i) => i.status === 'approved').length;
-  const rejectedCount = items.filter((i) => i.status === 'rejected').length;
+  const pendingCount = moderationItems.filter((i) => i.status === 'pending').length;
+  const approvedCount = moderationItems.filter((i) => i.status === 'approved').length;
+  const rejectedCount = moderationItems.filter((i) => i.status === 'rejected').length;
   const instrumentOptions = useMemo(
-    () => Array.from(new Set(items.map((item) => item.instrument))).filter(Boolean),
-    [items],
+    () => Array.from(new Set(moderationItems.map((item) => item.instrument))).filter(Boolean),
+    [moderationItems],
   );
 
   return (
@@ -319,7 +298,7 @@ const handleResetToPending = async (item: ReviewItem) => {
         {/* Search + Filters bar — dưới tiêu đề */}
         <div className="flex flex-wrap items-center gap-md mt-lg">
           {/* Search Bar */}
-          <div className="flex items-center gap-xs px-md py-sm bg-white border border-[#d1e4fb] rounded-lg w-full sm:w-80 shadow-sm focus-within:ring-1 focus-within:ring-[#1D4532] transition-all">
+          <div className="flex min-w-[320px] flex-1 items-center gap-xs px-md py-sm bg-white border border-[#d1e4fb] rounded-lg w-full lg:max-w-[42rem] shadow-sm focus-within:ring-1 focus-within:ring-[#1D4532] transition-all">
             <Search className="w-5 h-5 text-[#5e5e5b]" />
             <input
               type="text"
@@ -347,7 +326,9 @@ const handleResetToPending = async (item: ReviewItem) => {
             <select
               value={selectedInstrument}
               onChange={(e) => {
-                setSelectedInstrument(e.target.value);
+                const nextInstrument = e.target.value;
+                setSelectedInstrument(nextInstrument);
+                setSelectedInstructor((current) => current !== 'all' && !moderationItems.some((item) => (nextInstrument === 'all' || item.instrument === nextInstrument) && item.instructor === current) ? 'all' : current);
                 setCurrentPage(1);
               }}
               className="bg-transparent border-none text-label-md font-semibold text-[#1D4532] focus:ring-0 cursor-pointer outline-none"
@@ -360,21 +341,24 @@ const handleResetToPending = async (item: ReviewItem) => {
           </div>
 
           {/* Instructor Filter */}
-          <div className="flex items-center gap-xs px-md py-sm bg-white border border-outline-variant rounded-lg shadow-sm">
+          <div className="flex w-full sm:w-72 items-center gap-xs px-md py-sm bg-white border border-outline-variant rounded-lg shadow-sm">
             <span className="font-label-md text-[#5e5e5b]">Giảng viên:</span>
-            <select
-              value={selectedInstructor}
+            <input
+              list="review-instructors"
+              type="search"
+              placeholder="Tất cả giảng viên"
+              value={selectedInstructor === 'all' ? '' : selectedInstructor}
               onChange={(e) => {
-                setSelectedInstructor(e.target.value);
+                setSelectedInstructor(e.target.value || 'all');
                 setCurrentPage(1);
               }}
-              className="bg-transparent border-none text-label-md font-semibold text-[#1D4532] focus:ring-0 cursor-pointer outline-none"
-            >
-              <option value="all">Tất cả</option>
-              {Array.from(new Set(items.map((i) => i.instructor))).filter(Boolean).map((ins) => (
-                <option key={ins} value={ins}>{ins}</option>
+              className="min-w-0 flex-1 bg-transparent border-none text-label-md font-semibold text-[#1D4532] placeholder:font-semibold placeholder:text-[#1D4532] placeholder:opacity-100 focus:ring-0 outline-none"
+            />
+            <datalist id="review-instructors">
+              {instructorOptions.map((instructor) => (
+                <option key={instructor} value={instructor} />
               ))}
-            </select>
+            </datalist>
           </div>
         </div>
       </section>
@@ -392,24 +376,9 @@ const handleResetToPending = async (item: ReviewItem) => {
               : 'border-transparent text-[#5e5e5b] hover:bg-[#EDF7F2]/50'
           }`}
         >
-          Tất cả ({items.length})
+          Tất cả ({moderationItems.length})
         </button>
-                <button
-          onClick={() => {
-            setStatusFilter('draft');
-            setCurrentPage(1);
-          }}
-          className={`px-lg py-sm rounded-t-lg font-label-md text-label-md transition-all border-b-2 flex items-center gap-2 ${
-            statusFilter === 'draft'
-              ? 'border-slate-500 text-slate-700 bg-slate-50 font-bold'
-              : 'border-transparent text-[#5e5e5b] hover:bg-slate-50/50'
-          }`}
-        >
-          Bản nháp
-          <span className="bg-slate-200 text-slate-700 px-2 py-0.5 rounded-full text-xs font-semibold">
-            {draftCount}
-          </span>
-        </button><button
+        <button
           onClick={() => {
             setStatusFilter('pending');
             setCurrentPage(1);
@@ -710,12 +679,22 @@ const handleResetToPending = async (item: ReviewItem) => {
                       2. Bản âm thanh minh họa
                     </span>
                     <div className="bg-[#f5f3ee]/50 border border-[#d1e4fb]/30 rounded-xl p-md">
+                      <audio
+                        ref={audioRef}
+                        src={selectedItem.audioUrl || undefined}
+                        preload="metadata"
+                        onLoadedMetadata={(event) => setAudioDuration(Number.isFinite(event.currentTarget.duration) ? event.currentTarget.duration : 0)}
+                        onTimeUpdate={(event) => setCurrentTime(event.currentTarget.currentTime)}
+                        onPlay={() => setIsPlaying(true)}
+                        onPause={() => setIsPlaying(false)}
+                        onEnded={() => setIsPlaying(false)}
+                      />
                       <div className="flex justify-between items-center mb-sm">
                         <span className="text-label-sm font-bold text-on-surface truncate max-w-[200px]">
-                          preview_audio_{selectedItem.id}.mp3
+                          {selectedItem.audioUrl ? `Audio tham chiếu #${selectedItem.id}` : 'Không có tệp âm thanh đính kèm'}
                         </span>
                         <span className="text-label-sm font-bold text-[#1D4532]">
-                          {formatTime(currentTime)} / {selectedItem.duration}
+                          {formatTime(currentTime)} / {audioDuration > 0 ? formatTime(audioDuration) : selectedItem.duration}
                         </span>
                       </div>
 
@@ -725,7 +704,7 @@ const handleResetToPending = async (item: ReviewItem) => {
                           60, 40, 55, 95, 30, 75, 65, 80, 50, 70, 90, 60, 45, 75,
                           35, 85, 70, 50, 65, 80, 45, 90, 55, 30, 70, 85, 60, 40,
                         ].map((val, index, arr) => {
-                          const percent = currentTime / durationSecs;
+                          const percent = currentTime / Math.max(audioDuration, 1);
                           const barPercent = index / arr.length;
                           const isPlayed = barPercent <= percent;
 
@@ -747,8 +726,9 @@ const handleResetToPending = async (item: ReviewItem) => {
 
                       <div className="flex justify-center">
                         <button
-                          onClick={() => setIsPlaying(!isPlaying)}
-                          className="w-12 h-12 bg-[#1D4532] text-white rounded-full flex items-center justify-center shadow-md hover:scale-105 active:scale-95 transition-transform"
+                        onClick={() => void toggleAudioPlayback()}
+                        disabled={!selectedItem.audioUrl}
+                        className="w-12 h-12 bg-[#1D4532] text-white rounded-full flex items-center justify-center shadow-md hover:scale-105 active:scale-95 transition-transform disabled:cursor-not-allowed disabled:opacity-40"
                         >
                           {isPlaying ? (
                             <Pause className="w-5 h-5 text-white fill-white" />
@@ -867,44 +847,6 @@ const handleResetToPending = async (item: ReviewItem) => {
         )}
       </AnimatePresence>
 
-      {/* ── REVOCATION CONFIRMATION MODAL ─────────────────────── */}
-      {revokeModalItem && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="bg-white rounded-xl max-w-md w-full p-xl shadow-2xl border border-outline-variant/30 animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex items-start gap-md mb-md">
-              <div className="p-md rounded-full flex-shrink-0 bg-[#c62828]/10 text-[#c62828]">
-                <AlertTriangle className="w-6 h-6" />
-              </div>
-              <div>
-                <h4 className="text-headline-md font-bold text-on-surface text-lg">
-                  Xác nhận thu hồi phê duyệt
-                </h4>
-                <p className="text-body-md text-on-surface-variant mt-sm text-sm leading-relaxed">
-                  Học liệu này đang ở trạng thái <strong>Đã duyệt</strong> và có thể đang được học viên sử dụng. Thu hồi sẽ ẩn nó khỏi ứng dụng học viên ngay lập tức. Bạn có chắc chắn muốn tiếp tục?
-                </p>
-              </div>
-            </div>
-            <div className="flex justify-end gap-md mt-lg">
-              <button
-                onClick={() => setRevokeModalItem(null)}
-                className="bg-white hover:bg-[#EDF7F2] text-[#5e5e5b] border border-[#d1e4fb] font-semibold px-lg py-md rounded-lg transition-colors text-sm"
-              >
-                Hủy
-              </button>
-              <button
-                onClick={() => {
-                  const targetItem = revokeModalItem;
-                  setRevokeModalItem(null);
-                  handleRevoke(targetItem);
-                }}
-                className="text-white bg-[#c62828] hover:bg-[#b71c1c] font-semibold px-lg py-md rounded-lg transition-colors text-sm"
-              >
-                Xác nhận thu hồi
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
