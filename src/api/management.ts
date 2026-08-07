@@ -1,18 +1,29 @@
 import { apiRequest, type RequestOptions } from './client';
 import type { Instrument, Lesson, SkillLevel } from './types';
 
-export interface DashboardChartPoint {
-  name: string;
-  users: number;
-  revenue: number;
-}
-
 export interface DashboardStats {
-  totalUsers: number;
-  totalRevenue: number;
-  totalLessons: number;
-  activeInstructors: number;
-  chartData: DashboardChartPoint[];
+  /** Số người dùng hoạt động trong khoảng thời gian mà API trả về. */
+  activeUsers?: number;
+  popularInstruments?: Array<{
+    instrumentId?: number;
+    instrumentName?: string;
+    name?: string;
+    practiceCount?: number;
+    value?: number;
+  }>;
+  sessionDuration?: Array<{
+    period?: string;
+    name?: string;
+    averageDurationMinutes?: number;
+    totalDurationMinutes?: number;
+    value?: number;
+  }>;
+  retention?: Array<{
+    period?: string;
+    name?: string;
+    retentionRate?: number;
+    value?: number;
+  }>;
 }
 
 export interface UserProfile {

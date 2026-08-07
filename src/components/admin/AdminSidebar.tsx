@@ -42,7 +42,7 @@ const AdminSidebar = () => {
 
       {/* Navigation */}
       <nav className="flex-1 px-3 space-y-1.5 overflow-y-auto">
-        {/* Tổng quan */}
+        {/* Phân tích hệ thống */}
         <Link
           to="/admin"
           className={`relative flex items-center gap-3 px-3.5 h-11 rounded-lg transition-all duration-150 text-[14px] font-medium ${
@@ -55,7 +55,7 @@ const AdminSidebar = () => {
             <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-[#1D4532] rounded-r-full" />
           )}
           <LayoutDashboard className={`w-5 h-5 flex-shrink-0 ${location.pathname === '/admin' ? 'text-[#1D4532]' : 'text-[#9CA3AF]'}`} />
-          <span className="whitespace-nowrap">Tổng quan</span>
+          <span className="whitespace-nowrap">Phân tích hệ thống</span>
         </Link>
 
         {/* Quản lý người dùng Dropdown */}
@@ -125,7 +125,7 @@ const AdminSidebar = () => {
           <span className="whitespace-nowrap">Kiểm duyệt học liệu</span>
         </Link>
 
-        {/* Dữ liệu nền */}
+        {/* Danh mục nền */}
         <Link
           to="/admin/master-data"
           className={`relative flex items-center gap-3 px-3.5 h-11 rounded-lg transition-all duration-150 text-[14px] font-medium ${
@@ -138,7 +138,7 @@ const AdminSidebar = () => {
             <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-[#1D4532] rounded-r-full" />
           )}
           <Database className={`w-5 h-5 flex-shrink-0 ${location.pathname === '/admin/master-data' ? 'text-[#1D4532]' : 'text-[#9CA3AF]'}`} />
-          <span className="whitespace-nowrap">Dữ liệu nền</span>
+          <span className="whitespace-nowrap">Danh mục nền</span>
         </Link>
 
         {/* Cấu hình hệ thống */}
