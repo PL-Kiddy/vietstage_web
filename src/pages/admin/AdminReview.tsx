@@ -11,13 +11,15 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { reviewsApi } from '../../api/services';
-import type { ReviewItem as ApiReviewItem } from '../../api/types';
+import { masterDataApi, reviewsApi, usersApi } from '../../api/services';
+import type { AdminUser, Instrument, ReviewItem as ApiReviewItem } from '../../api/types';
 
 interface ReviewItem {
   id: string;
   title: string;
+  instrumentId?: number;
   instrument: string;
+  instructorId?: number;
   instructor: string;
   date: string;
   sheetMusicUrl: string;
@@ -46,7 +48,9 @@ const normalizeReview = (item: ApiReviewItem): ReviewItem => {
     id: String(item.id),
     lessonId: item.lessonId,
     title: item.title || 'Bài giảng chưa đặt tên',
+    instrumentId: item.instrumentId,
     instrument: item.instrument || 'Chưa xác định',
+    instructorId: item.instructorId,
     instructor: item.instructor || 'Chưa xác định',
     date: item.date || '',
     sheetMusicUrl: sheetAsset?.assetUrl || '',
@@ -67,12 +71,42 @@ const AdminReview = () => {
   const [loadError, setLoadError] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'draft' | 'pending' | 'approved' | 'rejected'>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [selectedInstrument, setSelectedInstrument] = useState<string>('all');
-  const [selectedInstructor, setSelectedInstructor] = useState<string>('all');
+  const [debouncedSearch, setDebouncedSearch] = useState<string>('');
+  const [selectedInstrumentId, setSelectedInstrumentId] = useState<number | null>(null);
+  const [selectedInstructorId, setSelectedInstructorId] = useState<number | null>(null);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [perPage, setPerPage] = useState<number>(10);
   const [pageInfo, setPageInfo] = useState({ totalElements: 0, totalPages: 1 });
   const [reviewCounts, setReviewCounts] = useState({ all: 0, pending: 0, approved: 0, rejected: 0 });
+  const [instrumentOptions, setInstrumentOptions] = useState<Instrument[]>([]);
+  const [instructorOptions, setInstructorOptions] = useState<AdminUser[]>([]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedSearch(searchQuery.trim()), 350);
+    return () => window.clearTimeout(timer);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const instructorParams = new URLSearchParams({ page: '0', size: '100', sortBy: 'name', sortDir: 'asc' });
+    instructorParams.append('roles', 'INSTRUCTOR');
+
+    void Promise.all([
+      masterDataApi.instruments({ signal: controller.signal }),
+      usersApi.list({ signal: controller.signal, params: instructorParams }),
+    ]).then(([instruments, instructors]) => {
+      if (controller.signal.aborted) return;
+      setInstrumentOptions(Array.isArray(instruments) ? instruments : []);
+      setInstructorOptions(instructors.content ?? []);
+    }).catch(() => {
+      if (!controller.signal.aborted) {
+        setInstrumentOptions([]);
+        setInstructorOptions([]);
+      }
+    });
+
+    return () => controller.abort();
+  }, []);
 
   const loadReviews = useCallback(async (signal?: AbortSignal) => {
     setIsLoading(true);
@@ -81,6 +115,9 @@ const AdminReview = () => {
       const createParams = (status?: string, page = currentPage - 1, size = perPage) => {
         const params = new URLSearchParams({ page: String(page), size: String(size) });
         if (status) params.set('status', status);
+        if (debouncedSearch) params.set('search', debouncedSearch);
+        if (selectedInstructorId !== null) params.set('instructorId', String(selectedInstructorId));
+        if (selectedInstrumentId !== null) params.set('instrumentId', String(selectedInstrumentId));
         return params;
       };
       const activeStatus = statusFilter === 'all' ? undefined : statusFilter.toUpperCase();
@@ -106,7 +143,7 @@ const AdminReview = () => {
     } finally {
       if (!signal?.aborted) setIsLoading(false);
     }
-  }, [currentPage, perPage, statusFilter]);
+  }, [currentPage, debouncedSearch, perPage, selectedInstructorId, selectedInstrumentId, statusFilter]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -224,52 +261,14 @@ const AdminReview = () => {
     return Number.isNaN(directTimestamp) ? 0 : directTimestamp;
   };
 
-  const instructorOptions = useMemo(
-    () => Array.from(new Set(
-      items
-        .filter((item) => item.status !== 'draft')
-        .filter((item) => selectedInstrument === 'all' || item.instrument === selectedInstrument)
-        .map((item) => item.instructor)
-        .filter(Boolean),
-    )).sort((a, b) => a.localeCompare(b, 'vi')),
-    [items, selectedInstrument],
+  // The API applies status, search, instructorId and instrumentId before pagination.
+  const displayedItems = useMemo(
+    () => [...items].sort((a, b) => parseReviewDate(b.date) - parseReviewDate(a.date)),
+    [items],
   );
 
-  // Filter items based on criteria
-  const moderationItems = useMemo(() => items.filter((item) => item.status !== 'draft'), [items]);
-
-  const filteredItems = useMemo(() => {
-    return moderationItems.filter((item) => {
-      // 1. Status Filter
-      if (statusFilter !== 'all' && item.status !== statusFilter) {
-        return false;
-      }
-      // 2. Search query (title, id, instructor)
-      if (searchQuery.trim() !== '') {
-        const q = searchQuery.toLowerCase();
-        if (
-          !item.title.toLowerCase().includes(q) &&
-          !item.id.toLowerCase().includes(q) &&
-          !item.instructor.toLowerCase().includes(q)
-        ) {
-          return false;
-        }
-      }
-      // 3. Instrument filter
-      if (selectedInstrument !== 'all' && item.instrument !== selectedInstrument) {
-        return false;
-      }
-      // 4. Instructor filter
-      if (selectedInstructor !== 'all' && item.instructor !== selectedInstructor) {
-        return false;
-      }
-      return true;
-    }).sort((a, b) => parseReviewDate(b.date) - parseReviewDate(a.date));
-  }, [moderationItems, statusFilter, searchQuery, selectedInstrument, selectedInstructor]);
-
-  // Pagination calculations
   const totalPages = Math.max(1, pageInfo.totalPages);
-  const paginatedItems = filteredItems;
+  const paginatedItems = displayedItems;
   const displayStart = pageInfo.totalElements === 0 ? 0 : (currentPage - 1) * perPage + 1;
   const displayEnd = Math.min((currentPage - 1) * perPage + items.length, pageInfo.totalElements);
 
@@ -277,11 +276,6 @@ const AdminReview = () => {
   const pendingCount = reviewCounts.pending;
   const approvedCount = reviewCounts.approved;
   const rejectedCount = reviewCounts.rejected;
-  const instrumentOptions = useMemo(
-    () => Array.from(new Set(moderationItems.map((item) => item.instrument))).filter(Boolean),
-    [moderationItems],
-  );
-
   return (
     <div className="w-full mx-auto relative text-on-surface font-sans flex-1 flex flex-col justify-between">
       <div className="flex-grow">
@@ -351,18 +345,16 @@ const AdminReview = () => {
           <div className="flex items-center gap-xs px-md py-sm bg-white border border-outline-variant rounded-lg shadow-sm">
             <span className="font-label-md text-[#5e5e5b]">Nhạc cụ:</span>
             <select
-              value={selectedInstrument}
+              value={selectedInstrumentId ?? 'all'}
               onChange={(e) => {
-                const nextInstrument = e.target.value;
-                setSelectedInstrument(nextInstrument);
-                setSelectedInstructor((current) => current !== 'all' && !moderationItems.some((item) => (nextInstrument === 'all' || item.instrument === nextInstrument) && item.instructor === current) ? 'all' : current);
+                setSelectedInstrumentId(e.target.value === 'all' ? null : Number(e.target.value));
                 setCurrentPage(1);
               }}
               className="bg-transparent border-none text-label-md font-semibold text-[#1D4532] focus:ring-0 cursor-pointer outline-none"
             >
               <option value="all">Tất cả nhạc cụ</option>
-              {instrumentOptions.map((ins) => (
-                <option key={ins} value={ins}>{ins}</option>
+              {instrumentOptions.map((instrument) => (
+                <option key={instrument.id} value={instrument.id}>{instrument.name}</option>
               ))}
             </select>
           </div>
@@ -371,16 +363,16 @@ const AdminReview = () => {
           <div className="flex w-full sm:w-72 items-center gap-xs px-md py-sm bg-white border border-outline-variant rounded-lg shadow-sm">
             <span className="font-label-md text-[#5e5e5b]">Giảng viên:</span>
             <select
-              value={selectedInstructor}
+              value={selectedInstructorId ?? 'all'}
               onChange={(e) => {
-                setSelectedInstructor(e.target.value);
+                setSelectedInstructorId(e.target.value === 'all' ? null : Number(e.target.value));
                 setCurrentPage(1);
               }}
               className="min-w-0 flex-1 bg-transparent border-none text-label-md font-semibold text-[#1D4532] focus:ring-0 cursor-pointer outline-none"
             >
               <option value="all">Tất cả giảng viên</option>
               {instructorOptions.map((instructor) => (
-                <option key={instructor} value={instructor}>{instructor}</option>
+                <option key={instructor.id} value={instructor.id}>{instructor.name}</option>
               ))}
             </select>
           </div>
@@ -466,7 +458,7 @@ const AdminReview = () => {
           <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-2 border-[#1D4532]/20 border-t-primary" />
           <p className="text-body-md text-on-surface-variant">Đang tải danh sách kiểm duyệt...</p>
         </div>
-      ) : filteredItems.length === 0 ? (
+      ) : displayedItems.length === 0 ? (
         <div className="bg-white rounded-xl border border-outline-variant/10 p-xxl text-center shadow-sm flex flex-col items-center justify-center gap-md">
           <p className="text-body-md text-on-surface-variant">
             Không tìm thấy học liệu nào phù hợp với bộ lọc hiện tại!

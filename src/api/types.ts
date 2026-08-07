@@ -123,7 +123,9 @@ export interface ReviewItem {
   id: number;
   lessonId?: number;
   title: string;
+  instrumentId?: number;
   instrument: string;
+  instructorId?: number;
   instructor: string;
   date: string;
   assets?: {
@@ -136,7 +138,7 @@ export interface ReviewItem {
   }[];
   technicalNotes?: string;
   description?: string;
-  status: 'pending' | 'approved' | 'rejected';
+  status: 'draft' | 'pending' | 'approved' | 'rejected';
   feedback?: string;
   approvedBy?: string;
   approvedAt?: string;
