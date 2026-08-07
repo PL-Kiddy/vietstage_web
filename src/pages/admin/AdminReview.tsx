@@ -1,7 +1,5 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
-  Play,
-  Pause,
   X,
   Check,
   Eye,
@@ -9,10 +7,22 @@ import {
   ZoomIn,
   ChevronLeft,
   ChevronRight,
+  ExternalLink,
+  FileText,
+  Music2,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { masterDataApi, reviewsApi, usersApi } from '../../api/services';
 import type { AdminUser, Instrument, ReviewItem as ApiReviewItem } from '../../api/types';
+
+interface ReviewAsset {
+  id: number;
+  assetType: string;
+  title: string;
+  assetUrl: string;
+  mimeType?: string;
+  durationSec?: number;
+}
 
 interface ReviewItem {
   id: string;
@@ -22,9 +32,7 @@ interface ReviewItem {
   instructorId?: number;
   instructor: string;
   date: string;
-  sheetMusicUrl: string;
-  audioUrl: string;
-  duration: string;
+  assets: ReviewAsset[];
   description: string;
   technicalNotes: string;
   lessonId?: number;
@@ -34,15 +42,27 @@ interface ReviewItem {
   approvedAt?: string;
 }
 
+const isAudioAsset = (asset: ReviewAsset) =>
+  ['AUDIO', 'REFERENCE_AUDIO'].includes(asset.assetType.toUpperCase()) || asset.mimeType?.startsWith('audio/');
+
+const isImageAsset = (asset: ReviewAsset) =>
+  ['SHEET_MUSIC', 'SHEET_IMAGE', 'IMAGE'].includes(asset.assetType.toUpperCase()) || asset.mimeType?.startsWith('image/');
+
+const formatDuration = (seconds?: number) => {
+  if (!seconds || seconds < 0) return '';
+  const rounded = Math.round(seconds);
+  return `${String(Math.floor(rounded / 60)).padStart(2, '0')}:${String(rounded % 60).padStart(2, '0')}`;
+};
+
 const normalizeReview = (item: ApiReviewItem): ReviewItem => {
-  const assets = item.assets ?? [];
-  const sheetAsset = assets.find((asset) =>
-    ['SHEET_MUSIC', 'SHEET_IMAGE', 'DOCUMENT', 'IMAGE'].includes(asset.assetType) || asset.mimeType?.startsWith('image/'),
-  );
-  const audioAsset = assets.find((asset) =>
-    ['AUDIO', 'REFERENCE_AUDIO'].includes(asset.assetType) || asset.mimeType?.startsWith('audio/'),
-  );
-  const durationSec = Math.max(0, Math.round(audioAsset?.durationSec ?? 0));
+  const assets = (item.assets ?? []).map((asset) => ({
+    id: asset.id,
+    assetType: asset.assetType || 'FILE',
+    title: asset.title || `Tệp đính kèm #${asset.id}`,
+    assetUrl: asset.assetUrl,
+    mimeType: asset.mimeType,
+    durationSec: asset.durationSec,
+  }));
 
   return {
     id: String(item.id),
@@ -53,9 +73,7 @@ const normalizeReview = (item: ApiReviewItem): ReviewItem => {
     instructorId: item.instructorId,
     instructor: item.instructor || 'Chưa xác định',
     date: item.date || '',
-    sheetMusicUrl: sheetAsset?.assetUrl || '',
-    audioUrl: audioAsset?.assetUrl || '',
-    duration: `${String(Math.floor(durationSec / 60)).padStart(2, '0')}:${String(durationSec % 60).padStart(2, '0')}`,
+    assets,
     description: item.description || '',
     technicalNotes: item.technicalNotes || '',
     status: String(item.status || 'pending').trim().toLowerCase() as ReviewItem['status'],
@@ -69,7 +87,7 @@ const AdminReview = () => {
   const [items, setItems] = useState<ReviewItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'draft' | 'pending' | 'approved' | 'rejected'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [debouncedSearch, setDebouncedSearch] = useState<string>('');
   const [selectedInstrumentId, setSelectedInstrumentId] = useState<number | null>(null);
@@ -128,7 +146,8 @@ const AdminReview = () => {
         reviewsApi.list(createParams('APPROVED', 0, 1), { signal }),
         reviewsApi.list(createParams('REJECTED', 0, 1), { signal }),
       ]);
-      setItems((reviewPage.content ?? []).map(normalizeReview));
+      // Draft lessons are an Instructor concern and must never enter the Admin moderation queue.
+      setItems((reviewPage.content ?? []).map(normalizeReview).filter((review) => review.status !== 'draft'));
       setPageInfo({ totalElements: reviewPage.totalElements ?? 0, totalPages: reviewPage.totalPages ?? 1 });
       setReviewCounts({
         all: allPage.totalElements ?? 0,
@@ -158,48 +177,19 @@ const AdminReview = () => {
   const [feedbackError, setFeedbackError] = useState<string>('');
   const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
   const [isPreviewZoomed, setIsPreviewZoomed] = useState<boolean>(false);
-
-  // Audio Player State
-  const [isPlaying, setIsPlaying] = useState<boolean>(false);
-  const [currentTime, setCurrentTime] = useState<number>(0);
-  const [audioDuration, setAudioDuration] = useState<number>(0);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-
-  const formatTime = (secs: number) => {
-    const m = Math.floor(secs / 60).toString().padStart(2, '0');
-    const s = (secs % 60).toString().padStart(2, '0');
-    return `${m}:${s}`;
-  };
+  const [previewAsset, setPreviewAsset] = useState<ReviewAsset | null>(null);
 
   const openDrawer = (item: ReviewItem) => {
     setSelectedItem(item);
     setFeedback(item.feedback || '');
     setFeedbackError('');
-    setIsPlaying(false);
-    setCurrentTime(0);
-    setAudioDuration(0);
+    setPreviewAsset(null);
     setIsDrawerOpen(true);
   };
 
   const closeDrawer = () => {
-    audioRef.current?.pause();
     setIsDrawerOpen(false);
-    setIsPlaying(false);
-    setCurrentTime(0);
-  };
-
-  const toggleAudioPlayback = async () => {
-    const audio = audioRef.current;
-    if (!audio || !selectedItem?.audioUrl) return;
-    if (audio.paused) {
-      try {
-        await audio.play();
-      } catch {
-        setIsPlaying(false);
-      }
-      return;
-    }
-    audio.pause();
+    setPreviewAsset(null);
   };
 
   const handleApprove = async () => {
@@ -276,11 +266,13 @@ const AdminReview = () => {
   const pendingCount = reviewCounts.pending;
   const approvedCount = reviewCounts.approved;
   const rejectedCount = reviewCounts.rejected;
+  const materialAssets = selectedItem?.assets.filter((asset) => !isAudioAsset(asset)) ?? [];
+  const audioAssets = selectedItem?.assets.filter(isAudioAsset) ?? [];
   return (
     <div className="w-full mx-auto relative text-on-surface font-sans flex-1 flex flex-col justify-between">
       <div className="flex-grow">
       {/* Zoom Sheet Music Overlay */}
-      {isPreviewZoomed && selectedItem && (
+      {isPreviewZoomed && previewAsset && (
         <div
           className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-md cursor-zoom-out"
           onClick={() => setIsPreviewZoomed(false)}
@@ -293,12 +285,12 @@ const AdminReview = () => {
               <X className="w-6 h-6" />
             </button>
             <img
-              src={selectedItem.sheetMusicUrl}
-              alt={selectedItem.title}
+              src={previewAsset.assetUrl}
+              alt={previewAsset.title}
               className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl border border-white/10"
             />
             <p className="text-white mt-md font-label-md bg-black/50 px-lg py-sm rounded-full">
-              Khuông nhạc / Sheet nhạc: {selectedItem.title}
+              {previewAsset.title}
             </p>
           </div>
         </div>
@@ -664,94 +656,78 @@ const AdminReview = () => {
               <div className="flex-1 overflow-y-auto p-xl space-y-xl custom-scrollbar">
                 {/* Visual Preview Card */}
                 <div className="bg-white/95 backdrop-blur-md border border-[#d1e4fb]/40 rounded-2xl p-lg shadow-sm space-y-lg">
-                  {/* Sheet Music Section */}
                   <div>
                     <span className="font-label-sm text-on-surface-variant block mb-sm font-semibold uppercase tracking-wider text-xs">
-                      1. Khuông nhạc / Sheet nhạc
+                      1. Tài liệu đính kèm ({materialAssets.length})
                     </span>
-                    <div className="relative group aspect-[4/3] bg-[#f5f3ee] rounded-xl overflow-hidden border border-outline-variant/20 flex items-center justify-center">
-                      <img
-                        src={selectedItem.sheetMusicUrl}
-                        alt="Sheet Music Preview"
-                        className="w-full h-full object-cover"
-                      />
-                      <div className="absolute inset-0 bg-black/15 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button
-                          onClick={() => setIsPreviewZoomed(true)}
-                          className="bg-white text-[#1D4532] px-lg py-md rounded-full shadow-lg font-label-md flex items-center gap-xs hover:scale-105 active:scale-95 transition-transform"
-                        >
-                          <ZoomIn className="w-5 h-5" />
-                          Phóng to ảnh
-                        </button>
+                    {materialAssets.length === 0 ? (
+                      <div className="rounded-xl border border-dashed border-outline-variant/40 bg-[#f5f3ee]/50 px-md py-lg text-sm text-on-surface-variant">
+                        Không có tài liệu đính kèm.
                       </div>
-                    </div>
+                    ) : (
+                      <div className="grid grid-cols-1 gap-md sm:grid-cols-2">
+                        {materialAssets.map((asset) => isImageAsset(asset) ? (
+                          <button
+                            key={asset.id}
+                            type="button"
+                            onClick={() => {
+                              setPreviewAsset(asset);
+                              setIsPreviewZoomed(true);
+                            }}
+                            className="group overflow-hidden rounded-xl border border-outline-variant/20 bg-[#f5f3ee] text-left transition-shadow hover:shadow-md"
+                          >
+                            <img src={asset.assetUrl} alt={asset.title} className="h-40 w-full object-cover" />
+                            <span className="flex items-center justify-between gap-2 px-md py-sm text-sm font-semibold text-[#1D4532]">
+                              <span className="truncate">{asset.title}</span>
+                              <ZoomIn className="h-4 w-4 shrink-0" />
+                            </span>
+                          </button>
+                        ) : (
+                          <a
+                            key={asset.id}
+                            href={asset.assetUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="flex min-h-28 items-center justify-between gap-md rounded-xl border border-outline-variant/20 bg-[#f5f3ee]/50 px-md py-md text-[#1D4532] hover:bg-[#EDF7F2]"
+                          >
+                            <span className="min-w-0">
+                              <FileText className="mb-2 h-5 w-5" />
+                              <span className="block truncate text-sm font-semibold">{asset.title}</span>
+                              <span className="block text-xs text-on-surface-variant">{asset.mimeType || asset.assetType}</span>
+                            </span>
+                            <ExternalLink className="h-4 w-4 shrink-0" />
+                          </a>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
-                  {/* Audio Player Section */}
                   <div>
                     <span className="font-label-sm text-on-surface-variant block mb-sm font-semibold uppercase tracking-wider text-xs">
-                      2. Bản âm thanh minh họa
+                      2. Tệp âm thanh ({audioAssets.length})
                     </span>
-                    <div className="bg-[#f5f3ee]/50 border border-[#d1e4fb]/30 rounded-xl p-md">
-                      <audio
-                        ref={audioRef}
-                        src={selectedItem.audioUrl || undefined}
-                        preload="metadata"
-                        onLoadedMetadata={(event) => setAudioDuration(Number.isFinite(event.currentTarget.duration) ? event.currentTarget.duration : 0)}
-                        onTimeUpdate={(event) => setCurrentTime(event.currentTarget.currentTime)}
-                        onPlay={() => setIsPlaying(true)}
-                        onPause={() => setIsPlaying(false)}
-                        onEnded={() => setIsPlaying(false)}
-                      />
-                      <div className="flex justify-between items-center mb-sm">
-                        <span className="text-label-sm font-bold text-on-surface truncate max-w-[200px]">
-                          {selectedItem.audioUrl ? `Audio tham chiếu #${selectedItem.id}` : 'Không có tệp âm thanh đính kèm'}
-                        </span>
-                        <span className="text-label-sm font-bold text-[#1D4532]">
-                          {formatTime(currentTime)} / {audioDuration > 0 ? formatTime(audioDuration) : selectedItem.duration}
-                        </span>
+                    {audioAssets.length === 0 ? (
+                      <div className="rounded-xl border border-dashed border-outline-variant/40 bg-[#f5f3ee]/50 px-md py-lg text-sm text-on-surface-variant">
+                        Không có tệp âm thanh đính kèm.
                       </div>
-
-                      {/* Interactive Waveform visual */}
-                      <div className="h-16 flex items-end justify-between gap-[3px] relative overflow-hidden bg-white/60 border border-outline-variant/10 rounded p-sm mb-md">
-                        {[
-                          60, 40, 55, 95, 30, 75, 65, 80, 50, 70, 90, 60, 45, 75,
-                          35, 85, 70, 50, 65, 80, 45, 90, 55, 30, 70, 85, 60, 40,
-                        ].map((val, index, arr) => {
-                          const percent = currentTime / Math.max(audioDuration, 1);
-                          const barPercent = index / arr.length;
-                          const isPlayed = barPercent <= percent;
-
-                          return (
-                            <div
-                              key={index}
-                              className={`w-full rounded-full transition-all duration-300 ${
-                                isPlayed ? 'bg-[#1D4532]' : 'bg-[#1D4532]/25'
-                              }`}
-                              style={{
-                                height: isPlaying
-                                  ? `${Math.min(100, val + Math.sin(currentTime * 2 + index) * 15)}%`
-                                  : `${val}%`,
-                              }}
-                            />
-                          );
-                        })}
+                    ) : (
+                      <div className="space-y-md">
+                        {audioAssets.map((asset) => (
+                          <div key={asset.id} className="rounded-xl border border-[#d1e4fb]/40 bg-[#f5f3ee]/50 p-md">
+                            <div className="mb-sm flex items-center justify-between gap-md">
+                              <span className="flex min-w-0 items-center gap-2 text-sm font-semibold text-[#1D4532]">
+                                <Music2 className="h-5 w-5 shrink-0" />
+                                <span className="truncate">{asset.title}</span>
+                              </span>
+                              {formatDuration(asset.durationSec) && <span className="text-xs text-on-surface-variant">{formatDuration(asset.durationSec)}</span>}
+                            </div>
+                            <audio className="w-full" controls preload="metadata" src={asset.assetUrl}>
+                              Trình duyệt không hỗ trợ phát tệp âm thanh này.
+                            </audio>
+                          </div>
+                        ))}
                       </div>
-
-                      <div className="flex justify-center">
-                        <button
-                        onClick={() => void toggleAudioPlayback()}
-                        disabled={!selectedItem.audioUrl}
-                        className="w-12 h-12 bg-[#1D4532] text-white rounded-full flex items-center justify-center shadow-md hover:scale-105 active:scale-95 transition-transform disabled:cursor-not-allowed disabled:opacity-40"
-                        >
-                          {isPlaying ? (
-                            <Pause className="w-5 h-5 text-white fill-white" />
-                          ) : (
-                            <Play className="w-5 h-5 text-white fill-white ml-[3px]" />
-                          )}
-                        </button>
-                      </div>
-                    </div>
+                    )}
                   </div>
 
                   {/* Technical Description Section */}
@@ -777,16 +753,7 @@ const AdminReview = () => {
 
                   {/* Feedback Textarea & Validation */}
                   <div className="pt-md border-t border-outline-variant/10">
-                    {selectedItem.status === 'draft' ? (
-                      <div className="bg-slate-50 p-md rounded-xl border border-slate-200">
-                        <span className="font-label-sm text-slate-700 block mb-xs font-semibold uppercase tracking-wider text-xs">
-                          Bản nháp chưa gửi duyệt
-                        </span>
-                        <p className="text-body-md text-on-surface-variant">
-                          Giảng viên cần chuyển bài giảng sang trạng thái Chờ duyệt trước khi quản trị viên có thể phê duyệt hoặc từ chối.
-                        </p>
-                      </div>
-                    ) : selectedItem.status === 'pending' ? (
+                    {selectedItem.status === 'pending' ? (
                       <>
                         <label className="font-label-sm text-on-surface-variant block mb-xs font-semibold uppercase tracking-wider text-xs">
                           Lý do phản hồi <span className="text-error font-bold">* Bắt buộc nếu chọn Từ chối</span>
