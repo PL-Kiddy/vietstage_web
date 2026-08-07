@@ -936,7 +936,7 @@ alert('Backend hiện chưa cung cấp endpoint cập nhật thông tin người
               transition={{ type: 'spring', damping: 25, stiffness: 220 }}
             >
               {/* Drawer Header */}
-              <div className="px-xl py-lg border-b border-outline-variant/10 flex justify-between items-center bg-[#f5f3ee]/30">
+              <div className="px-lg py-md border-b border-outline-variant/10 flex justify-between items-center bg-[#f5f3ee]/30">
                 <div>
                   <h4 className="text-headline-md font-bold text-[#1D4532] font-sans">
                     Thêm thành viên mới
@@ -954,8 +954,9 @@ alert('Backend hiện chưa cung cấp endpoint cập nhật thông tin người
               </div>
 
               {/* Drawer Body */}
-              <form onSubmit={submitAddUser} className="flex-1 overflow-y-auto p-xl space-y-xl custom-scrollbar flex flex-col justify-between">
-                <div className="bg-white/95 backdrop-blur-md border border-outline-variant/10 rounded-2xl p-lg shadow-sm space-y-lg">
+              <form onSubmit={submitAddUser} className="flex-1 min-h-0 flex flex-col">
+                <div className="flex-1 min-h-0 overflow-y-auto p-lg custom-scrollbar">
+                <div className="bg-white/95 backdrop-blur-md border border-outline-variant/10 rounded-2xl p-md shadow-sm space-y-sm">
                   {/* Name Input */}
                   <div className="flex flex-col gap-xs">
                     <label className="font-label-sm text-on-surface-variant font-semibold uppercase tracking-wider text-xs">
@@ -966,7 +967,7 @@ alert('Backend hiện chưa cung cấp endpoint cập nhật thông tin người
                       required
                       value={newUserName}
                       onChange={(e) => handleNameChange(e.target.value)}
-                      className="w-full bg-[#fbf9f4] border border-outline-variant/30 rounded-xl p-md text-body-md focus:border-[#1D4532] focus:ring-1 focus:ring-[#1D4532] transition-all outline-none text-on-surface"
+                      className="w-full bg-[#fbf9f4] border border-outline-variant/30 rounded-lg p-sm text-body-md focus:border-[#1D4532] focus:ring-1 focus:ring-[#1D4532] transition-all outline-none text-on-surface"
                       placeholder="Nhập đầy đủ họ và tên..."
                     />
                   </div>
@@ -984,7 +985,7 @@ alert('Backend hiện chưa cung cấp endpoint cập nhật thông tin người
                       required
                       value={newUserEmail}
                       onChange={(e) => setNewUserEmail(e.target.value)}
-                      className={`w-full bg-[#fbf9f4] border rounded-xl p-md text-body-md transition-all outline-none text-on-surface ${
+                      className={`w-full bg-[#fbf9f4] border rounded-lg p-sm text-body-md transition-all outline-none text-on-surface ${
                         newUserEmail && !isEmailValid(newUserEmail) 
                           ? 'border-error focus:border-error focus:ring-error' 
                           : 'border-outline-variant/30 focus:border-[#1D4532] focus:ring-1 focus:ring-[#1D4532]'
@@ -1001,7 +1002,7 @@ alert('Backend hiện chưa cung cấp endpoint cập nhật thông tin người
                     <select
                       value={newUserRole}
                       onChange={(e) => setNewUserRole(e.target.value as 'Admin' | 'Giảng viên')}
-                      className="w-full bg-[#fbf9f4] border border-outline-variant/30 rounded-xl p-md text-body-md focus:border-[#1D4532] focus:ring-1 focus:ring-[#1D4532] transition-all outline-none text-on-surface cursor-pointer font-medium"
+                      className="w-full bg-[#fbf9f4] border border-outline-variant/30 rounded-lg p-sm text-body-md focus:border-[#1D4532] focus:ring-1 focus:ring-[#1D4532] transition-all outline-none text-on-surface cursor-pointer font-medium"
                     >
                       <option value="Giảng viên">Giảng viên (Instructor)</option>
                       <option value="Admin">Admin (Quản trị viên)</option>
@@ -1022,7 +1023,7 @@ alert('Backend hiện chưa cung cấp endpoint cập nhật thông tin người
                           value={newYearsExperience}
                           onChange={(e) => setNewYearsExperience(Math.max(0, parseInt(e.target.value) || 0))}
                           placeholder="Ví dụ: 5"
-                          className="w-full bg-[#fbf9f4] border border-outline-variant/30 rounded-xl p-md text-body-md focus:border-[#1D4532] focus:ring-1 focus:ring-[#1D4532] transition-all outline-none text-on-surface font-medium"
+                          className="w-full bg-[#fbf9f4] border border-outline-variant/30 rounded-lg p-sm text-body-md focus:border-[#1D4532] focus:ring-1 focus:ring-[#1D4532] transition-all outline-none text-on-surface font-medium"
                         />
                       </div>
 
@@ -1031,18 +1032,18 @@ alert('Backend hiện chưa cung cấp endpoint cập nhật thông tin người
                           Tiểu sử &amp; Giới thiệu bản thân (biography)
                         </label>
                         <textarea
-                          rows={3}
+                          rows={2}
                           value={newBiography}
                           onChange={(e) => setNewBiography(e.target.value)}
                           placeholder="Nhập giới thiệu tóm tắt về giảng viên..."
-                          className="w-full bg-[#fbf9f4] border border-outline-variant/30 rounded-xl p-md text-body-md focus:border-[#1D4532] focus:ring-1 focus:ring-[#1D4532] transition-all outline-none text-on-surface resize-none"
+                          className="w-full bg-[#fbf9f4] border border-outline-variant/30 rounded-lg p-sm text-body-md focus:border-[#1D4532] focus:ring-1 focus:ring-[#1D4532] transition-all outline-none text-on-surface resize-none"
                         />
                       </div>
                     </>
                   )}
 
                   {/* Password Input (Required by Swagger API) */}
-                  <div className="flex flex-col gap-xs border-t border-outline-variant/10 pt-lg">
+                  <div className="flex flex-col gap-xs border-t border-outline-variant/10 pt-md">
                     <label className="font-label-sm text-on-surface-variant font-semibold uppercase tracking-wider text-xs">
                       Mật khẩu khởi tạo <span className="text-error">*</span>
                     </label>
@@ -1052,20 +1053,21 @@ alert('Backend hiện chưa cung cấp endpoint cập nhật thông tin người
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
                       placeholder="Nhập mật khẩu cho tài khoản (tối thiểu 6 ký tự)..."
-                      className="w-full bg-[#fbf9f4] border border-outline-variant/30 rounded-xl p-md text-body-md focus:border-[#1D4532] focus:ring-1 focus:ring-[#1D4532] transition-all outline-none text-on-surface font-medium"
+                      className="w-full bg-[#fbf9f4] border border-outline-variant/30 rounded-lg p-sm text-body-md focus:border-[#1D4532] focus:ring-1 focus:ring-[#1D4532] transition-all outline-none text-on-surface font-medium"
                     />
                     <p className="text-[11px] text-[#5e5e5b] mt-1">
                       * Tài khoản sẽ được tạo trực tiếp với mật khẩu này trên hệ thống.
                     </p>
                   </div>
                 </div>
+                </div>
 
                 {/* Drawer Footer Actions */}
-                <div className="px-xl py-lg border-t border-outline-variant/10 bg-[#f5f3ee]/40 flex gap-md -mx-xl -mb-xl mt-xl">
+                <div className="shrink-0 px-lg py-md border-t border-outline-variant/10 bg-[#f5f3ee]/95 flex gap-md">
                   <button
                     type="button"
                     onClick={() => setIsAddDrawerOpen(false)}
-                    className="flex-1 flex items-center justify-center gap-sm bg-[#e1dfdb] text-on-surface py-lg rounded-xl font-bold hover:bg-[#c8c6c2] active:scale-[0.98] transition-all border border-outline-variant/30"
+                    className="flex-1 flex items-center justify-center gap-sm bg-[#b42318] text-white py-md rounded-lg font-bold hover:bg-[#8f1d14] active:scale-[0.98] transition-all border border-[#8f1d14]"
                   >
                     <X className="w-5 h-5" />
                     Hủy bỏ
@@ -1073,7 +1075,7 @@ alert('Backend hiện chưa cung cấp endpoint cập nhật thông tin người
                   <button
                     type="submit"
                     disabled={!isAddFormValid}
-                    className={`flex-1 flex items-center justify-center gap-sm py-lg rounded-xl font-bold active:scale-[0.98] transition-all shadow-md ${
+                    className={`flex-1 flex items-center justify-center gap-sm py-md rounded-lg font-bold active:scale-[0.98] transition-all shadow-md ${
                       isAddFormValid 
                         ? 'bg-[#1D4532] text-white hover:bg-[#1D4532]/95 cursor-pointer' 
                         : 'bg-[#1D4532]/40 text-white/60 cursor-not-allowed'
