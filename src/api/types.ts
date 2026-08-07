@@ -125,10 +125,16 @@ export interface ReviewItem {
   instrument: string;
   instructor: string;
   date: string;
-  sheetMusicUrl: string;
-  audioUrl: string;
-  duration: string;
-  description: string;
+  assets?: {
+    id: number;
+    assetType: string;
+    title?: string;
+    assetUrl: string;
+    mimeType?: string;
+    durationSec?: number;
+  }[];
+  technicalNotes?: string;
+  description?: string;
   status: 'pending' | 'approved' | 'rejected';
   feedback?: string;
   approvedBy?: string;

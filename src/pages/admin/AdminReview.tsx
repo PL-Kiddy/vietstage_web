@@ -25,27 +25,40 @@ interface ReviewItem {
   audioUrl: string;
   duration: string;
   description: string;
+  technicalNotes: string;
   status: 'draft' | 'pending' | 'approved' | 'rejected';
   feedback?: string;
   approvedBy?: string;
   approvedAt?: string;
 }
 
-const normalizeReview = (item: ApiReviewItem): ReviewItem => ({
-  id: String(item.id),
-  title: item.title || 'Bài giảng chưa đặt tên',
-  instrument: item.instrument || 'Chưa xác định',
-  instructor: item.instructor || 'Chưa xác định',
-  date: item.date || '',
-  sheetMusicUrl: item.sheetMusicUrl || '',
-  audioUrl: item.audioUrl || '',
-  duration: item.duration || '00:00',
-  description: item.description || '',
-  status: String(item.status || 'pending').trim().toLowerCase() as ReviewItem['status'],
-  feedback: item.feedback,
-  approvedBy: item.approvedBy,
-  approvedAt: item.approvedAt,
-});
+const normalizeReview = (item: ApiReviewItem): ReviewItem => {
+  const assets = item.assets ?? [];
+  const sheetAsset = assets.find((asset) =>
+    ['SHEET_MUSIC', 'SHEET_IMAGE', 'DOCUMENT', 'IMAGE'].includes(asset.assetType) || asset.mimeType?.startsWith('image/'),
+  );
+  const audioAsset = assets.find((asset) =>
+    ['AUDIO', 'REFERENCE_AUDIO'].includes(asset.assetType) || asset.mimeType?.startsWith('audio/'),
+  );
+  const durationSec = Math.max(0, Math.round(audioAsset?.durationSec ?? 0));
+
+  return {
+    id: String(item.id),
+    title: item.title || 'Bài giảng chưa đặt tên',
+    instrument: item.instrument || 'Chưa xác định',
+    instructor: item.instructor || 'Chưa xác định',
+    date: item.date || '',
+    sheetMusicUrl: sheetAsset?.assetUrl || '',
+    audioUrl: audioAsset?.assetUrl || '',
+    duration: `${String(Math.floor(durationSec / 60)).padStart(2, '0')}:${String(durationSec % 60).padStart(2, '0')}`,
+    description: item.description || '',
+    technicalNotes: item.technicalNotes || '',
+    status: String(item.status || 'pending').trim().toLowerCase() as ReviewItem['status'],
+    feedback: item.feedback,
+    approvedBy: item.approvedBy,
+    approvedAt: item.approvedAt,
+  };
+};
 
 const AdminReview = () => {
   const [items, setItems] = useState<ReviewItem[]>([]);
@@ -343,22 +356,19 @@ const AdminReview = () => {
           {/* Instructor Filter */}
           <div className="flex w-full sm:w-72 items-center gap-xs px-md py-sm bg-white border border-outline-variant rounded-lg shadow-sm">
             <span className="font-label-md text-[#5e5e5b]">Giảng viên:</span>
-            <input
-              list="review-instructors"
-              type="search"
-              placeholder="Tất cả giảng viên"
-              value={selectedInstructor === 'all' ? '' : selectedInstructor}
+            <select
+              value={selectedInstructor}
               onChange={(e) => {
-                setSelectedInstructor(e.target.value || 'all');
+                setSelectedInstructor(e.target.value);
                 setCurrentPage(1);
               }}
-              className="min-w-0 flex-1 bg-transparent border-none text-label-md font-semibold text-[#1D4532] placeholder:font-semibold placeholder:text-[#1D4532] placeholder:opacity-100 focus:ring-0 outline-none"
-            />
-            <datalist id="review-instructors">
+              className="min-w-0 flex-1 bg-transparent border-none text-label-md font-semibold text-[#1D4532] focus:ring-0 cursor-pointer outline-none"
+            >
+              <option value="all">Tất cả giảng viên</option>
               {instructorOptions.map((instructor) => (
-                <option key={instructor} value={instructor} />
+                <option key={instructor} value={instructor}>{instructor}</option>
               ))}
-            </datalist>
+            </select>
           </div>
         </div>
       </section>
@@ -454,22 +464,22 @@ const AdminReview = () => {
             <table className="w-full text-left border-collapse min-w-[800px]">
               <thead>
                 <tr className="bg-[#e3efff] border-b border-[#d1e4fb]/50">
-                  <th className="px-xl py-md font-label-sm text-label-sm text-[#5e5e5b] font-bold uppercase tracking-wider">
+                  <th className="px-xl py-md font-label-sm text-label-sm text-[#5e5e5b] font-bold uppercase tracking-wider text-left">
                     Tên học liệu
                   </th>
-                  <th className="px-xl py-md font-label-sm text-label-sm text-[#5e5e5b] font-bold uppercase tracking-wider">
+                  <th className="px-xl py-md font-label-sm text-label-sm text-[#5e5e5b] font-bold uppercase tracking-wider text-center">
                     Nhạc cụ
                   </th>
-                  <th className="px-xl py-md font-label-sm text-label-sm text-[#5e5e5b] font-bold uppercase tracking-wider">
+                  <th className="px-xl py-md font-label-sm text-label-sm text-[#5e5e5b] font-bold uppercase tracking-wider text-left">
                     Giảng viên
                   </th>
-                  <th className="px-xl py-md font-label-sm text-label-sm text-[#5e5e5b] font-bold uppercase tracking-wider">
+                  <th className="px-xl py-md font-label-sm text-label-sm text-[#1D4532] font-bold uppercase tracking-wider text-center">
                     Ngày gửi
                   </th>
-                  <th className="px-xl py-md font-label-sm text-label-sm text-[#5e5e5b] font-bold uppercase tracking-wider">
+                  <th className="px-xl py-md font-label-sm text-label-sm text-[#5e5e5b] font-bold uppercase tracking-wider text-center">
                     Trạng thái
                   </th>
-                  <th className="px-xl py-md font-label-sm text-label-sm text-[#5e5e5b] font-bold uppercase tracking-wider text-right">
+                  <th className="px-xl py-md font-label-sm text-label-sm text-[#5e5e5b] font-bold uppercase tracking-wider text-center">
                     Thao tác
                   </th>
                 </tr>
@@ -489,7 +499,7 @@ const AdminReview = () => {
                         ID: {item.id}
                       </div>
                     </td>
-                    <td className="px-xl py-lg whitespace-nowrap">
+                    <td className="px-xl py-lg whitespace-nowrap text-center">
                       <span
                         className={`px-lg py-sm rounded-full text-[11px] font-bold uppercase tracking-wide whitespace-nowrap ${getInstrumentTagClass(
                           item.instrument
@@ -501,10 +511,10 @@ const AdminReview = () => {
                     <td className="px-xl py-lg text-body-md text-on-surface font-semibold whitespace-nowrap">
                       {item.instructor}
                     </td>
-                    <td className="px-xl py-lg text-body-md text-on-surface-variant whitespace-nowrap">
+                    <td className="px-xl py-lg text-body-md text-on-surface-variant whitespace-nowrap text-center">
                       {item.date}
                     </td>
-                    <td className="px-xl py-lg whitespace-nowrap">
+                    <td className="px-xl py-lg whitespace-nowrap text-center">
                       {item.status === 'draft' && (
                         <span className="px-lg py-sm bg-slate-50 border border-slate-200 text-slate-700 rounded-full text-[11px] font-bold tracking-wide whitespace-nowrap">
                           Bản nháp
@@ -525,10 +535,10 @@ const AdminReview = () => {
                         </span>
                       )}
                     </td>
-                    <td className="px-xl py-lg text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                    <td className="px-xl py-lg text-center whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                       <button
                         onClick={() => openDrawer(item)}
-                        className={`inline-flex items-center gap-xs px-lg py-sm rounded-lg font-label-sm text-label-sm transition-all active:scale-95 shadow-sm whitespace-nowrap ${
+                        className={`inline-flex w-40 items-center justify-center gap-xs px-lg py-sm rounded-lg font-label-sm text-label-sm transition-all active:scale-95 shadow-sm whitespace-nowrap ${
                           item.status === 'pending'
                             ? 'bg-[#1D4532] text-white hover:bg-[#1D4532]/90'
                             : 'border border-[#1D4532] text-[#1D4532] hover:bg-[#EDF7F2]'
@@ -743,12 +753,23 @@ const AdminReview = () => {
                   {/* Technical Description Section */}
                   <div>
                     <span className="font-label-sm text-on-surface-variant block mb-sm font-semibold uppercase tracking-wider text-xs">
-                      3. Mô tả kỹ thuật học liệu
+                      3. Mô tả học liệu
                     </span>
                     <div className="bg-[#fbf9f4] border border-[#d1e4fb]/40 rounded-xl p-md text-body-md text-on-surface leading-relaxed whitespace-pre-wrap">
                       {selectedItem.description || 'Không có mô tả kỹ thuật chi tiết kèm theo học liệu này.'}
                     </div>
                   </div>
+
+                  {selectedItem.technicalNotes && (
+                    <div>
+                      <span className="font-label-sm text-on-surface-variant block mb-sm font-semibold uppercase tracking-wider text-xs">
+                        4. Ghi chú kỹ thuật
+                      </span>
+                      <div className="bg-[#EDF7F2] border border-[#d1e4fb]/40 rounded-xl p-md text-body-md text-on-surface leading-relaxed whitespace-pre-wrap">
+                        {selectedItem.technicalNotes}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Feedback Textarea & Validation */}
                   <div className="pt-md border-t border-outline-variant/10">
