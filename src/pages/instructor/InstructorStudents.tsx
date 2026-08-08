@@ -700,7 +700,7 @@ const InstructorStudents = () => {
             <section className="bg-white rounded-2xl shadow-sm border border-outline-variant/10 overflow-hidden">
               <div className="px-lg py-md border-b border-outline-variant/10 flex items-center gap-sm">
                 <MessageSquareText className="w-4 h-4 text-[#1D4532]" />
-                <div><h3 className="text-sm font-bold text-[#1D4532]">Phản hồi theo lượt tập</h3><p className="text-xs text-on-surface-variant mt-0.5">Chọn đúng một lượt tập để xem và gửi nhận xét gắn với attemptId của lượt đó.</p></div>
+                <div><h3 className="text-sm font-bold text-[#1D4532]">Phản hồi theo lượt tập</h3><p className="text-xs text-on-surface-variant mt-0.5">Chọn một lượt tập để xem và gửi nhận xét.</p></div>
               </div>
               {practiceAttemptsLoading ? (
                 <div className="flex items-center justify-center gap-2 py-10 text-sm text-on-surface-variant"><Loader2 className="w-5 h-5 animate-spin text-[#1D4532]" />Đang tải các lượt tập...</div>
@@ -722,12 +722,12 @@ const InstructorStudents = () => {
                   </div>
                   <div className="p-5 bg-[#fbf9f4]/50 min-h-[300px]">
                     {!selectedAttempt ? <div className="h-full flex items-center justify-center text-center text-sm text-on-surface-variant">Chọn một lượt tập ở bên trái để phản hồi.</div> : <>
-                      <div className="flex justify-between gap-3 mb-4"><div><p className="text-xs font-bold uppercase tracking-wide text-[#1D4532]">Lượt tập đang chọn</p><h4 className="font-bold mt-1">{selectedAttempt.lessonName || 'Bài học'} · #{selectedAttempt.id}</h4></div><span className="text-xs font-semibold text-[#1D4532] bg-[#EDF7F2] px-2 py-1 rounded">attemptId: {selectedAttempt.id}</span></div>
+                      <div className="flex justify-between gap-3 mb-4"><div><p className="text-xs font-bold uppercase tracking-wide text-[#1D4532]">Lượt tập đang chọn</p><h4 className="font-bold mt-1">{selectedAttempt.lessonName || 'Bài học'} · Lượt #{selectedAttempt.id}</h4></div></div>
                       <div className="space-y-2 max-h-40 overflow-y-auto mb-4">
-                        {feedbackLoading ? <div className="py-4 text-center"><Loader2 className="w-4 h-4 animate-spin inline text-[#1D4532]" /></div> : attemptFeedbacks.length === 0 ? <p className="rounded-lg border border-dashed border-outline-variant/30 p-3 text-xs text-on-surface-variant">Chưa có phản hồi cho lượt tập này (attemptId: {selectedAttempt.id}).</p> : attemptFeedbacks.map((feedback) => <article key={feedback.id} className="rounded-lg bg-white border border-outline-variant/10 p-3"><p className="text-sm text-on-surface">{feedback.comment}</p><p className="text-[11px] text-on-surface-variant mt-1">{feedback.instructorName || feedback.instructor_name || 'Giảng viên'} · {(feedback.createdAt || feedback.created_at) ? new Date(feedback.createdAt || feedback.created_at!).toLocaleString('vi-VN') : ''}</p></article>)}
+                        {feedbackLoading ? <div className="py-4 text-center"><Loader2 className="w-4 h-4 animate-spin inline text-[#1D4532]" /></div> : attemptFeedbacks.length === 0 ? <p className="rounded-lg border border-dashed border-outline-variant/30 p-3 text-xs text-on-surface-variant">Chưa có phản hồi cho lượt tập này.</p> : attemptFeedbacks.map((feedback) => <article key={feedback.id} className="rounded-lg bg-white border border-outline-variant/10 p-3"><p className="text-sm text-on-surface">{feedback.comment}</p><p className="text-[11px] text-on-surface-variant mt-1">{feedback.instructorName || feedback.instructor_name || 'Giảng viên'} · {(feedback.createdAt || feedback.created_at) ? new Date(feedback.createdAt || feedback.created_at!).toLocaleString('vi-VN') : ''}</p></article>)}
                       </div>
                       {feedbackError && <p className="mb-3 text-xs text-red-700">{feedbackError}</p>}
-                      <label className="block text-xs font-semibold text-on-surface-variant mb-2">Nhận xét cho lượt tập này (gắn trực tiếp với attemptId: {selectedAttempt.id})</label>
+                      <label className="block text-xs font-semibold text-on-surface-variant mb-2">Nhận xét cho lượt tập này</label>
                       <textarea value={feedbackComment} onChange={(event) => setFeedbackComment(event.target.value)} maxLength={2000} placeholder="Ví dụ: Cần giữ nhịp đều hơn ở ô nhịp thứ hai." className="w-full min-h-24 rounded-xl border border-outline-variant/25 bg-white p-3 text-sm outline-none focus:border-[#1D4532]" />
                       <button type="button" disabled={feedbackSaving || !feedbackComment.trim()} onClick={() => void submitFeedback()} className="mt-3 inline-flex items-center gap-2 rounded-xl bg-[#1D4532] px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50"><Send className="w-4 h-4" />{feedbackSaving ? 'Đang gửi...' : 'Gửi phản hồi'}</button>
                     </>}

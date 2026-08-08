@@ -77,9 +77,6 @@ const RolesSection = () => {
               <ShieldCheck className="text-tertiary" size={28} />
             </div>
             <h3 className="font-headline-md text-headline-md text-on-surface mb-md">Quản trị viên</h3>
-            <p className="font-body-md text-body-md text-on-surface-variant mb-xl flex-grow">
-              Vận hành hệ thống. Quản lý người dùng, kiểm duyệt nội dung và cấu hình hệ thống AI trung tâm.
-            </p>
             <button className="w-full border-2 border-on-surface text-on-surface py-md rounded-lg font-label-md text-label-md hover:bg-surface-container-highest transition-colors">
               Vào Quản trị
             </button>

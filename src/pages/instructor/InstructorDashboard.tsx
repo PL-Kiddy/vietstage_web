@@ -1,293 +1,343 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import {
-  Users,
+  Activity,
+  ArrowRight,
   BookOpen,
-  AlertTriangle,
+  CheckCircle2,
+  CircleDashed,
+  Clock3,
+  FilePenLine,
+  RefreshCw,
+  Send,
+  Users,
 } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { useAxiosRequest } from '../../hooks/useAxiosRequest';
-import {
-  instructorStudentsApi,
-  lessonsApi,
-  reviewsApi,
-  instructorDashboardApi,
-} from '../../api/services';
+import { instructorStudentsApi, lessonsApi } from '../../api/services';
 import { profileApi } from '../../api/management';
-import { getAuthSession } from '../../api/authStorage';
+import type { Lesson, PracticeAttemptDetailResponse } from '../../api/types';
+
+type LessonStatus = Lesson['status'];
+
+interface InstructorDashboardData {
+  teacherName: string;
+  totalStudents?: number;
+  totalLessons?: number;
+  totalAttempts?: number;
+  lessons: Lesson[];
+  recentAttempts: PracticeAttemptDetailResponse[];
+  weeklyAttempts: PracticeAttemptDetailResponse[];
+  hasPartialError: boolean;
+}
+
+const lessonStatusMeta: Record<LessonStatus, { label: string; color: string; icon: typeof CircleDashed }> = {
+  DRAFT: { label: 'Bản nháp', color: 'bg-slate-400', icon: FilePenLine },
+  PENDING: { label: 'Chờ duyệt', color: 'bg-amber-500', icon: Clock3 },
+  APPROVED: { label: 'Đã duyệt', color: 'bg-emerald-600', icon: CheckCircle2 },
+  REJECTED: { label: 'Cần chỉnh sửa', color: 'bg-rose-500', icon: RefreshCw },
+};
+
+const toLocalDate = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const scoreLabel = (score?: number) =>
+  typeof score === 'number' ? `${Math.round(score)} điểm` : 'Chưa chấm điểm';
 
 const InstructorDashboard = () => {
-  // 1. Fetch dashboard stats from backend
-  const fetchStats = useCallback(() => instructorDashboardApi.getStats(), []);
-  const { data: dashboardStats } = useAxiosRequest(fetchStats, { auto: true });
+  const fetchDashboard = useCallback(async (signal?: AbortSignal): Promise<InstructorDashboardData> => {
+    const today = new Date();
+    const firstDay = new Date(today);
+    firstDay.setDate(today.getDate() - 6);
 
-  // 2. Fallbacks: Fetch all students to count
-  const fetchStudents = useCallback(() => instructorStudentsApi.listStudents(0, 100), []);
-  const { data: studentsResponse } = useAxiosRequest(fetchStudents, { auto: true });
-  const studentsCount = (((studentsResponse as any)?.content ?? []) as any[]).filter(
-    (u: any) =>
-      u.role === 'Người học' ||
-      u.role === 'LEARNER' ||
-      u.role === 'learner' ||
-      u.role === 'Learner'
-  ).length;
+    const profilePromise = profileApi.get({ signal });
+    const studentsPromise = instructorStudentsApi.listStudents(0, 1, undefined, { signal });
+    const recentAttemptsPromise = instructorStudentsApi.getInstructorAttempts({ page: 0, size: 5 }, { signal });
+    const weeklyAttemptsPromise = (async () => {
+      const attempts: PracticeAttemptDetailResponse[] = [];
+      let page = 0;
+      let totalPages = 1;
+      while (page < totalPages) {
+        const response = await instructorStudentsApi.getInstructorAttempts({
+          fromDate: toLocalDate(firstDay),
+          toDate: toLocalDate(today),
+          page,
+          size: 100,
+        }, { signal });
+        attempts.push(...(response.content ?? []));
+        totalPages = response.totalPages ?? 1;
+        page += 1;
+      }
+      return attempts;
+    })();
+    const ownLessonsPromise = (async () => {
+      const profile = await profilePromise;
+      const firstPage = await lessonsApi.list(new URLSearchParams({ page: '1', size: '100' }), { signal });
+      const lessonPages = [firstPage];
+      for (let page = 2; page <= firstPage.totalPages; page += 1) {
+        lessonPages.push(await lessonsApi.list(
+          new URLSearchParams({ page: String(page), size: '100' }),
+          { signal },
+        ));
+      }
+      return lessonPages
+        .flatMap((lessonPage) => lessonPage.content ?? [])
+        .filter((lesson) => lesson.createdBy?.id === profile.id);
+    })();
 
-  // 3. Fallbacks: Fetch all lessons to count
-  const fetchLessons = useCallback(
-    () => lessonsApi.list(new URLSearchParams({ size: '100' })),
-    []
-  );
-  const { data: lessonsResponse } = useAxiosRequest(fetchLessons, { auto: true });
-  const lessonsCount = lessonsResponse?.content?.length || 0;
+    const [profileResult, studentsResult, recentResult, weeklyResult, lessonsResult] = await Promise.allSettled([
+      profilePromise,
+      studentsPromise,
+      recentAttemptsPromise,
+      weeklyAttemptsPromise,
+      ownLessonsPromise,
+    ]);
+    const results = [profileResult, studentsResult, recentResult, weeklyResult, lessonsResult];
 
-  // 4. Fetch reviews list for activities & pending count
-  const fetchReviews = useCallback(() => reviewsApi.list(), []);
-  const { data: reviewsResponse, loading: reviewsLoading } = useAxiosRequest(
-    fetchReviews,
-    { auto: true }
-  );
+    return {
+      teacherName: profileResult.status === 'fulfilled' ? profileResult.value.fullName : '',
+      totalStudents: studentsResult.status === 'fulfilled' ? studentsResult.value.totalElements : undefined,
+      totalLessons: lessonsResult.status === 'fulfilled' ? lessonsResult.value.length : undefined,
+      totalAttempts: recentResult.status === 'fulfilled' ? recentResult.value.totalElements : undefined,
+      lessons: lessonsResult.status === 'fulfilled' ? lessonsResult.value : [],
+      recentAttempts: recentResult.status === 'fulfilled' ? recentResult.value.content ?? [] : [],
+      weeklyAttempts: weeklyResult.status === 'fulfilled' ? weeklyResult.value : [],
+      hasPartialError: results.some((result) => result.status === 'rejected'),
+    };
+  }, []);
 
-  const reviews = reviewsResponse?.content ?? [];
-  const pendingReviewsCount = reviews.filter((r) => r.status === 'pending').length;
+  const { data, loading, execute } = useAxiosRequest(fetchDashboard);
+  const teacherName = data?.teacherName?.trim();
 
-  // Stats calculation with fallback mechanism
-  const totalStudents = dashboardStats?.students ?? dashboardStats?.totalLearners ?? studentsCount;
-  const totalLessons = dashboardStats?.courses ?? dashboardStats?.activeLessons ?? lessonsCount;
-  const pendingReviews = pendingReviewsCount;
+  const chartRows = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const attempt of data?.weeklyAttempts ?? []) {
+      if (!attempt.createdAt) continue;
+      const attemptDate = new Date(attempt.createdAt);
+      if (Number.isNaN(attemptDate.getTime())) continue;
+      const key = toLocalDate(attemptDate);
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
 
-  const statsList = [
-    {
-      icon: Users,
-      iconBg: 'bg-[#1D4532]/10 text-[#1D4532]',
-      label: 'Tổng số học viên',
-      value: String(totalStudents),
-      badge: '+4%',
-      trending: true,
-    },
-    {
-      icon: BookOpen,
-      iconBg: 'bg-[#1D4532]/10 text-[#1D4532]',
-      label: 'Tổng bài giảng',
-      value: String(totalLessons),
-    },
-    {
-      icon: AlertTriangle,
-      iconBg: 'bg-[#1D4532]/10 text-[#1D4532]',
-      label: 'Bài tập chờ nhận xét',
-      value: String(pendingReviews),
-      highlightBorder: true,
-    },
+    const rows: Array<{ date: string; label: string; attempts: number }> = [];
+    const today = new Date();
+    for (let offset = 6; offset >= 0; offset -= 1) {
+      const date = new Date(today);
+      date.setDate(today.getDate() - offset);
+      const key = toLocalDate(date);
+      rows.push({
+        date: key,
+        label: date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }),
+        attempts: counts.get(key) ?? 0,
+      });
+    }
+    return rows;
+  }, [data?.weeklyAttempts]);
+
+  const statusRows = useMemo(() => {
+    const counts: Record<LessonStatus, number> = { DRAFT: 0, PENDING: 0, APPROVED: 0, REJECTED: 0 };
+    for (const lesson of data?.lessons ?? []) {
+      if (lesson.status in counts) counts[lesson.status] += 1;
+    }
+    return (Object.keys(counts) as LessonStatus[]).map((status) => ({
+      status,
+      count: counts[status],
+      ...lessonStatusMeta[status],
+    }));
+  }, [data?.lessons]);
+
+  const maxAttempts = Math.max(1, ...chartRows.map((row) => row.attempts));
+  const weeklyTotal = chartRows.reduce((total, row) => total + row.attempts, 0);
+  const statCards = [
+    { icon: Users, label: 'Học viên đang theo dõi', value: data?.totalStudents, href: '/instructor/students' },
+    { icon: BookOpen, label: 'Bài giảng của tôi', value: data?.totalLessons, href: '/instructor/lessons' },
+    { icon: Activity, label: 'Tổng lượt luyện tập', value: data?.totalAttempts, href: '/instructor/students' },
   ];
 
-  // Map reviews to student activities
-  const activities = reviews.slice(0, 5).map((r) => ({
-    name: r.instructor || 'Học viên',
-    lesson: r.title || 'Bài thực hành nhạc cụ',
-    accuracy: r.status === 'pending' ? 'Chờ duyệt' : r.status === 'approved' ? 'Đã duyệt' : 'Từ chối',
-    accuracyBg:
-      r.status === 'pending'
-        ? 'bg-amber-50 text-amber-700'
-        : r.status === 'approved'
-        ? 'bg-green-50 text-green-700'
-        : 'bg-red-50 text-red-700',
-    time: r.date || 'Gần đây',
-    id: r.id,
-  }));
-
-  // 5. Fetch user profile for dynamic greeting
-  const fetchProfile = useCallback(() => profileApi.get(), []);
-  const { data: userProfile } = useAxiosRequest(fetchProfile, { auto: true });
-  const session = getAuthSession();
-  const teacherName = userProfile?.fullName || session?.name || 'Giảng viên';
-
   return (
-    <>
-      {/* Dashboard Header */}
-      <header className="mb-xl">
-        <h2 className="text-headline-lg font-bold text-[#1D4532] mb-xs">
-          Xin chào, {teacherName}
-        </h2>
-        <p className="text-body-md text-on-surface-variant">
-          Chào mừng bạn quay trở lại với Cổng quản trị VietStage.
-        </p>
+    <div className="mx-auto w-full max-w-[1500px] space-y-6 pb-4">
+      <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-[#163d2d] md:text-4xl">
+            {teacherName ? `Xin chào, ${teacherName}` : 'Xin chào'}
+          </h1>
+          <p className="mt-2 max-w-2xl text-sm text-[#68736d] md:text-base">
+            Theo dõi nhanh bài giảng, học viên và kết quả luyện tập mới nhất.
+          </p>
+        </div>
       </header>
 
-      {/* Bento Stats Widgets */}
-      <section className="grid grid-cols-1 sm:grid-cols-3 gap-gutter mb-xl">
-        {statsList.map((s, idx) => (
-          <div
-            key={idx}
-            className={`bg-white p-lg rounded-xl shadow-sm border border-outline-variant/5 flex flex-col gap-sm relative overflow-hidden`}
+      {data?.hasPartialError && (
+        <div className="flex flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 sm:flex-row sm:items-center sm:justify-between">
+          <span>Một số dữ liệu chưa thể tải. Các phần còn lại vẫn được cập nhật bình thường.</span>
+          <button type="button" onClick={() => void execute()} className="inline-flex items-center gap-1.5 font-semibold hover:underline">
+            <RefreshCw className="h-4 w-4" /> Thử lại
+          </button>
+        </div>
+      )}
+
+      <section className="grid grid-cols-1 gap-4 sm:grid-cols-3" aria-label="Chỉ số tổng quan">
+        {statCards.map((stat) => (
+          <Link
+            key={stat.label}
+            to={stat.href}
+            className="group rounded-2xl border border-[#e0e9e4] bg-white p-5 shadow-[0_4px_18px_rgba(20,61,44,0.04)] transition hover:-translate-y-0.5 hover:border-[#bfd3c7] hover:shadow-[0_10px_28px_rgba(20,61,44,0.08)]"
           >
-            <div className="flex justify-between items-start">
-              <div className={`p-2 rounded-lg ${s.iconBg}`}>
-                <s.icon className="w-5 h-5" />
-              </div>
-              {s.badge && (
-                <span className="text-green-600 font-label-sm text-label-sm flex items-center gap-xs font-semibold">
-                  {s.badge}
-                  {s.trending && <span className="text-[12px] font-bold">↑</span>}
-                </span>
-              )}
+            <div className="flex items-start justify-between">
+              <span className="grid h-10 w-10 place-items-center rounded-xl bg-[#edf5f1] text-[#1D4532]">
+                <stat.icon className="h-5 w-5" />
+              </span>
+              <ArrowRight className="h-4 w-4 text-[#9aa9a1] transition group-hover:translate-x-0.5 group-hover:text-[#1D4532]" />
             </div>
-            <div>
-              <p className="font-label-md text-[11px] text-on-surface-variant uppercase tracking-wider">
-                {s.label}
-              </p>
-              <p className="text-headline-lg font-bold text-[#1D4532]">{s.value}</p>
-            </div>
-            {s.highlightBorder && (
-              <div className="absolute bottom-0 right-0 w-16 h-1 bg-[#1D4532]/30" />
-            )}
-          </div>
+            <p className="mt-5 text-3xl font-bold tracking-tight text-[#173f2f]">
+              {loading || stat.value === undefined ? '—' : stat.value.toLocaleString('vi-VN')}
+            </p>
+            <p className="mt-1 text-sm font-medium text-[#6b7770]">{stat.label}</p>
+          </Link>
         ))}
       </section>
 
-      {/* Weekly Trend Chart */}
-      <section className="bg-white p-xl rounded-xl shadow-sm border border-outline-variant/5 mb-xl">
-        <div className="flex justify-between items-center mb-xl">
-          <h3 className="text-headline-md font-bold text-[#1D4532]">
-            Xu hướng học tập trong tuần
-          </h3>
-          <select className="bg-surface-container border-none text-label-md font-label-md rounded-lg focus:ring-[#1D4532] py-1 px-3 outline-none cursor-pointer">
-            <option>7 ngày qua</option>
-            <option>30 ngày qua</option>
-          </select>
-        </div>
-
-        <div className="relative h-[300px] w-full mt-lg">
-          {/* SVG Chart */}
-          <svg className="w-full h-full" viewBox="0 0 800 300">
-            {/* Grid Lines */}
-            <line stroke="#e4e2dd" strokeDasharray="4" x1="0" x2="800" y1="50" y2="50" />
-            <line stroke="#e4e2dd" strokeDasharray="4" x1="0" x2="800" y1="150" y2="150" />
-            <line stroke="#e4e2dd" strokeDasharray="4" x1="0" x2="800" y1="250" y2="250" />
-
-            {/* Main Line */}
-            <path
-              d="M0,220 C100,200 150,260 250,180 S400,100 500,140 S650,40 800,80"
-              fill="none"
-              stroke="#1D4532"
-              strokeLinecap="round"
-              strokeWidth="4"
-            />
-
-            {/* Area fill */}
-            <path
-              d="M0,220 C100,200 150,260 250,180 S400,100 500,140 S650,40 800,80 V300 H0 Z"
-              fill="url(#grad1)"
-              opacity="0.15"
-            />
-
-            <defs>
-              <linearGradient id="grad1" x1="0%" x2="0%" y1="0%" y2="100%">
-                <stop offset="0%" style={{ stopColor: '#1D4532', stopOpacity: 1 }} />
-                <stop offset="100%" style={{ stopColor: '#1D4532', stopOpacity: 0 }} />
-              </linearGradient>
-            </defs>
-
-            {/* Data dots */}
-            <circle cx="250" cy="180" fill="#1D4532" r="6" stroke="white" strokeWidth="2" />
-            <circle cx="500" cy="140" fill="#1D4532" r="6" stroke="white" strokeWidth="2" />
-            <circle cx="800" cy="80" fill="#1D4532" r="6" stroke="white" strokeWidth="2" />
-          </svg>
-
-          {/* X-Axis Labels */}
-          <div className="flex justify-between mt-md px-2 font-label-sm text-[12px] text-on-surface-variant">
-            <span>Thứ 2</span>
-            <span>Thứ 3</span>
-            <span>Thứ 4</span>
-            <span>Thứ 5</span>
-            <span>Thứ 6</span>
-            <span>Thứ 7</span>
-            <span>Chủ Nhật</span>
+      <section className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1.7fr)_minmax(300px,0.8fr)]">
+        <article className="rounded-2xl border border-[#e0e9e4] bg-white p-5 shadow-[0_4px_18px_rgba(20,61,44,0.04)] md:p-6">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h2 className="text-lg font-bold text-[#173f2f]">Hoạt động 7 ngày gần nhất</h2>
+              <p className="mt-1 text-sm text-[#718078]">Số lượt luyện tập của học viên theo ngày.</p>
+            </div>
+            <div className="rounded-xl bg-[#edf5f1] px-3 py-2 text-right">
+              <p className="text-lg font-bold leading-none text-[#1D4532]">{weeklyTotal}</p>
+              <p className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-[#718078]">Lượt tập</p>
+            </div>
           </div>
-        </div>
-      </section>
 
-      {/* Latest Activities Table */}
-      <section className="mt-xl bg-white rounded-xl shadow-sm border border-outline-variant/5 overflow-hidden">
-        <div className="p-xl border-b border-outline-variant/10 flex justify-between items-center">
-          <h3 className="text-headline-md font-bold text-[#1D4532]">
-            Hoạt động mới nhất
-          </h3>
-          <button 
-            onClick={() => window.location.href = '/instructor/students'}
-            className="flex items-center gap-xs text-[#1D4532] font-label-md text-label-md hover:underline font-semibold"
-          >
-            Xem toàn bộ →
-          </button>
-        </div>
+          {loading ? (
+            <div className="mt-6 h-52 animate-pulse rounded-xl bg-[#f1f5f3]" />
+          ) : weeklyTotal === 0 ? (
+            <div className="mt-6 grid min-h-52 place-items-center rounded-xl border border-dashed border-[#d5e2db] bg-[#fafcfb] px-6 text-center">
+              <div>
+                <Activity className="mx-auto h-8 w-8 text-[#91a39a]" />
+                <p className="mt-3 font-semibold text-[#365647]">Chưa có lượt luyện tập trong 7 ngày qua</p>
+                <p className="mt-1 text-sm text-[#7a8780]">Hoạt động mới sẽ được cập nhật tự động tại đây.</p>
+              </div>
+            </div>
+          ) : (
+            <div className="mt-6 grid h-52 grid-cols-7 items-end gap-2 sm:gap-3" aria-label="Biểu đồ lượt luyện tập 7 ngày">
+              {chartRows.map((row) => (
+                <div key={row.date} className="flex h-full min-w-0 flex-col justify-end gap-2 text-center">
+                  <span className="text-xs font-bold text-[#1D4532]">{row.attempts}</span>
+                  <div className="flex h-36 items-end justify-center rounded-lg bg-[#f3f7f5] px-1.5">
+                    <div
+                      className="w-full max-w-10 rounded-t-md bg-gradient-to-t from-[#1D4532] to-[#4f856c]"
+                      style={{ height: row.attempts === 0 ? 0 : `${Math.max(9, (row.attempts / maxAttempts) * 100)}%` }}
+                    />
+                  </div>
+                  <span className="truncate text-[10px] font-medium text-[#7a8780] sm:text-xs">{row.label}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </article>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left">
-            <thead>
-              <tr className="bg-[#EDF7F2]">
-                <th className="px-xl py-md font-label-sm text-label-sm text-[#1D4532] uppercase tracking-wider text-[12px] font-semibold">
-                  Người thực hiện
-                </th>
-                <th className="px-xl py-md font-label-sm text-label-sm text-[#1D4532] uppercase tracking-wider text-[12px] font-semibold">
-                  Tên yêu cầu / Bài học
-                </th>
-                <th className="px-xl py-md font-label-sm text-label-sm text-[#1D4532] uppercase tracking-wider text-center text-[12px] font-semibold">
-                  Trạng thái
-                </th>
-                <th className="px-xl py-md font-label-sm text-label-sm text-[#1D4532] uppercase tracking-wider text-[12px] font-semibold">
-                  Thời gian
-                </th>
-                <th className="px-xl py-md font-label-sm text-label-sm text-[#1D4532] uppercase tracking-wider"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-outline-variant/10">
-              {reviewsLoading ? (
-                <tr>
-                  <td colSpan={5} className="px-xl py-lg text-center text-on-surface-variant">
-                    Đang tải hoạt động mới nhất...
-                  </td>
-                </tr>
-              ) : activities.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="px-xl py-lg text-center text-on-surface-variant">
-                    Chưa có hoạt động nào được ghi nhận.
-                  </td>
-                </tr>
-              ) : (
-                activities.map((act, idx) => (
-                  <tr key={idx} className="hover:bg-[#EDF7F2]/40 transition-colors">
-                    <td className="px-xl py-lg flex items-center gap-md">
-                      <div className="w-8 h-8 rounded-full bg-[#1D4532]/10 font-bold text-[#1D4532] flex items-center justify-center text-xs">
-                        {act.name.charAt(0)}
+        <article className="rounded-2xl border border-[#e0e9e4] bg-white p-5 shadow-[0_4px_18px_rgba(20,61,44,0.04)] md:p-6">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h2 className="text-lg font-bold text-[#173f2f]">Trạng thái bài giảng</h2>
+              <p className="mt-1 text-sm text-[#718078]">Tổng hợp từ các bài giảng của bạn.</p>
+            </div>
+            <Link to="/instructor/lessons" className="text-sm font-semibold text-[#1D4532] hover:underline">Chi tiết</Link>
+          </div>
+
+          {loading ? (
+            <div className="mt-6 space-y-3">
+              {[0, 1, 2, 3].map((item) => <div key={item} className="h-12 animate-pulse rounded-xl bg-[#f1f5f3]" />)}
+            </div>
+          ) : (data?.totalLessons ?? 0) === 0 ? (
+            <div className="mt-6 grid min-h-52 place-items-center rounded-xl border border-dashed border-[#d5e2db] bg-[#fafcfb] px-5 text-center">
+              <div>
+                <BookOpen className="mx-auto h-8 w-8 text-[#91a39a]" />
+                <p className="mt-3 font-semibold text-[#365647]">Chưa có bài giảng</p>
+                <Link to="/instructor/media" className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-[#1D4532] hover:underline">
+                  Tạo bài giảng <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
+              </div>
+            </div>
+          ) : (
+            <div className="mt-6 space-y-3">
+              {statusRows.map((row) => {
+                const Icon = row.icon;
+                const percentage = data?.totalLessons ? (row.count / data.totalLessons) * 100 : 0;
+                return (
+                  <div key={row.status} className="rounded-xl border border-[#e8eeea] px-3.5 py-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2.5">
+                        <Icon className="h-4 w-4 text-[#64766c]" />
+                        <span className="text-sm font-medium text-[#44564d]">{row.label}</span>
                       </div>
-                      <span className="font-label-md text-label-md font-semibold text-on-surface">
-                        {act.name}
-                      </span>
-                    </td>
-                    <td className="px-xl py-lg text-body-md text-on-surface">
-                      {act.lesson}
-                    </td>
-                    <td className="px-xl py-lg text-center">
-                      <span className={`px-3 py-1 rounded-full font-label-sm text-label-sm font-bold ${act.accuracyBg}`}>
-                        {act.accuracy}
-                      </span>
-                    </td>
-                    <td className="px-xl py-lg text-body-md text-on-surface-variant">
-                      {act.time}
-                    </td>
-                    <td className="px-xl py-lg text-right">
-                      <button 
-                        onClick={() => window.location.href = `/instructor/students`}
-                        className="text-[#1D4532] hover:text-[#1D4532]/80 font-semibold"
-                      >
-                        Xem chi tiết
-                      </button>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                      <span className="text-sm font-bold text-[#173f2f]">{row.count}</span>
+                    </div>
+                    <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-[#edf2ef]">
+                      <div className={`h-full rounded-full ${row.color}`} style={{ width: `${percentage}%` }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </article>
       </section>
 
-    </>
+      <section className="overflow-hidden rounded-2xl border border-[#e0e9e4] bg-white shadow-[0_4px_18px_rgba(20,61,44,0.04)]">
+        <div className="flex items-center justify-between gap-4 border-b border-[#e8eeea] px-5 py-4 md:px-6">
+          <div>
+            <h2 className="text-lg font-bold text-[#173f2f]">Lượt luyện tập mới nhất</h2>
+            <p className="mt-1 text-sm text-[#718078]">Các bài nộp gần đây từ học viên của bạn.</p>
+          </div>
+          <Link to="/instructor/students" className="inline-flex shrink-0 items-center gap-1 text-sm font-semibold text-[#1D4532] hover:underline">
+            Xem tất cả <ArrowRight className="h-4 w-4" />
+          </Link>
+        </div>
+
+        {loading ? (
+          <div className="space-y-3 p-5 md:p-6">
+            {[0, 1, 2].map((item) => <div key={item} className="h-14 animate-pulse rounded-xl bg-[#f1f5f3]" />)}
+          </div>
+        ) : (data?.recentAttempts.length ?? 0) === 0 ? (
+          <div className="grid min-h-40 place-items-center px-6 py-8 text-center">
+            <div>
+              <Send className="mx-auto h-8 w-8 text-[#91a39a]" />
+              <p className="mt-3 font-semibold text-[#365647]">Chưa có lượt luyện tập nào</p>
+              <p className="mt-1 text-sm text-[#7a8780]">Bài nộp mới của học viên sẽ xuất hiện tại đây.</p>
+            </div>
+          </div>
+        ) : (
+          <div className="divide-y divide-[#edf1ef]">
+            {data?.recentAttempts.map((attempt) => (
+              <article key={attempt.attemptId} className="grid gap-3 px-5 py-4 transition hover:bg-[#fafcfb] md:grid-cols-[minmax(180px,0.8fr)_minmax(240px,1.4fr)_120px_190px] md:items-center md:px-6">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-[#294c3c]">{attempt.learnerName || 'Chưa cập nhật tên'}</p>
+                  <p className="mt-0.5 truncate text-xs text-[#7a8780]">Học viên</p>
+                </div>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium text-[#354b40]">{attempt.lessonTitle || 'Chưa cập nhật bài học'}</p>
+                  <p className="mt-0.5 truncate text-xs text-[#7a8780]">{attempt.exerciseTitle || 'Chưa cập nhật bài tập'}</p>
+                </div>
+                <div>
+                  <span className="inline-flex rounded-full bg-[#edf5f1] px-2.5 py-1 text-xs font-bold text-[#1D4532]">
+                    {scoreLabel(attempt.totalScore)}
+                  </span>
+                </div>
+                <time className="text-xs text-[#718078]" dateTime={attempt.createdAt}>
+                  {attempt.createdAt ? new Date(attempt.createdAt).toLocaleString('vi-VN') : 'Chưa cập nhật thời gian'}
+                </time>
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
+    </div>
   );
 };
 

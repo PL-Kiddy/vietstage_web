@@ -10,8 +10,9 @@ import type {
   PracticeAttemptDetailResponse,
   FeedbackResponse,
   LessonAsset,
-  DashboardStats,
   InstructorLearner,
+  AdminDashboardStats,
+  DashboardGranularity,
 } from './types';
 
 export const authApi = {
@@ -203,7 +204,7 @@ export const instructorStudentsApi = {
   // attempt endpoint here; it returns 403 for an instructor session.
   getInstructorAttempts: (
     filters: {
-      learnerId: number;
+      learnerId?: number;
       lessonId?: number;
       fromDate?: string;
       toDate?: string;
@@ -213,7 +214,7 @@ export const instructorStudentsApi = {
     options?: RequestOptions,
   ) => {
     const params = new URLSearchParams();
-    params.set('learnerId', String(filters.learnerId));
+    if (filters.learnerId !== undefined) params.set('learnerId', String(filters.learnerId));
     if (filters.lessonId !== undefined) params.set('lessonId', String(filters.lessonId));
     if (filters.fromDate) params.set('fromDate', filters.fromDate);
     if (filters.toDate) params.set('toDate', filters.toDate);
@@ -221,7 +222,7 @@ export const instructorStudentsApi = {
     params.set('size', String(filters.size ?? 100));
     return apiRequest<PageResponse<PracticeAttemptDetailResponse>>(`/api/instructor/practice-attempts?${params.toString()}`, options);
   },
-  
+
   // OpenAPI: GET /api/practice/attempts/{attemptId}/feedback
   getFeedbacks: (attemptId: number, options?: RequestOptions) =>
     apiRequest<FeedbackResponse[] | PageResponse<FeedbackResponse>>(`/api/practice/attempts/${attemptId}/feedback`, options),
@@ -240,7 +241,7 @@ export const uploadApi = {
     formData.append('file', file);
     return apiRequest<string>('/api/upload', {
       method: 'POST',
-      body: formData as any,
+      body: formData,
     });
   },
 };
@@ -273,7 +274,7 @@ export const lessonAssetsApi = {
     
     return apiRequest<LessonAsset>(url, {
       method: 'POST',
-      body: formData as any
+      body: formData,
     });
   },
   
@@ -284,7 +285,16 @@ export const lessonAssetsApi = {
     }),
 };
 
-export const instructorDashboardApi = {
-  getStats: (options?: RequestOptions) =>
-    apiRequest<DashboardStats>('/api/admin/dashboard', options),
+export const adminDashboardApi = {
+  get: (
+    params: { fromDate: string; toDate: string; granularity: DashboardGranularity },
+    options?: RequestOptions,
+  ) => {
+    const query = new URLSearchParams({
+      fromDate: params.fromDate,
+      toDate: params.toDate,
+      granularity: params.granularity,
+    });
+    return apiRequest<AdminDashboardStats>(`/api/admin/dashboard?${query.toString()}`, options);
+  },
 };

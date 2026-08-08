@@ -30,6 +30,18 @@ interface ApiEnvelope<T> {
   data?: T;
 }
 
+const TECHNICAL_ERROR_PATTERN = /\b(jdbc|sql|exception|stack trace|syntax error|relation|column|constraint|hibernate|select |insert |update |delete from)\b/i;
+
+const getSafeErrorMessage = (status: number, message?: string): string => {
+  if (status >= 500) return 'Hệ thống đang gặp sự cố. Vui lòng thử lại sau.';
+  if (status === 401) return 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.';
+  if (status === 403) return 'Bạn không có quyền thực hiện thao tác này.';
+  if (status === 404) return 'Không tìm thấy dữ liệu yêu cầu.';
+  if (status === 429) return 'Bạn thao tác quá nhanh. Vui lòng thử lại sau.';
+  if (message && !TECHNICAL_ERROR_PATTERN.test(message)) return message;
+  return 'Không thể xử lý yêu cầu. Vui lòng thử lại.';
+};
+
 let refreshPromise: Promise<boolean> | null = null;
 
 const toApiError = (error: unknown): ApiError => {
@@ -38,12 +50,16 @@ const toApiError = (error: unknown): ApiError => {
     const payload = error.response?.data as ApiEnvelope<unknown> | undefined;
     if (!error.response) {
       return new ApiError(
-        'Khong the ket noi may chu VietStage. Vui long kiem tra backend dang chay.',
+        'Không thể kết nối hệ thống. Vui lòng kiểm tra mạng và thử lại.',
         0,
         error,
       );
     }
-    return new ApiError(payload?.message ?? error.message ?? `HTTP ${status}`, status, payload?.data);
+    return new ApiError(
+      getSafeErrorMessage(status, payload?.message),
+      status,
+      status >= 500 ? undefined : payload?.data,
+    );
   }
 
   if (error instanceof ApiError) {

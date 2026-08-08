@@ -143,7 +143,7 @@ const InstructorLessonContent = () => {
           description: exerciseForm.description?.trim(),
         };
         if (!editingId && !body.beatMapAssetId) {
-          throw new Error('Backend hiện yêu cầu Beat Map Asset ID khi tạo bài tập có ngưỡng đạt. Hãy nhập một asset ID hợp lệ.');
+          throw new Error('Vui lòng chọn tài nguyên bản đồ nhịp điệu trước khi tạo bài tập.');
         }
         if (editingId) await exercisesApi.update(editingId, body);
         else await exercisesApi.create(lessonId, body);

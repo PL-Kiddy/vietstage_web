@@ -1,37 +1,6 @@
 import { apiRequest, type RequestOptions } from './client';
 import type { Instrument, Lesson, SkillLevel } from './types';
 
-export interface DashboardStats {
-  /** Các trường legacy hiện có trong response cũ; không được dùng để thay thế analytics yêu cầu. */
-  totalUsers?: number;
-  totalRevenue?: number;
-  totalLessons?: number;
-  activeInstructors?: number;
-  chartData?: Array<{ name?: string; users?: number; revenue?: number }>;
-  /** Số người dùng hoạt động trong khoảng thời gian mà API trả về. */
-  activeUsers?: number;
-  popularInstruments?: Array<{
-    instrumentId?: number;
-    instrumentName?: string;
-    name?: string;
-    practiceCount?: number;
-    value?: number;
-  }>;
-  sessionDuration?: Array<{
-    period?: string;
-    name?: string;
-    averageDurationMinutes?: number;
-    totalDurationMinutes?: number;
-    value?: number;
-  }>;
-  retention?: Array<{
-    period?: string;
-    name?: string;
-    retentionRate?: number;
-    value?: number;
-  }>;
-}
-
 export interface UserProfile {
   id: number;
   userCode: string;
@@ -72,10 +41,6 @@ export interface TechniqueInput {
 
 export type TechniqueUpdateInput = Omit<TechniqueInput, 'instrument_id'>;
 
-export const dashboardApi = {
-  get: (options?: RequestOptions) => apiRequest<DashboardStats>('/api/admin/dashboard', options),
-};
-
 export const profileApi = {
   get: (options?: RequestOptions) => apiRequest<UserProfile>('/api/users/me', options),
   update: (fullName: string) =>
@@ -114,8 +79,27 @@ export interface Notification {
   created_at?: string; // raw field from API
 }
 
+interface RawNotification {
+  id: number;
+  title?: string;
+  message?: string;
+  type?: string;
+  is_read?: boolean;
+  read?: boolean;
+  created_at?: string;
+  createdAt?: string;
+}
+
+interface NotificationListResponse {
+  data: RawNotification[];
+  page: number;
+  size: number;
+  total: number;
+  unread_count: number;
+}
+
 // Internal helper to normalize API notification object
-const normalizeNotification = (n: any): Notification => ({
+const normalizeNotification = (n: RawNotification): Notification => ({
   id: n.id,
   title: n.title || '',
   message: n.message || '',
@@ -130,15 +114,9 @@ const normalizeNotification = (n: any): Notification => ({
 export const notificationApi = {
   // Lấy danh sách thông báo — backend trả về { data: [...], page, size, total, unread_count }
   list: async (options?: RequestOptions): Promise<Notification[]> => {
-    const raw = await apiRequest<any>('/api/notifications', options);
+    const raw = await apiRequest<NotificationListResponse | RawNotification[]>('/api/notifications', options);
     // Handle direct array, single nested { data: [...] }, or double nested { data: { data: [...] } } envelope
-    const arr: any[] = Array.isArray(raw)
-      ? raw
-      : Array.isArray(raw?.data?.data)
-      ? raw.data.data
-      : Array.isArray(raw?.data)
-      ? raw.data
-      : [];
+    const arr = Array.isArray(raw) ? raw : raw.data ?? [];
     return arr.map(normalizeNotification);
   },
   // Đánh dấu một thông báo đã đọc

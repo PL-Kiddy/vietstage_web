@@ -182,6 +182,36 @@ export interface PracticeAttemptDetailResponse {
   createdAt: string;
 }
 
+export type DashboardGranularity = 'DAY' | 'WEEK' | 'MONTH';
+
+export interface PopularInstrumentStat {
+  instrumentId: number;
+  instrumentName: string;
+  practiceCount: number;
+}
+
+export interface SessionDurationStat {
+  period: string;
+  averageDurationMinutes: number;
+  totalDurationMinutes: number;
+}
+
+export interface RetentionStat {
+  period: string;
+  retentionRate: number;
+}
+
+export interface AdminDashboardStats {
+  totalUsers: number;
+  activeUsers: number;
+  totalRevenue?: number | null;
+  totalLessons: number;
+  activeInstructors: number;
+  popularInstruments: PopularInstrumentStat[];
+  sessionDuration: SessionDurationStat[];
+  retention: RetentionStat[];
+}
+
 export interface FeedbackResponse {
   id: number;
   comment: string;
