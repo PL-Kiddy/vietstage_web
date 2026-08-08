@@ -1,844 +1,552 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
-  X,
+  AlertCircle,
   Check,
-  Eye,
-  Search,
-  ZoomIn,
-  ChevronLeft,
-  ChevronRight,
+  CheckCircle2,
+  Clock3,
   ExternalLink,
   FileText,
+  Image as ImageIcon,
   Music2,
+  RefreshCw,
+  Search,
+  User,
+  Video,
+  X,
+  XCircle,
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { masterDataApi, reviewsApi, usersApi } from '../../api/services';
-import type { AdminUser, Instrument, ReviewItem as ApiReviewItem } from '../../api/types';
+import type { AdminUser, Instrument, ReviewItem } from '../../api/types';
 
-interface ReviewAsset {
-  id: number;
-  assetType: string;
-  title: string;
-  assetUrl: string;
-  mimeType?: string;
-  durationSec?: number;
+type ReviewStatus = 'pending' | 'approved' | 'rejected';
+type ReviewAsset = NonNullable<ReviewItem['assets']>[number];
+
+interface ReviewCounts {
+  pending?: number;
+  approved?: number;
+  rejected?: number;
 }
 
-interface ReviewItem {
-  id: string;
-  title: string;
-  instrumentId?: number;
-  instrument: string;
-  instructorId?: number;
-  instructor: string;
-  date: string;
-  assets: ReviewAsset[];
+interface PageInfo {
+  totalElements: number;
+  totalPages: number;
+}
+
+interface Notice {
+  type: 'success' | 'error';
+  message: string;
+}
+
+const STATUS_OPTIONS: Array<{
+  id: ReviewStatus;
+  label: string;
   description: string;
-  technicalNotes: string;
-  lessonId?: number;
-  status: 'draft' | 'pending' | 'approved' | 'rejected';
-  feedback?: string;
-  approvedBy?: string;
-  approvedAt?: string;
-}
+  icon: typeof Clock3;
+  activeClass: string;
+}> = [
+  {
+    id: 'pending',
+    label: 'Chờ duyệt',
+    description: 'Cần xử lý',
+    icon: Clock3,
+    activeClass: 'border-amber-300 bg-amber-50 text-amber-800',
+  },
+  {
+    id: 'approved',
+    label: 'Đã phê duyệt',
+    description: 'Đủ điều kiện phát hành',
+    icon: CheckCircle2,
+    activeClass: 'border-emerald-300 bg-emerald-50 text-emerald-800',
+  },
+  {
+    id: 'rejected',
+    label: 'Đã từ chối',
+    description: 'Cần giảng viên chỉnh sửa',
+    icon: XCircle,
+    activeClass: 'border-red-300 bg-red-50 text-red-800',
+  },
+];
 
-const isAudioAsset = (asset: ReviewAsset) =>
-  ['AUDIO', 'REFERENCE_AUDIO'].includes(asset.assetType.toUpperCase()) || asset.mimeType?.startsWith('audio/');
+const normalizeReview = (item: ReviewItem): ReviewItem => ({
+  ...item,
+  status: String(item.status ?? 'pending').toLowerCase() as ReviewItem['status'],
+  assets: Array.isArray(item.assets) ? item.assets : [],
+});
 
-const isImageAsset = (asset: ReviewAsset) =>
-  ['SHEET_MUSIC', 'SHEET_IMAGE', 'IMAGE'].includes(asset.assetType.toUpperCase()) || asset.mimeType?.startsWith('image/');
-
-const formatDuration = (seconds?: number) => {
-  if (!seconds || seconds < 0) return '';
-  const rounded = Math.round(seconds);
-  return `${String(Math.floor(rounded / 60)).padStart(2, '0')}:${String(rounded % 60).padStart(2, '0')}`;
+const isAudioAsset = (asset: ReviewAsset) => {
+  const type = `${asset.mimeType ?? ''} ${asset.assetType ?? ''}`.toLowerCase();
+  return type.includes('audio') || /\.(mp3|wav|ogg|m4a|aac)(\?|$)/i.test(asset.assetUrl);
 };
 
-const normalizeReview = (item: ApiReviewItem): ReviewItem => {
-  const assets = (item.assets ?? []).map((asset) => ({
-    id: asset.id,
-    assetType: asset.assetType || 'FILE',
-    title: asset.title || `Tệp đính kèm #${asset.id}`,
-    assetUrl: asset.assetUrl,
-    mimeType: asset.mimeType,
-    durationSec: asset.durationSec,
-  }));
+const isImageAsset = (asset: ReviewAsset) => {
+  const type = `${asset.mimeType ?? ''} ${asset.assetType ?? ''}`.toLowerCase();
+  return type.includes('image') || type.includes('sheet') || /\.(png|jpe?g|webp|gif)(\?|$)/i.test(asset.assetUrl);
+};
 
-  return {
-    id: String(item.id),
-    lessonId: item.lessonId,
-    title: item.title || 'Bài giảng chưa đặt tên',
-    instrumentId: item.instrumentId,
-    instrument: item.instrument || 'Chưa xác định',
-    instructorId: item.instructorId,
-    instructor: item.instructor || 'Chưa xác định',
-    date: item.date || '',
-    assets,
-    description: item.description || '',
-    technicalNotes: item.technicalNotes || '',
-    status: String(item.status || 'pending').trim().toLowerCase() as ReviewItem['status'],
-    feedback: item.feedback,
-    approvedBy: item.approvedBy,
-    approvedAt: item.approvedAt,
-  };
+const isVideoAsset = (asset: ReviewAsset) => {
+  const type = `${asset.mimeType ?? ''} ${asset.assetType ?? ''}`.toLowerCase();
+  return type.includes('video') || /\.(mp4|webm|mov)(\?|$)/i.test(asset.assetUrl);
+};
+
+const formatDuration = (seconds?: number) => {
+  if (seconds === undefined || !Number.isFinite(seconds)) return '';
+  const totalSeconds = Math.max(0, Math.round(seconds));
+  const minutes = Math.floor(totalSeconds / 60);
+  const remainingSeconds = totalSeconds % 60;
+  return `${minutes}:${String(remainingSeconds).padStart(2, '0')}`;
+};
+
+const statusBadge = (status: ReviewItem['status']) => {
+  if (status === 'approved') return 'bg-emerald-50 text-emerald-700';
+  if (status === 'rejected') return 'bg-red-50 text-red-700';
+  return 'bg-amber-50 text-amber-700';
+};
+
+const statusLabel = (status: ReviewItem['status']) => {
+  if (status === 'approved') return 'Đã phê duyệt';
+  if (status === 'rejected') return 'Đã từ chối';
+  return 'Chờ duyệt';
 };
 
 const AdminReview = () => {
   const [items, setItems] = useState<ReviewItem[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [counts, setCounts] = useState<ReviewCounts>({});
+  const [pageInfo, setPageInfo] = useState<PageInfo>({ totalElements: 0, totalPages: 1 });
+  const [statusFilter, setStatusFilter] = useState<ReviewStatus>('pending');
+  const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [instrumentId, setInstrumentId] = useState<number | null>(null);
+  const [instructorId, setInstructorId] = useState<number | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [perPage, setPerPage] = useState(10);
+  const [instruments, setInstruments] = useState<Instrument[]>([]);
+  const [instructors, setInstructors] = useState<AdminUser[]>([]);
+  const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
-  const [searchQuery, setSearchQuery] = useState<string>('');
-  const [debouncedSearch, setDebouncedSearch] = useState<string>('');
-  const [selectedInstrumentId, setSelectedInstrumentId] = useState<number | null>(null);
-  const [selectedInstructorId, setSelectedInstructorId] = useState<number | null>(null);
-  const [currentPage, setCurrentPage] = useState<number>(1);
-  const [perPage, setPerPage] = useState<number>(10);
-  const [pageInfo, setPageInfo] = useState({ totalElements: 0, totalPages: 1 });
-  const [reviewCounts, setReviewCounts] = useState({ all: 0, pending: 0, approved: 0, rejected: 0 });
-  const [instrumentOptions, setInstrumentOptions] = useState<Instrument[]>([]);
-  const [instructorOptions, setInstructorOptions] = useState<AdminUser[]>([]);
+  const [selectedItem, setSelectedItem] = useState<ReviewItem | null>(null);
+  const [feedback, setFeedback] = useState('');
+  const [feedbackError, setFeedbackError] = useState('');
+  const [submittingAction, setSubmittingAction] = useState<'approve' | 'reject' | null>(null);
+  const [confirmApprove, setConfirmApprove] = useState(false);
+  const [notice, setNotice] = useState<Notice | null>(null);
+  const requestIdRef = useRef(0);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => setDebouncedSearch(searchQuery.trim()), 350);
+    const timer = window.setTimeout(() => {
+      setDebouncedSearch(search.trim());
+      setCurrentPage(1);
+    }, 350);
     return () => window.clearTimeout(timer);
-  }, [searchQuery]);
+  }, [search]);
 
   useEffect(() => {
-    const controller = new AbortController();
-    const instructorParams = new URLSearchParams({ page: '0', size: '100', sortBy: 'name', sortDir: 'asc' });
-    instructorParams.append('roles', 'INSTRUCTOR');
-
-    void Promise.all([
-      masterDataApi.instruments({ signal: controller.signal }),
-      usersApi.list({ signal: controller.signal, params: instructorParams }),
-    ]).then(([instruments, instructors]) => {
-      if (controller.signal.aborted) return;
-      setInstrumentOptions(Array.isArray(instruments) ? instruments : []);
-      setInstructorOptions(instructors.content ?? []);
-    }).catch(() => {
-      if (!controller.signal.aborted) {
-        setInstrumentOptions([]);
-        setInstructorOptions([]);
-      }
-    });
-
-    return () => controller.abort();
+    const timer = window.setTimeout(() => {
+      const instructorParams = new URLSearchParams({ page: '0', size: '100', sortBy: 'fullName', sortDir: 'asc' });
+      instructorParams.append('roles', 'INSTRUCTOR');
+      void Promise.allSettled([
+        masterDataApi.instruments(),
+        usersApi.list({ params: instructorParams }),
+      ]).then(([instrumentResult, instructorResult]) => {
+        if (instrumentResult.status === 'fulfilled') setInstruments(instrumentResult.value);
+        if (instructorResult.status === 'fulfilled') setInstructors(instructorResult.value.content ?? []);
+      });
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, []);
 
-  const loadReviews = useCallback(async (signal?: AbortSignal) => {
-    setIsLoading(true);
+  const createParams = useCallback((status: ReviewStatus, page = 0, size = 1) => {
+    const params = new URLSearchParams({
+      page: String(page),
+      size: String(size),
+      status: status.toUpperCase(),
+    });
+    if (debouncedSearch) params.set('search', debouncedSearch);
+    if (instrumentId !== null) params.set('instrumentId', String(instrumentId));
+    if (instructorId !== null) params.set('instructorId', String(instructorId));
+    return params;
+  }, [debouncedSearch, instrumentId, instructorId]);
+
+  const loadReviews = useCallback(async () => {
+    const requestId = ++requestIdRef.current;
+    setLoading(true);
     setLoadError('');
-    try {
-      const createParams = (status?: string, page = currentPage - 1, size = perPage) => {
-        const params = new URLSearchParams({ page: String(page), size: String(size) });
-        if (status) params.set('status', status);
-        if (debouncedSearch) params.set('search', debouncedSearch);
-        if (selectedInstructorId !== null) params.set('instructorId', String(selectedInstructorId));
-        if (selectedInstrumentId !== null) params.set('instrumentId', String(selectedInstrumentId));
-        return params;
-      };
-      const activeStatus = statusFilter === 'all' ? undefined : statusFilter.toUpperCase();
-      const [reviewPage, allPage, pendingPage, approvedPage, rejectedPage] = await Promise.all([
-        reviewsApi.list(createParams(activeStatus), { signal }),
-        reviewsApi.list(createParams(undefined, 0, 1), { signal }),
-        reviewsApi.list(createParams('PENDING', 0, 1), { signal }),
-        reviewsApi.list(createParams('APPROVED', 0, 1), { signal }),
-        reviewsApi.list(createParams('REJECTED', 0, 1), { signal }),
-      ]);
-      // Draft lessons are an Instructor concern and must never enter the Admin moderation queue.
-      setItems((reviewPage.content ?? []).map(normalizeReview).filter((review) => review.status !== 'draft'));
-      setPageInfo({ totalElements: reviewPage.totalElements ?? 0, totalPages: reviewPage.totalPages ?? 1 });
-      setReviewCounts({
-        all: allPage.totalElements ?? 0,
-        pending: pendingPage.totalElements ?? 0,
-        approved: approvedPage.totalElements ?? 0,
-        rejected: rejectedPage.totalElements ?? 0,
-      });
-    } catch (error) {
+
+    const results = await Promise.allSettled([
+      reviewsApi.list(createParams(statusFilter, currentPage - 1, perPage)),
+      reviewsApi.list(createParams('pending')),
+      reviewsApi.list(createParams('approved')),
+      reviewsApi.list(createParams('rejected')),
+    ]);
+
+    if (requestId !== requestIdRef.current) return;
+    const [pageResult, pendingResult, approvedResult, rejectedResult] = results;
+
+    if (pageResult.status === 'rejected') {
       setItems([]);
       setPageInfo({ totalElements: 0, totalPages: 1 });
-      setLoadError(error instanceof Error ? error.message : 'Không thể tải danh sách kiểm duyệt.');
-    } finally {
-      if (!signal?.aborted) setIsLoading(false);
+      setLoadError(pageResult.reason instanceof Error ? pageResult.reason.message : 'Không thể tải hàng đợi kiểm duyệt.');
+    } else {
+      setItems((pageResult.value.content ?? []).map(normalizeReview).filter((item) => item.status !== 'draft'));
+      setPageInfo({
+        totalElements: pageResult.value.totalElements ?? 0,
+        totalPages: Math.max(1, pageResult.value.totalPages ?? 1),
+      });
     }
-  }, [currentPage, debouncedSearch, perPage, selectedInstructorId, selectedInstrumentId, statusFilter]);
+
+    setCounts({
+      pending: pendingResult.status === 'fulfilled' ? pendingResult.value.totalElements : undefined,
+      approved: approvedResult.status === 'fulfilled' ? approvedResult.value.totalElements : undefined,
+      rejected: rejectedResult.status === 'fulfilled' ? rejectedResult.value.totalElements : undefined,
+    });
+    setLoading(false);
+  }, [createParams, currentPage, perPage, statusFilter]);
 
   useEffect(() => {
-    const controller = new AbortController();
-    const timer = window.setTimeout(() => void loadReviews(controller.signal), 0);
-    return () => {
-      window.clearTimeout(timer);
-      controller.abort();
-    };
+    const timer = window.setTimeout(() => void loadReviews(), 0);
+    return () => window.clearTimeout(timer);
   }, [loadReviews]);
-  const [selectedItem, setSelectedItem] = useState<ReviewItem | null>(null);
-  const [feedback, setFeedback] = useState<string>('');
-  const [feedbackError, setFeedbackError] = useState<string>('');
-  const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
-  const [isPreviewZoomed, setIsPreviewZoomed] = useState<boolean>(false);
-  const [previewAsset, setPreviewAsset] = useState<ReviewAsset | null>(null);
 
-  const openDrawer = (item: ReviewItem) => {
-    setSelectedItem(item);
-    setFeedback(item.feedback || '');
-    setFeedbackError('');
-    setPreviewAsset(null);
-    setIsDrawerOpen(true);
-  };
-
-  const closeDrawer = () => {
-    setIsDrawerOpen(false);
-    setPreviewAsset(null);
-  };
-
-  const handleApprove = async () => {
+  useEffect(() => {
     if (!selectedItem) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && submittingAction === null) setSelectedItem(null);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [selectedItem, submittingAction]);
+
+  const openReview = (item: ReviewItem) => {
+    setSelectedItem(item);
+    setFeedback(item.feedback ?? '');
+    setFeedbackError('');
+    setConfirmApprove(false);
+    setNotice(null);
+  };
+
+  const closeReview = () => {
+    if (submittingAction) return;
+    setSelectedItem(null);
+    setConfirmApprove(false);
+  };
+
+  const approveReview = async () => {
+    if (!selectedItem) return;
+    setSubmittingAction('approve');
+    setNotice(null);
     try {
       await reviewsApi.approve(Number(selectedItem.id));
+      setNotice({ type: 'success', message: `Đã phê duyệt bài học “${selectedItem.title}” cùng các tài liệu đính kèm.` });
+      setSelectedItem(null);
+      setConfirmApprove(false);
       await loadReviews();
-      alert(`Đã phê duyệt học liệu: ${selectedItem.title}`);
-      closeDrawer();
     } catch (error) {
-      alert(error instanceof Error ? error.message : 'Không thể phê duyệt học liệu.');
+      setNotice({ type: 'error', message: error instanceof Error ? error.message : 'Không thể phê duyệt bài học.' });
+    } finally {
+      setSubmittingAction(null);
     }
   };
 
-  const handleReject = async () => {
+  const rejectReview = async () => {
     if (!selectedItem) return;
     if (!feedback.trim()) {
-      setFeedbackError('Lý do từ chối là bắt buộc để giảng viên nắm được thông tin chỉnh sửa.');
+      setFeedbackError('Vui lòng nhập lý do để giảng viên biết nội dung cần chỉnh sửa.');
       return;
     }
+    setSubmittingAction('reject');
+    setNotice(null);
     try {
       await reviewsApi.reject(Number(selectedItem.id), feedback.trim());
+      setNotice({ type: 'success', message: `Đã từ chối bài học “${selectedItem.title}” và gửi phản hồi cho giảng viên.` });
+      setSelectedItem(null);
       await loadReviews();
-      alert(`Đã từ chối học liệu: ${selectedItem.title}`);
-      closeDrawer();
     } catch (error) {
-      alert(error instanceof Error ? error.message : 'Không thể từ chối học liệu.');
+      setNotice({ type: 'error', message: error instanceof Error ? error.message : 'Không thể từ chối bài học.' });
+    } finally {
+      setSubmittingAction(null);
     }
   };
 
-  // Get instrument color tag style
-  const getInstrumentTagClass = (ins: string) => {
-    const lower = ins.toLowerCase();
-    if (lower.includes('tranh')) {
-      return 'bg-rose-50 border border-rose-200 text-rose-700';
-    } else if (lower.includes('bầu')) {
-      return 'bg-indigo-50 border border-indigo-200 text-indigo-700';
-    } else if (lower.includes('trống')) {
-      return 'bg-amber-50 border border-amber-200 text-amber-700';
-    } else if (lower.includes('sáo')) {
-      return 'bg-emerald-50 border border-emerald-200 text-emerald-700';
-    }
-    return 'bg-[#eae8e3] border border-outline-variant text-on-surface-variant';
-  };
+  const totalModerated = useMemo(() => {
+    const values = [counts.pending, counts.approved, counts.rejected];
+    if (values.some((value) => value === undefined)) return undefined;
+    return values.reduce<number>((total, value) => total + (value ?? 0), 0);
+  }, [counts]);
 
-  const parseReviewDate = (value: string) => {
-    const matched = value.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?/);
-    if (matched) {
-      return new Date(
-        Number(matched[3]),
-        Number(matched[2]) - 1,
-        Number(matched[1]),
-        Number(matched[4] ?? 0),
-        Number(matched[5] ?? 0),
-        Number(matched[6] ?? 0),
-      ).getTime();
-    }
-    const directTimestamp = Date.parse(value);
-    return Number.isNaN(directTimestamp) ? 0 : directTimestamp;
-  };
-
-  // The API applies status, search, instructorId and instrumentId before pagination.
-  const displayedItems = useMemo(
-    () => [...items].sort((a, b) => parseReviewDate(b.date) - parseReviewDate(a.date)),
-    [items],
-  );
-
-  const totalPages = Math.max(1, pageInfo.totalPages);
-  const paginatedItems = displayedItems;
+  const selectedAssets = selectedItem?.assets ?? [];
+  const audioAssets = selectedAssets.filter(isAudioAsset);
+  const otherAssets = selectedAssets.filter((asset) => !isAudioAsset(asset));
   const displayStart = pageInfo.totalElements === 0 ? 0 : (currentPage - 1) * perPage + 1;
-  const displayEnd = Math.min((currentPage - 1) * perPage + items.length, pageInfo.totalElements);
+  const displayEnd = Math.min(currentPage * perPage, pageInfo.totalElements);
 
-  // Status counts
-  const pendingCount = reviewCounts.pending;
-  const approvedCount = reviewCounts.approved;
-  const rejectedCount = reviewCounts.rejected;
-  const materialAssets = selectedItem?.assets.filter((asset) => !isAudioAsset(asset)) ?? [];
-  const audioAssets = selectedItem?.assets.filter(isAudioAsset) ?? [];
   return (
-    <div className="w-full mx-auto relative text-on-surface font-sans flex-1 flex flex-col justify-between">
-      <div className="flex-grow">
-      {/* Zoom Sheet Music Overlay */}
-      {isPreviewZoomed && previewAsset && (
-        <div
-          className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-md cursor-zoom-out"
-          onClick={() => setIsPreviewZoomed(false)}
-        >
-          <div className="relative max-w-5xl max-h-[95vh] flex flex-col items-center">
-            <button
-              className="absolute top-4 right-4 bg-white/20 hover:bg-white/40 text-white rounded-full p-sm transition-all"
-              onClick={() => setIsPreviewZoomed(false)}
-            >
-              <X className="w-6 h-6" />
-            </button>
-            <img
-              src={previewAsset.assetUrl}
-              alt={previewAsset.title}
-              className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl border border-white/10"
-            />
-            <p className="text-white mt-md font-label-md bg-black/50 px-lg py-sm rounded-full">
-              {previewAsset.title}
-            </p>
-          </div>
+    <div className="mx-auto w-full max-w-[1500px] space-y-6 pb-6">
+      <header>
+        <h1 className="text-3xl font-bold tracking-tight text-[#163d2d] md:text-4xl">Kiểm duyệt học liệu</h1>
+        <p className="mt-2 max-w-3xl text-sm text-[#68736d] md:text-base">
+          Xem xét nội dung bài học và nghe lại tài liệu âm thanh trước khi phê duyệt hoặc yêu cầu chỉnh sửa.
+        </p>
+      </header>
+
+      {notice && (
+        <div role="status" className={`flex items-center gap-2 rounded-xl border px-5 py-4 text-sm ${notice.type === 'success' ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-red-200 bg-red-50 text-red-800'}`}>
+          {notice.type === 'success' ? <CheckCircle2 className="h-5 w-5 shrink-0" /> : <AlertCircle className="h-5 w-5 shrink-0" />}
+          <span>{notice.message}</span>
         </div>
       )}
 
-      {/* Header Section */}
-      <section className="mb-4 border-b border-outline-variant/10 pb-md">
-        <h2
-          className="text-headline-lg font-bold text-[#1D4532] mt-xs"
-          style={{ fontFamily: "'Montserrat', sans-serif" }}
-        >
-          Kiểm duyệt học liệu
-        </h2>
-        <p className="text-body-md text-[#5e5e5b] mt-xs">
-          Phê duyệt, từ chối và xem lại lịch sử kiểm duyệt các học liệu do Giảng viên đóng góp.
-        </p>
+      <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="Trạng thái kiểm duyệt">
+        <article className="rounded-2xl border border-[#dfe9e3] bg-white p-5 shadow-sm">
+          <p className="text-sm font-semibold text-[#64736b]">Tổng học liệu kiểm duyệt</p>
+          <p className="mt-2 text-3xl font-bold text-[#173f2f]">{totalModerated?.toLocaleString('vi-VN') ?? '—'}</p>
+          <p className="mt-1 text-xs text-[#87938c]">Không bao gồm bản nháp của giảng viên</p>
+        </article>
+        {STATUS_OPTIONS.map((status) => {
+          const Icon = status.icon;
+          const value = counts[status.id];
+          const active = statusFilter === status.id;
+          return (
+            <button
+              key={status.id}
+              type="button"
+              onClick={() => {
+                setStatusFilter(status.id);
+                setCurrentPage(1);
+              }}
+              className={`rounded-2xl border p-5 text-left shadow-sm transition ${active ? status.activeClass : 'border-[#dfe9e3] bg-white hover:border-[#bfd3c7]'}`}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold">{status.label}</p>
+                  <p className="mt-2 text-3xl font-bold">{value?.toLocaleString('vi-VN') ?? '—'}</p>
+                  <p className="mt-1 text-xs opacity-75">{status.description}</p>
+                </div>
+                <Icon className="h-5 w-5" />
+              </div>
+            </button>
+          );
+        })}
+      </section>
 
-        {/* Search + Filters bar — dưới tiêu đề */}
-        <div className="flex flex-wrap items-center gap-md mt-lg">
-          {/* Search Bar */}
-          <div className="flex min-w-[320px] flex-1 items-center gap-xs px-md py-sm bg-white border border-[#d1e4fb] rounded-lg w-full lg:max-w-[42rem] shadow-sm focus-within:ring-1 focus-within:ring-[#1D4532] transition-all">
-            <Search className="w-5 h-5 text-[#5e5e5b]" />
+      <section className="rounded-2xl border border-[#dfe9e3] bg-white p-4 shadow-sm">
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
+          <label className="flex h-11 min-w-0 flex-1 items-center gap-2 rounded-xl border border-[#d8e4dd] bg-white px-3 focus-within:border-[#1D6750]">
+            <Search className="h-4 w-4 shrink-0 text-[#7b8981]" />
             <input
-              type="text"
-              placeholder="Tìm theo tên bài học, giảng viên..."
-              value={searchQuery}
-              onChange={(e) => {
-                setSearchQuery(e.target.value);
-                setCurrentPage(1);
-              }}
-              className="bg-transparent border-none outline-none text-body-md w-full text-on-surface focus:ring-0 placeholder:text-[#5e5e5b]/50"
+              type="search"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Tìm tên bài học hoặc giảng viên..."
+              className="min-w-0 flex-1 bg-transparent text-sm text-[#274b3b] outline-none"
             />
-            {searchQuery && (
-              <button
-                onClick={() => { setSearchQuery(''); setCurrentPage(1); }}
-                className="text-[#5e5e5b] hover:text-error transition-colors"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            )}
-          </div>
+          </label>
 
-          {/* Instrument Filter */}
-          <div className="flex items-center gap-xs px-md py-sm bg-white border border-outline-variant rounded-lg shadow-sm">
-            <span className="font-label-md text-[#5e5e5b]">Nhạc cụ:</span>
-            <select
-              value={selectedInstrumentId ?? 'all'}
-              onChange={(e) => {
-                setSelectedInstrumentId(e.target.value === 'all' ? null : Number(e.target.value));
-                setCurrentPage(1);
-              }}
-              className="bg-transparent border-none text-label-md font-semibold text-[#1D4532] focus:ring-0 cursor-pointer outline-none"
-            >
-              <option value="all">Tất cả nhạc cụ</option>
-              {instrumentOptions.map((instrument) => (
-                <option key={instrument.id} value={instrument.id}>{instrument.name}</option>
-              ))}
-            </select>
-          </div>
+          <select
+            value={instructorId ?? ''}
+            onChange={(event) => {
+              setInstructorId(event.target.value ? Number(event.target.value) : null);
+              setCurrentPage(1);
+            }}
+            className="h-11 rounded-xl border border-[#d8e4dd] bg-white px-3 text-sm text-[#365647] outline-none focus:border-[#1D6750]"
+          >
+            <option value="">Tất cả giảng viên</option>
+            {instructors.map((instructor) => <option key={instructor.id} value={instructor.id}>{instructor.name}</option>)}
+          </select>
 
-          {/* Instructor Filter */}
-          <div className="flex w-full sm:w-72 items-center gap-xs px-md py-sm bg-white border border-outline-variant rounded-lg shadow-sm">
-            <span className="font-label-md text-[#5e5e5b]">Giảng viên:</span>
-            <select
-              value={selectedInstructorId ?? 'all'}
-              onChange={(e) => {
-                setSelectedInstructorId(e.target.value === 'all' ? null : Number(e.target.value));
-                setCurrentPage(1);
-              }}
-              className="min-w-0 flex-1 bg-transparent border-none text-label-md font-semibold text-[#1D4532] focus:ring-0 cursor-pointer outline-none"
-            >
-              <option value="all">Tất cả giảng viên</option>
-              {instructorOptions.map((instructor) => (
-                <option key={instructor.id} value={instructor.id}>{instructor.name}</option>
-              ))}
+          <select
+            value={instrumentId ?? ''}
+            onChange={(event) => {
+              setInstrumentId(event.target.value ? Number(event.target.value) : null);
+              setCurrentPage(1);
+            }}
+            className="h-11 rounded-xl border border-[#d8e4dd] bg-white px-3 text-sm text-[#365647] outline-none focus:border-[#1D6750]"
+          >
+            <option value="">Tất cả nhạc cụ</option>
+            {instruments.map((instrument) => <option key={instrument.id} value={instrument.id}>{instrument.name}</option>)}
+          </select>
+
+          <button type="button" onClick={() => void loadReviews()} disabled={loading} className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-[#d8e4dd] bg-white px-4 text-sm font-semibold text-[#1D4532] hover:bg-[#f7faf8] disabled:opacity-50">
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> Làm mới
+          </button>
+        </div>
+      </section>
+
+      {loadError && (
+        <div className="flex items-center justify-between gap-4 rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-800">
+          <span>{loadError}</span>
+          <button type="button" onClick={() => void loadReviews()} className="font-semibold underline">Thử lại</button>
+        </div>
+      )}
+
+      <section className="overflow-hidden rounded-2xl border border-[#dfe9e3] bg-white shadow-[0_4px_18px_rgba(20,61,44,0.04)]">
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[960px] text-left">
+            <thead className="bg-[#f4f8f6] text-xs uppercase tracking-wide text-[#64736b]">
+              <tr>
+                <th className="px-5 py-4 font-semibold">Bài học</th>
+                <th className="px-5 py-4 font-semibold">Giảng viên</th>
+                <th className="px-5 py-4 font-semibold">Nhạc cụ</th>
+                <th className="px-5 py-4 font-semibold">Tài liệu tải lên</th>
+                <th className="px-5 py-4 font-semibold">Ngày gửi</th>
+                <th className="px-5 py-4 font-semibold">Trạng thái</th>
+                <th className="px-5 py-4 text-right font-semibold">Thao tác</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#edf1ef]">
+              {loading ? (
+                [0, 1, 2, 3].map((row) => (
+                  <tr key={row}><td colSpan={7} className="px-5 py-3"><div className="h-12 animate-pulse rounded-xl bg-[#f1f5f3]" /></td></tr>
+                ))
+              ) : items.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="px-6 py-16 text-center">
+                    <FileText className="mx-auto h-8 w-8 text-[#9aaba2]" />
+                    <p className="mt-3 font-semibold text-[#365647]">Không có học liệu phù hợp</p>
+                    <p className="mt-1 text-sm text-[#7a8780]">Thử thay đổi từ khóa hoặc bộ lọc hiện tại.</p>
+                  </td>
+                </tr>
+              ) : items.map((item) => {
+                const assets = item.assets ?? [];
+                const audioCount = assets.filter(isAudioAsset).length;
+                return (
+                  <tr key={item.id} className="transition hover:bg-[#fafcfb]">
+                    <td className="px-5 py-4">
+                      <p className="max-w-64 truncate text-sm font-semibold text-[#294c3c]">{item.title || 'Chưa cập nhật tiêu đề'}</p>
+                      <p className="mt-1 text-xs text-[#87938c]">ID: {item.lessonId ?? item.id}</p>
+                    </td>
+                    <td className="px-5 py-4 text-sm text-[#52655b]">{item.instructor || 'Chưa cập nhật'}</td>
+                    <td className="px-5 py-4 text-sm text-[#52655b]">{item.instrument || 'Chưa cập nhật'}</td>
+                    <td className="px-5 py-4">
+                      <div className="flex flex-wrap gap-2 text-xs">
+                        <span className="inline-flex items-center gap-1 rounded-full bg-[#edf5f1] px-2 py-1 font-semibold text-[#416052]"><FileText className="h-3.5 w-3.5" /> {assets.length}</span>
+                        <span className="inline-flex items-center gap-1 rounded-full bg-sky-50 px-2 py-1 font-semibold text-sky-700"><Music2 className="h-3.5 w-3.5" /> {audioCount}</span>
+                      </div>
+                    </td>
+                    <td className="px-5 py-4 text-sm text-[#64736b]">{item.date || 'Chưa cập nhật'}</td>
+                    <td className="px-5 py-4"><span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${statusBadge(item.status)}`}>{statusLabel(item.status)}</span></td>
+                    <td className="px-5 py-4 text-right">
+                      <button type="button" onClick={() => openReview(item)} className="rounded-lg border border-[#cfded6] px-3 py-2 text-xs font-semibold text-[#1D4532] transition hover:bg-[#edf5f1]">Xem xét</button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="flex flex-col gap-3 border-t border-[#e8eeea] px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-[#718078]">Hiển thị {displayStart}–{displayEnd} trong {pageInfo.totalElements.toLocaleString('vi-VN')} kết quả</p>
+          <div className="flex items-center gap-2">
+            <select value={perPage} onChange={(event) => { setPerPage(Number(event.target.value)); setCurrentPage(1); }} className="h-9 rounded-lg border border-[#d8e4dd] bg-white px-2 text-sm text-[#52655b]">
+              <option value={10}>10 / trang</option>
+              <option value={20}>20 / trang</option>
+              <option value={50}>50 / trang</option>
             </select>
+            <button type="button" disabled={currentPage <= 1 || loading} onClick={() => setCurrentPage((page) => page - 1)} className="h-9 rounded-lg border border-[#d8e4dd] px-3 text-sm font-semibold text-[#52655b] disabled:opacity-40">Trước</button>
+            <span className="min-w-20 text-center text-sm font-semibold text-[#365647]">{currentPage}/{pageInfo.totalPages}</span>
+            <button type="button" disabled={currentPage >= pageInfo.totalPages || loading} onClick={() => setCurrentPage((page) => page + 1)} className="h-9 rounded-lg border border-[#d8e4dd] px-3 text-sm font-semibold text-[#52655b] disabled:opacity-40">Sau</button>
           </div>
         </div>
       </section>
 
-      {/* Status filtering pills */}
-      <div className="flex flex-wrap gap-xs mb-lg border-b border-[#d1e4fb]/40 pb-sm">
-        <button
-          onClick={() => {
-            setStatusFilter('all');
-            setCurrentPage(1);
-          }}
-          className={`px-lg py-sm rounded-t-lg font-label-md text-label-md transition-all border-b-2 ${
-            statusFilter === 'all'
-              ? 'border-[#1D4532] text-[#1D4532] bg-[#EDF7F2] font-bold'
-              : 'border-transparent text-[#5e5e5b] hover:bg-[#EDF7F2]/50'
-          }`}
-        >
-          Tất cả ({reviewCounts.all})
-        </button>
-        <button
-          onClick={() => {
-            setStatusFilter('pending');
-            setCurrentPage(1);
-          }}
-          className={`px-lg py-sm rounded-t-lg font-label-md text-label-md transition-all border-b-2 flex items-center gap-2 ${
-            statusFilter === 'pending'
-              ? 'border-orange-500 text-orange-700 bg-orange-50 font-bold'
-              : 'border-transparent text-[#5e5e5b] hover:bg-orange-50/30'
-          }`}
-        >
-          Chờ duyệt
-          <span className="bg-orange-200 text-orange-800 px-2 py-0.5 rounded-full text-xs font-semibold">
-            {pendingCount}
-          </span>
-        </button>
-        <button
-          onClick={() => {
-            setStatusFilter('approved');
-            setCurrentPage(1);
-          }}
-          className={`px-lg py-sm rounded-t-lg font-label-md text-label-md transition-all border-b-2 flex items-center gap-2 ${
-            statusFilter === 'approved'
-              ? 'border-emerald-500 text-emerald-700 bg-emerald-50 font-bold'
-              : 'border-transparent text-[#5e5e5b] hover:bg-emerald-50/30'
-          }`}
-        >
-          Đã duyệt
-          <span className="bg-emerald-200 text-emerald-800 px-2 py-0.5 rounded-full text-xs font-semibold">
-            {approvedCount}
-          </span>
-        </button>
-        <button
-          onClick={() => {
-            setStatusFilter('rejected');
-            setCurrentPage(1);
-          }}
-          className={`px-lg py-sm rounded-t-lg font-label-md text-label-md transition-all border-b-2 flex items-center gap-2 ${
-            statusFilter === 'rejected'
-              ? 'border-error text-error bg-red-50 font-bold'
-              : 'border-transparent text-[#5e5e5b] hover:bg-red-50/30'
-          }`}
-        >
-          Đã từ chối
-          <span className="bg-red-200 text-red-800 px-2 py-0.5 rounded-full text-xs font-semibold">
-            {rejectedCount}
-          </span>
-        </button>
-      </div>
-
-
-
-      {loadError && (
-        <div className="mb-lg flex items-center justify-between gap-4 rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-red-800">
-          <span>{loadError}</span>
-          <button onClick={() => void loadReviews()} className="font-bold underline">Thử lại</button>
-        </div>
-      )}
-      {/* Table Section */}
-      {isLoading ? (
-        <div className="bg-white rounded-xl border border-outline-variant/10 p-xxl text-center shadow-sm">
-          <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-2 border-[#1D4532]/20 border-t-primary" />
-          <p className="text-body-md text-on-surface-variant">Đang tải danh sách kiểm duyệt...</p>
-        </div>
-      ) : displayedItems.length === 0 ? (
-        <div className="bg-white rounded-xl border border-outline-variant/10 p-xxl text-center shadow-sm flex flex-col items-center justify-center gap-md">
-          <p className="text-body-md text-on-surface-variant">
-            Không tìm thấy học liệu nào phù hợp với bộ lọc hiện tại!
-          </p>
-        </div>
-      ) : (
-        <div className="bg-white rounded-xl border border-[#d1e4fb]/40 overflow-hidden shadow-sm w-full">
-          <div className="overflow-x-auto w-full">
-            <table className="w-full text-left border-collapse min-w-[800px]">
-              <thead>
-                <tr className="bg-[#e3efff] border-b border-[#d1e4fb]/50">
-                  <th className="px-xl py-md font-label-sm text-label-sm text-[#5e5e5b] font-bold uppercase tracking-wider text-left">
-                    Tên học liệu
-                  </th>
-                  <th className="px-xl py-md font-label-sm text-label-sm text-[#5e5e5b] font-bold uppercase tracking-wider text-center">
-                    Nhạc cụ
-                  </th>
-                  <th className="px-xl py-md font-label-sm text-label-sm text-[#5e5e5b] font-bold uppercase tracking-wider text-left">
-                    Giảng viên
-                  </th>
-                  <th className="px-xl py-md font-label-sm text-label-sm text-[#1D4532] font-bold uppercase tracking-wider text-center">
-                    Ngày gửi
-                  </th>
-                  <th className="px-xl py-md font-label-sm text-label-sm text-[#5e5e5b] font-bold uppercase tracking-wider text-center">
-                    Trạng thái
-                  </th>
-                  <th className="px-xl py-md font-label-sm text-label-sm text-[#5e5e5b] font-bold uppercase tracking-wider text-center">
-                    Thao tác
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#d1e4fb]/40">
-                {paginatedItems.map((item) => (
-                  <tr
-                    key={item.id}
-                    onClick={() => openDrawer(item)}
-                    className="hover:bg-[#EDF7F2] transition-colors cursor-pointer"
-                  >
-                    <td className="px-xl py-lg">
-                      <div className="font-body-md font-bold text-[#1D4532]">
-                        {item.title}
-                      </div>
-                      <div className="text-[12px] text-on-surface-variant">
-                        ID: {item.id}
-                      </div>
-                    </td>
-                    <td className="px-xl py-lg whitespace-nowrap text-center">
-                      <span
-                        className={`px-lg py-sm rounded-full text-[11px] font-bold uppercase tracking-wide whitespace-nowrap ${getInstrumentTagClass(
-                          item.instrument
-                        )}`}
-                      >
-                        {item.instrument}
-                      </span>
-                    </td>
-                    <td className="px-xl py-lg text-body-md text-on-surface font-semibold whitespace-nowrap">
-                      {item.instructor}
-                    </td>
-                    <td className="px-xl py-lg text-body-md text-on-surface-variant whitespace-nowrap text-center">
-                      {item.date}
-                    </td>
-                    <td className="px-xl py-lg whitespace-nowrap text-center">
-                      {item.status === 'draft' && (
-                        <span className="px-lg py-sm bg-slate-50 border border-slate-200 text-slate-700 rounded-full text-[11px] font-bold tracking-wide whitespace-nowrap">
-                          Bản nháp
-                        </span>
-                      )}                      {item.status === 'pending' && (
-                        <span className="px-lg py-sm bg-orange-50 border border-orange-200 text-orange-700 rounded-full text-[11px] font-bold tracking-wide whitespace-nowrap">
-                          Chờ duyệt
-                        </span>
-                      )}
-                      {item.status === 'approved' && (
-                        <span className="px-lg py-sm bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-full text-[11px] font-bold tracking-wide whitespace-nowrap">
-                          Đã duyệt
-                        </span>
-                      )}
-                      {item.status === 'rejected' && (
-                        <span className="px-lg py-sm bg-red-50 border border-red-200 text-error rounded-full text-[11px] font-bold tracking-wide whitespace-nowrap">
-                          Đã từ chối
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-xl py-lg text-center whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                      <button
-                        onClick={() => openDrawer(item)}
-                        className={`inline-flex w-40 items-center justify-center gap-xs px-lg py-sm rounded-lg font-label-sm text-label-sm transition-all active:scale-95 shadow-sm whitespace-nowrap ${
-                          item.status === 'pending'
-                            ? 'bg-[#1D4532] text-white hover:bg-[#1D4532]/90'
-                            : 'border border-[#1D4532] text-[#1D4532] hover:bg-[#EDF7F2]'
-                        }`}
-                      >
-                        <Eye className="w-4 h-4" />
-                        {item.status === 'pending' ? 'Kiểm duyệt' : 'Xem lại'}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-      </div>
-
-      {/* Pagination Controls */}
-      {pageInfo.totalElements > 0 && (
-        <div className="mt-lg flex flex-col sm:flex-row justify-between items-center gap-md text-[12px] text-[#5e5e5b] pt-4">
-          <div className="flex items-center gap-lg">
-            <p>
-              Hiển thị {displayStart} - {displayEnd} trong tổng số {pageInfo.totalElements} học liệu
-            </p>
-
-            <div className="flex items-center gap-xs">
-              <span>Số dòng mỗi trang:</span>
-              <select
-                value={perPage}
-                onChange={(e) => {
-                  setPerPage(Number(e.target.value));
-                  setCurrentPage(1);
-                }}
-                className="bg-white border border-outline-variant rounded px-2 py-1 text-label-md cursor-pointer outline-none"
-              >
-                <option value={5}>5 dòng</option>
-                <option value={10}>10 dòng</option>
-                <option value={20}>20 dòng</option>
-                <option value={50}>50 dòng</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="flex gap-xs">
-            <button
-              disabled={currentPage <= 1}
-              onClick={() => setCurrentPage((p) => p - 1)}
-              className="p-2 border border-outline-variant rounded hover:bg-[#e3efff] transition-colors disabled:opacity-40"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
-              <button
-                key={p}
-                onClick={() => setCurrentPage(p)}
-                className={`px-3 py-1 rounded font-bold transition-colors ${
-                  p === currentPage
-                    ? 'bg-[#1D4532] text-white'
-                    : 'border border-outline-variant hover:bg-[#e3efff]'
-                }`}
-              >
-                {p}
-              </button>
-            ))}
-            <button
-              disabled={currentPage >= totalPages}
-              onClick={() => setCurrentPage((p) => p + 1)}
-              className="p-2 border border-outline-variant rounded hover:bg-[#e3efff] transition-colors disabled:opacity-40"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Drawer Component using Framer Motion */}
-      <AnimatePresence>
-        {isDrawerOpen && selectedItem && (
-          <>
-            {/* Backdrop Blur Overlay */}
-            <motion.div
-              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={closeDrawer}
-            />
-
-            {/* Slide-in Drawer */}
-            <motion.div
-              className="fixed top-0 right-0 h-full w-[100%] sm:w-[65%] md:w-[55%] lg:w-[50%] bg-surface-bright border-l border-outline-variant/15 shadow-2xl z-50 overflow-hidden flex flex-col"
-              initial={{ x: '100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: '100%' }}
-              transition={{ type: 'spring', damping: 25, stiffness: 220 }}
-            >
-              {/* Drawer Header */}
-              <div className="px-xl py-lg border-b border-outline-variant/10 flex justify-between items-center bg-[#f5f3ee]/30">
-                <div>
-                  <h4 className="text-headline-md font-bold text-[#1D4532] font-sans">
-                    Trình xem trước học liệu
-                  </h4>
-                  <p className="text-[12px] text-on-surface-variant mt-xs">
-                    {selectedItem.title} ({selectedItem.id}) • Gửi bởi {selectedItem.instructor}
-                  </p>
+      {selectedItem && createPortal(
+        <div className="fixed inset-0 z-[100] flex justify-end bg-black/35 backdrop-blur-[2px] sm:p-3" onMouseDown={(event) => { if (event.target === event.currentTarget) closeReview(); }}>
+          <aside className="flex h-full w-full max-w-3xl flex-col bg-[#f7faf8] shadow-2xl" role="dialog" aria-modal="true" aria-label={`Kiểm duyệt ${selectedItem.title}`}>
+            <header className="z-10 flex shrink-0 items-start justify-between gap-4 border-b border-[#dfe9e3] bg-white px-5 py-4 md:px-6">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${statusBadge(selectedItem.status)}`}>{statusLabel(selectedItem.status)}</span>
+                  <span className="text-xs text-[#87938c]">Bài học #{selectedItem.lessonId ?? selectedItem.id}</span>
                 </div>
-                <button
-                  onClick={closeDrawer}
-                  className="p-md hover:bg-[#eae8e3]/80 rounded-full text-on-surface-variant hover:text-on-surface transition-colors"
-                >
-                  <X className="w-6 h-6" />
-                </button>
+                <h2 className="mt-2 truncate text-xl font-bold text-[#173f2f]">{selectedItem.title || 'Chưa cập nhật tiêu đề'}</h2>
               </div>
+              <button type="button" onClick={closeReview} disabled={submittingAction !== null} aria-label="Đóng" className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-[#64736b] hover:bg-[#f1f5f3] disabled:opacity-40"><X className="h-5 w-5" /></button>
+            </header>
 
-              {/* Drawer Body - Scrollable content area */}
-              <div className="flex-1 overflow-y-auto p-xl space-y-xl custom-scrollbar">
-                {/* Visual Preview Card */}
-                <div className="bg-white/95 backdrop-blur-md border border-[#d1e4fb]/40 rounded-2xl p-lg shadow-sm space-y-lg">
-                  <div>
-                    <span className="font-label-sm text-on-surface-variant block mb-sm font-semibold uppercase tracking-wider text-xs">
-                      1. Tài liệu đính kèm ({materialAssets.length})
-                    </span>
-                    {materialAssets.length === 0 ? (
-                      <div className="rounded-xl border border-dashed border-outline-variant/40 bg-[#f5f3ee]/50 px-md py-lg text-sm text-on-surface-variant">
-                        Không có tài liệu đính kèm.
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-1 gap-md sm:grid-cols-2">
-                        {materialAssets.map((asset) => isImageAsset(asset) ? (
-                          <button
-                            key={asset.id}
-                            type="button"
-                            onClick={() => {
-                              setPreviewAsset(asset);
-                              setIsPreviewZoomed(true);
-                            }}
-                            className="group overflow-hidden rounded-xl border border-outline-variant/20 bg-[#f5f3ee] text-left transition-shadow hover:shadow-md"
-                          >
-                            <img src={asset.assetUrl} alt={asset.title} className="h-40 w-full object-cover" />
-                            <span className="flex items-center justify-between gap-2 px-md py-sm text-sm font-semibold text-[#1D4532]">
-                              <span className="truncate">{asset.title}</span>
-                              <ZoomIn className="h-4 w-4 shrink-0" />
-                            </span>
-                          </button>
-                        ) : (
-                          <a
-                            key={asset.id}
-                            href={asset.assetUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="flex min-h-28 items-center justify-between gap-md rounded-xl border border-outline-variant/20 bg-[#f5f3ee]/50 px-md py-md text-[#1D4532] hover:bg-[#EDF7F2]"
-                          >
-                            <span className="min-w-0">
-                              <FileText className="mb-2 h-5 w-5" />
-                              <span className="block truncate text-sm font-semibold">{asset.title}</span>
-                              <span className="block text-xs text-on-surface-variant">{asset.mimeType || asset.assetType}</span>
-                            </span>
-                            <ExternalLink className="h-4 w-4 shrink-0" />
-                          </a>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+            <div className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain p-5 md:p-6">
+              <section className="grid grid-cols-1 gap-3 rounded-2xl border border-[#dfe9e3] bg-white p-5 sm:grid-cols-3">
+                <div><p className="text-xs font-semibold uppercase tracking-wide text-[#87938c]">Giảng viên</p><p className="mt-1 flex items-center gap-1.5 text-sm font-semibold text-[#365647]"><User className="h-4 w-4" /> {selectedItem.instructor || 'Chưa cập nhật'}</p></div>
+                <div><p className="text-xs font-semibold uppercase tracking-wide text-[#87938c]">Nhạc cụ</p><p className="mt-1 flex items-center gap-1.5 text-sm font-semibold text-[#365647]"><Music2 className="h-4 w-4" /> {selectedItem.instrument || 'Chưa cập nhật'}</p></div>
+                <div><p className="text-xs font-semibold uppercase tracking-wide text-[#87938c]">Ngày gửi</p><p className="mt-1 flex items-center gap-1.5 text-sm font-semibold text-[#365647]"><Clock3 className="h-4 w-4" /> {selectedItem.date || 'Chưa cập nhật'}</p></div>
+              </section>
 
-                  <div>
-                    <span className="font-label-sm text-on-surface-variant block mb-sm font-semibold uppercase tracking-wider text-xs">
-                      2. Tệp âm thanh ({audioAssets.length})
-                    </span>
-                    {audioAssets.length === 0 ? (
-                      <div className="rounded-xl border border-dashed border-outline-variant/40 bg-[#f5f3ee]/50 px-md py-lg text-sm text-on-surface-variant">
-                        Không có tệp âm thanh đính kèm.
-                      </div>
-                    ) : (
-                      <div className="space-y-md">
-                        {audioAssets.map((asset) => (
-                          <div key={asset.id} className="rounded-xl border border-[#d1e4fb]/40 bg-[#f5f3ee]/50 p-md">
-                            <div className="mb-sm flex items-center justify-between gap-md">
-                              <span className="flex min-w-0 items-center gap-2 text-sm font-semibold text-[#1D4532]">
-                                <Music2 className="h-5 w-5 shrink-0" />
-                                <span className="truncate">{asset.title}</span>
-                              </span>
-                              {formatDuration(asset.durationSec) && <span className="text-xs text-on-surface-variant">{formatDuration(asset.durationSec)}</span>}
-                            </div>
-                            <audio className="w-full" controls preload="metadata" src={asset.assetUrl}>
-                              Trình duyệt không hỗ trợ phát tệp âm thanh này.
-                            </audio>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Technical Description Section */}
-                  <div>
-                    <span className="font-label-sm text-on-surface-variant block mb-sm font-semibold uppercase tracking-wider text-xs">
-                      3. Mô tả học liệu
-                    </span>
-                    <div className="bg-[#fbf9f4] border border-[#d1e4fb]/40 rounded-xl p-md text-body-md text-on-surface leading-relaxed whitespace-pre-wrap">
-                      {selectedItem.description || 'Không có mô tả kỹ thuật chi tiết kèm theo học liệu này.'}
-                    </div>
-                  </div>
-
-                  {selectedItem.technicalNotes && (
-                    <div>
-                      <span className="font-label-sm text-on-surface-variant block mb-sm font-semibold uppercase tracking-wider text-xs">
-                        4. Ghi chú kỹ thuật
-                      </span>
-                      <div className="bg-[#EDF7F2] border border-[#d1e4fb]/40 rounded-xl p-md text-body-md text-on-surface leading-relaxed whitespace-pre-wrap">
-                        {selectedItem.technicalNotes}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Feedback Textarea & Validation */}
-                  <div className="pt-md border-t border-outline-variant/10">
-                    {selectedItem.status === 'pending' ? (
-                      <>
-                        <label className="font-label-sm text-on-surface-variant block mb-xs font-semibold uppercase tracking-wider text-xs">
-                          Lý do phản hồi <span className="text-error font-bold">* Bắt buộc nếu chọn Từ chối</span>
-                        </label>
-                        <textarea
-                          value={feedback}
-                          onChange={(e) => {
-                            setFeedback(e.target.value);
-                            if (e.target.value.trim() !== '') setFeedbackError('');
-                          }}
-                          className={`w-full bg-[#fbf9f4] border rounded-xl p-md text-body-md focus:border-[#1D4532] focus:ring-1 focus:ring-[#1D4532] h-28 transition-all outline-none ${
-                            feedbackError ? 'border-error ring-1 ring-error' : 'border-outline-variant/30'
-                          }`}
-                          placeholder="Bắt buộc phải nhập lý do chi tiết khi từ chối học liệu..."
-                        />
-                        {feedbackError && (
-                          <p className="text-xs text-[#ba1a1a] font-semibold mt-1 flex items-center gap-1">
-                            <span className="w-1.5 h-1.5 rounded-full bg-[#ba1a1a] inline-block animate-ping" />
-                            {feedbackError}
-                          </p>
-                        )}
-                      </>
-                    ) : selectedItem.status === 'approved' ? (
-                      <div className="bg-emerald-50/50 p-md rounded-xl border border-emerald-200/60">
-                        <span className="font-label-sm text-emerald-800 block mb-xs font-semibold uppercase tracking-wider text-xs">
-                          Thông tin phê duyệt
-                        </span>
-                        <p className="text-body-md text-on-surface font-semibold">
-                          Đã phê duyệt bởi: <span className="text-[#1b5e20]">{selectedItem.approvedBy || 'Trần Minh Quân (Admin)'}</span>
-                        </p>
-                        <p className="text-body-sm text-on-surface-variant mt-1">
-                          Thời gian phê duyệt: {selectedItem.approvedAt || '25/10/2024 10:45'}
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="bg-red-50/50 p-md rounded-xl border border-red-200/60">
-                        <span className="font-label-sm text-red-800 block mb-xs font-semibold uppercase tracking-wider text-xs">
-                          Lý do từ chối (Admin phản hồi)
-                        </span>
-                        <p className="text-body-md text-on-surface italic leading-relaxed">
-                          "{selectedItem.feedback || 'Không có phản hồi đi kèm.'}"
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Drawer Footer Actions */}
-              <div className="px-xl py-lg border-t border-outline-variant/10 bg-[#f5f3ee]/40 flex gap-md">
-                {selectedItem.status === 'pending' ? (
-                  <>
-                    <button
-                      onClick={handleReject}
-                      className="flex-1 flex items-center justify-center gap-sm bg-[#c62828] text-white py-lg rounded-xl font-bold hover:bg-[#b71c1c] active:scale-[0.98] transition-all shadow-sm"
-                    >
-                      <X className="w-5 h-5" />
-                      Từ chối
-                    </button>
-                    <button
-                      onClick={handleApprove}
-                      className="flex-1 flex items-center justify-center gap-sm bg-[#1b5e20] text-white py-lg rounded-xl font-bold hover:bg-[#1b5e20]/90 active:scale-[0.98] transition-all shadow-sm"
-                    >
-                      <Check className="w-5 h-5" />
-                      Phê duyệt
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <button
-                      onClick={closeDrawer}
-                      className="flex-1 flex items-center justify-center gap-sm bg-[#e1dfdb] text-on-surface py-lg rounded-xl font-bold hover:bg-[#c8c6c2] active:scale-[0.98] transition-all border border-outline-variant/30"
-                    >
-                      <X className="w-5 h-5" />
-                      Đóng
-                    </button>
-
-                  </>
+              <section className="rounded-2xl border border-[#dfe9e3] bg-white p-5">
+                <h3 className="font-bold text-[#274b3b]">Nội dung bài học</h3>
+                <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-[#52655b]">{selectedItem.description || 'Bài học chưa có mô tả.'}</p>
+                {selectedItem.technicalNotes && selectedItem.technicalNotes !== selectedItem.description && (
+                  <div className="mt-4 rounded-xl bg-[#f4f8f6] p-4"><p className="text-xs font-semibold uppercase tracking-wide text-[#718078]">Ghi chú kỹ thuật</p><p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-[#52655b]">{selectedItem.technicalNotes}</p></div>
                 )}
-              </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
+              </section>
 
+              <section className="rounded-2xl border border-[#dfe9e3] bg-white p-5">
+                <div className="flex items-start justify-between gap-4">
+                  <div><h3 className="font-bold text-[#274b3b]">Tài liệu âm thanh</h3><p className="mt-1 text-sm text-[#718078]">Nghe toàn bộ tệp trước khi đưa ra quyết định.</p></div>
+                  <span className="rounded-full bg-sky-50 px-2.5 py-1 text-xs font-bold text-sky-700">{audioAssets.length} tệp</span>
+                </div>
+                {audioAssets.length === 0 ? (
+                  <div className="mt-4 rounded-xl border border-dashed border-[#d7e3dc] bg-[#fafcfb] px-4 py-8 text-center text-sm text-[#718078]">Bài học không có tài liệu âm thanh đính kèm.</div>
+                ) : (
+                  <div className="mt-4 space-y-3">
+                    {audioAssets.map((asset) => (
+                      <article key={asset.id} className="rounded-xl border border-[#dfe9e3] bg-[#fafcfb] p-4">
+                        <div className="mb-3 flex items-center justify-between gap-3"><p className="min-w-0 truncate text-sm font-semibold text-[#365647]">{asset.title || `Tệp âm thanh #${asset.id}`}</p>{formatDuration(asset.durationSec) && <span className="shrink-0 text-xs text-[#718078]">{formatDuration(asset.durationSec)}</span>}</div>
+                        <audio className="w-full" controls preload="metadata" src={asset.assetUrl}>Trình duyệt không hỗ trợ phát tệp âm thanh.</audio>
+                      </article>
+                    ))}
+                  </div>
+                )}
+                <p className="mt-4 rounded-lg bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-800">Quyết định kiểm duyệt được áp dụng đồng thời cho bài học và toàn bộ tệp âm thanh đính kèm.</p>
+              </section>
+
+              <section className="rounded-2xl border border-[#dfe9e3] bg-white p-5">
+                <div className="flex items-center justify-between gap-4"><h3 className="font-bold text-[#274b3b]">Tài liệu khác</h3><span className="rounded-full bg-[#edf5f1] px-2.5 py-1 text-xs font-bold text-[#52655b]">{otherAssets.length} tệp</span></div>
+                {otherAssets.length === 0 ? (
+                  <p className="mt-4 rounded-xl border border-dashed border-[#d7e3dc] bg-[#fafcfb] px-4 py-8 text-center text-sm text-[#718078]">Không có tài liệu khác đính kèm.</p>
+                ) : (
+                  <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    {otherAssets.map((asset) => (
+                      <article key={asset.id} className="overflow-hidden rounded-xl border border-[#dfe9e3] bg-[#fafcfb]">
+                        {isImageAsset(asset) ? <img src={asset.assetUrl} alt={asset.title || 'Tài liệu hình ảnh'} className="h-40 w-full object-cover" /> : isVideoAsset(asset) ? <video src={asset.assetUrl} controls preload="metadata" className="h-40 w-full bg-black object-contain" /> : <div className="grid h-28 place-items-center"><FileText className="h-8 w-8 text-[#8c9c94]" /></div>}
+                        <div className="flex items-center justify-between gap-3 p-3"><span className="flex min-w-0 items-center gap-2 text-sm font-semibold text-[#365647]">{isImageAsset(asset) ? <ImageIcon className="h-4 w-4 shrink-0" /> : isVideoAsset(asset) ? <Video className="h-4 w-4 shrink-0" /> : <FileText className="h-4 w-4 shrink-0" />}<span className="truncate">{asset.title || `Tài liệu #${asset.id}`}</span></span><a href={asset.assetUrl} target="_blank" rel="noreferrer" aria-label="Mở tài liệu" className="text-[#1D6750]"><ExternalLink className="h-4 w-4" /></a></div>
+                      </article>
+                    ))}
+                  </div>
+                )}
+              </section>
+
+              {selectedItem.status === 'pending' ? (
+                <section className="rounded-2xl border border-[#dfe9e3] bg-white p-5">
+                  <label className="text-sm font-bold text-[#274b3b]" htmlFor="review-feedback">Phản hồi khi từ chối</label>
+                  <p className="mt-1 text-xs text-[#718078]">Bắt buộc nhập nếu bài học hoặc tài liệu âm thanh cần chỉnh sửa.</p>
+                  <textarea id="review-feedback" value={feedback} onChange={(event) => { setFeedback(event.target.value); if (event.target.value.trim()) setFeedbackError(''); }} rows={4} placeholder="Mô tả rõ nội dung cần chỉnh sửa..." className={`mt-3 w-full rounded-xl border bg-white px-3 py-2 text-sm text-[#365647] outline-none ${feedbackError ? 'border-red-400' : 'border-[#cfded6] focus:border-[#1D6750]'}`} />
+                  {feedbackError && <p className="mt-2 text-xs font-medium text-red-700">{feedbackError}</p>}
+                </section>
+              ) : (
+                <section className={`rounded-2xl border p-5 ${selectedItem.status === 'approved' ? 'border-emerald-200 bg-emerald-50' : 'border-red-200 bg-red-50'}`}>
+                  <h3 className={`font-bold ${selectedItem.status === 'approved' ? 'text-emerald-800' : 'text-red-800'}`}>Kết quả kiểm duyệt</h3>
+                  {selectedItem.status === 'approved' ? (
+                    <div className="mt-3 space-y-1 text-sm text-emerald-800"><p>Người phê duyệt: {selectedItem.approvedBy || 'Chưa có thông tin'}</p><p>Thời gian: {selectedItem.approvedAt || 'Chưa có thông tin'}</p></div>
+                  ) : <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-red-800">{selectedItem.feedback || 'Không có phản hồi đi kèm.'}</p>}
+                </section>
+              )}
+            </div>
+
+            <footer className="z-10 shrink-0 border-t border-[#dfe9e3] bg-white px-5 py-4 shadow-[0_-8px_24px_rgba(20,61,44,0.06)] md:px-6">
+              {selectedItem.status === 'pending' ? confirmApprove ? (
+                <div className="flex flex-col gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4 sm:flex-row sm:items-center sm:justify-between"><p className="text-sm font-medium text-emerald-900">Xác nhận phê duyệt bài học và toàn bộ tài liệu đính kèm?</p><div className="flex gap-2"><button type="button" disabled={submittingAction !== null} onClick={() => setConfirmApprove(false)} className="h-10 rounded-lg border border-emerald-300 bg-white px-4 text-sm font-semibold text-emerald-800">Quay lại</button><button type="button" disabled={submittingAction !== null} onClick={() => void approveReview()} className="inline-flex h-10 items-center gap-2 rounded-lg bg-emerald-700 px-4 text-sm font-semibold text-white disabled:opacity-50">{submittingAction === 'approve' ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />} Xác nhận</button></div></div>
+              ) : (
+                <div className="flex gap-3"><button type="button" disabled={submittingAction !== null} onClick={() => void rejectReview()} className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-xl border border-red-300 bg-white text-sm font-bold text-red-700 transition hover:bg-red-50 disabled:opacity-50">{submittingAction === 'reject' ? <RefreshCw className="h-4 w-4 animate-spin" /> : <XCircle className="h-4 w-4" />} Từ chối</button><button type="button" disabled={submittingAction !== null} onClick={() => setConfirmApprove(true)} className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-[#1D6750] text-sm font-bold text-white transition hover:bg-[#185540] disabled:opacity-50"><Check className="h-4 w-4" /> Phê duyệt</button></div>
+              ) : <button type="button" onClick={closeReview} className="h-11 w-full rounded-xl border border-[#d8e4dd] text-sm font-semibold text-[#52655b]">Đóng</button>}
+            </footer>
+          </aside>
+        </div>,
+        document.body,
+      )}
     </div>
   );
 };
