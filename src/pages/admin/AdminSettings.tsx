@@ -1,25 +1,127 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { CheckCircle2, CircleAlert, Gauge, RefreshCw, Save, SlidersHorizontal, ToggleLeft } from 'lucide-react';
+import {
+  AlertCircle,
+  CheckCircle2,
+  Gauge,
+  RefreshCw,
+  RotateCcw,
+  Save,
+  SlidersHorizontal,
+  ToggleLeft,
+} from 'lucide-react';
 import { appConfigsApi, type AppConfig } from '../../api/services';
 
 type ConfigGroup = 'scoring' | 'difficulty' | 'feature';
+type ConfigValueType = 'boolean' | 'number' | 'select' | 'json' | 'text';
 
-const groups: Array<{ id: ConfigGroup; label: string; description: string; icon: typeof Gauge }> = [
-  { id: 'scoring', label: 'Tham số chấm điểm', description: 'Các hệ số và ngưỡng phục vụ chấm điểm biểu diễn.', icon: Gauge },
-  { id: 'difficulty', label: 'Thiết lập độ khó', description: 'Các tham số điều chỉnh độ khó và lộ trình thích ứng.', icon: SlidersHorizontal },
-  { id: 'feature', label: 'Bật/tắt tính năng', description: 'Các cờ bật hoặc tắt tính năng hệ thống.', icon: ToggleLeft },
+interface Notice {
+  type: 'success' | 'error';
+  message: string;
+}
+
+const GROUPS: Array<{
+  id: ConfigGroup;
+  label: string;
+  description: string;
+  icon: typeof Gauge;
+}> = [
+  {
+    id: 'scoring',
+    label: 'Thông số tính điểm',
+    description: 'Trọng số, ngưỡng và tham số dùng trong quá trình đánh giá phần trình diễn.',
+    icon: Gauge,
+  },
+  {
+    id: 'difficulty',
+    label: 'Đường cong độ khó',
+    description: 'Thiết lập khả năng điều chỉnh độ khó và lộ trình thích ứng theo kết quả luyện tập.',
+    icon: SlidersHorizontal,
+  },
+  {
+    id: 'feature',
+    label: 'Chuyển đổi tính năng',
+    description: 'Bật hoặc tắt các tính năng được Backend cung cấp cho toàn hệ thống.',
+    icon: ToggleLeft,
+  },
 ];
 
-const toConfigGroup = (value?: string): ConfigGroup | null => {
-  const normalized = (value ?? '').trim().toLowerCase();
+const normalizeGroup = (value?: string): ConfigGroup | null => {
+  const normalized = (value ?? '').trim().toLowerCase().replaceAll('-', '_');
   if (normalized === 'scoring') return 'scoring';
   if (normalized === 'difficulty' || normalized === 'difficulty_curve') return 'difficulty';
-  if (normalized === 'feature' || normalized === 'features' || normalized === 'feature_toggle' || normalized === 'feature_toggles') return 'feature';
+  if (['feature', 'features', 'feature_toggle', 'feature_toggles'].includes(normalized)) return 'feature';
   return null;
 };
 
-const isBoolean = (value: string) => /^(true|false)$/i.test(value.trim());
-const isNumber = (value: string) => /^-?\d+(\.\d+)?$/.test(value.trim());
+const getConfigGroup = (config: AppConfig): ConfigGroup | null => {
+  const declaredGroup = normalizeGroup(config.config_group);
+  if (declaredGroup) return declaredGroup;
+  return normalizeGroup(config.key.split('.')[0]);
+};
+
+const parseOptions = (options?: string): string[] => {
+  if (!options?.trim()) return [];
+  try {
+    const parsed: unknown = JSON.parse(options);
+    if (Array.isArray(parsed)) return parsed.map(String);
+  } catch {
+    // Some API versions expose enum options as a comma-separated string.
+  }
+  return options.split(',').map((item) => item.trim()).filter(Boolean);
+};
+
+const getValueType = (config: AppConfig): ConfigValueType => {
+  const declaredType = (config.valueType ?? '').trim().toLowerCase();
+  const rawValue = String(config.value ?? '').trim();
+  if (declaredType.includes('bool')) return 'boolean';
+  if (['number', 'integer', 'decimal', 'double', 'float'].some((type) => declaredType.includes(type))) return 'number';
+  if (declaredType.includes('json')) return 'json';
+  if (declaredType.includes('enum') || declaredType.includes('select') || parseOptions(config.options).length > 0) return 'select';
+  if (/^(true|false)$/i.test(rawValue)) return 'boolean';
+  if (/^-?\d+(\.\d+)?$/.test(rawValue)) return 'number';
+  return 'text';
+};
+
+const validateValue = (config: AppConfig, value: string): string => {
+  const type = getValueType(config);
+  if (!value.trim()) return 'Giá trị không được để trống.';
+
+  if (type === 'boolean' && !/^(true|false)$/i.test(value.trim())) {
+    return 'Giá trị phải là true hoặc false.';
+  }
+
+  if (type === 'number') {
+    const number = Number(value);
+    if (!Number.isFinite(number)) return 'Giá trị phải là một số hợp lệ.';
+    if (config.min !== undefined && number < config.min) return `Giá trị nhỏ nhất là ${config.min}.`;
+    if (config.max !== undefined && number > config.max) return `Giá trị lớn nhất là ${config.max}.`;
+  }
+
+  if (type === 'select') {
+    const options = parseOptions(config.options);
+    if (options.length > 0 && !options.includes(value)) return 'Giá trị không nằm trong danh sách được Backend cho phép.';
+  }
+
+  if (type === 'json') {
+    try {
+      JSON.parse(value);
+    } catch {
+      return 'Nội dung JSON không hợp lệ.';
+    }
+  }
+
+  return '';
+};
+
+const formatDateTime = (value?: string) => {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat('vi-VN', {
+    dateStyle: 'short',
+    timeStyle: 'short',
+  }).format(date);
+};
 
 const AdminSettings = () => {
   const [configs, setConfigs] = useState<AppConfig[]>([]);
@@ -28,18 +130,22 @@ const AdminSettings = () => {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [savingKey, setSavingKey] = useState<string | null>(null);
-  const [notice, setNotice] = useState('');
+  const [notice, setNotice] = useState<Notice | null>(null);
 
   const loadConfigs = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
     setLoadError('');
+    setNotice(null);
     try {
       const data = await appConfigsApi.list(undefined, { signal });
       if (signal?.aborted) return;
-      setConfigs(data);
-      setDrafts(Object.fromEntries(data.map((config) => [config.key, config.value ?? ''])));
+      const response = Array.isArray(data) ? data : [];
+      setConfigs(response);
+      setDrafts(Object.fromEntries(response.map((config) => [config.key, String(config.value ?? '')])));
     } catch (error) {
-      if (!signal?.aborted) setLoadError(error instanceof Error ? error.message : 'Không thể tải cấu hình hệ thống.');
+      if (!signal?.aborted) {
+        setLoadError(error instanceof Error ? error.message : 'Không thể tải cấu hình hệ thống.');
+      }
     } finally {
       if (!signal?.aborted) setLoading(false);
     }
@@ -47,136 +153,273 @@ const AdminSettings = () => {
 
   useEffect(() => {
     const controller = new AbortController();
-    void loadConfigs(controller.signal);
-    return () => controller.abort();
+    const timer = window.setTimeout(() => void loadConfigs(controller.signal), 0);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
   }, [loadConfigs]);
 
   const groupedConfigs = useMemo(
-    () => configs.filter((config) => toConfigGroup(config.config_group) === selectedGroup),
+    () => configs.filter((config) => getConfigGroup(config) === selectedGroup),
     [configs, selectedGroup],
   );
 
+  const otherConfigCount = useMemo(
+    () => configs.filter((config) => getConfigGroup(config) === null).length,
+    [configs],
+  );
+
+  const changedKeys = useMemo(
+    () => new Set(configs.filter((config) => (drafts[config.key] ?? '') !== String(config.value ?? '')).map((config) => config.key)),
+    [configs, drafts],
+  );
+
+  const updateDraft = (key: string, value: string) => {
+    setDrafts((current) => ({ ...current, [key]: value }));
+    setNotice(null);
+  };
+
   const saveConfig = async (config: AppConfig) => {
     const value = drafts[config.key] ?? '';
+    const validationError = validateValue(config, value);
+    if (validationError) {
+      setNotice({ type: 'error', message: `${config.description || config.key}: ${validationError}` });
+      return;
+    }
+
     setSavingKey(config.key);
-    setNotice('');
+    setNotice(null);
     try {
       const updated = await appConfigsApi.update(config.key, value);
-      setConfigs((current) => current.map((item) => item.key === config.key ? updated : item));
-      setDrafts((current) => ({ ...current, [config.key]: updated.value ?? value }));
-      setNotice(`Đã cập nhật cấu hình “${config.description || config.key}”.`);
+      const normalized = { ...config, ...updated, value: String(updated?.value ?? value) };
+      setConfigs((current) => current.map((item) => item.key === config.key ? normalized : item));
+      setDrafts((current) => ({ ...current, [config.key]: normalized.value }));
+      setNotice({ type: 'success', message: `Đã cập nhật “${config.description || config.key}”.` });
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : 'Không thể cập nhật cấu hình.');
+      setNotice({
+        type: 'error',
+        message: error instanceof Error ? error.message : 'Không thể cập nhật cấu hình.',
+      });
     } finally {
       setSavingKey(null);
     }
   };
 
-  if (loading) return <div className="p-xl text-center text-[#1D4532]">Đang tải cấu hình hệ thống...</div>;
+  const selectedGroupInfo = GROUPS.find((group) => group.id === selectedGroup) ?? GROUPS[0];
+  const SelectedIcon = selectedGroupInfo.icon;
 
   return (
-    <div className="mx-auto w-full max-w-[1280px] space-y-6">
-      <header>
-        <h2 className="text-headline-lg font-bold text-[#1D4532]">Cấu hình hệ thống</h2>
-        <p className="mt-1 text-on-surface-variant">Quản trị tham số chấm điểm, thiết lập độ khó và các tính năng hệ thống.</p>
+    <div className="mx-auto w-full max-w-[1400px] space-y-6 pb-6">
+      <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-[#163d2d] md:text-4xl">Cấu hình ứng dụng</h1>
+          <p className="mt-2 max-w-3xl text-sm text-[#68736d] md:text-base">
+            Quản trị thông số tính điểm, đường cong độ khó và trạng thái các tính năng từ dữ liệu Backend.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => void loadConfigs()}
+          disabled={loading || savingKey !== null}
+          className="inline-flex h-10 items-center justify-center gap-2 self-start rounded-xl border border-[#d8e4dd] bg-white px-4 text-sm font-semibold text-[#1D4532] shadow-sm transition hover:bg-[#f7faf8] disabled:cursor-not-allowed disabled:opacity-50 sm:self-auto"
+        >
+          <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> Làm mới
+        </button>
       </header>
 
       {loadError && (
-        <div className="flex items-center justify-between gap-4 rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-red-800">
+        <div className="flex flex-col gap-3 rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-800 sm:flex-row sm:items-center sm:justify-between">
           <span>{loadError}</span>
-          <button onClick={() => void loadConfigs()} className="inline-flex items-center gap-2 font-semibold underline">
-            <RefreshCw className="h-4 w-4" /> Thử lại
-          </button>
+          <button type="button" onClick={() => void loadConfigs()} className="font-semibold underline">Thử lại</button>
         </div>
       )}
 
       {notice && (
-        <div className="flex items-center gap-2 rounded-xl border border-[#CFE3D8] bg-[#EDF7F2] px-5 py-4 text-[#1D4532]">
-          <CheckCircle2 className="h-5 w-5 shrink-0" />
-          <span>{notice}</span>
+        <div
+          role="status"
+          className={`flex items-center gap-2 rounded-xl border px-5 py-4 text-sm ${
+            notice.type === 'success'
+              ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+              : 'border-red-200 bg-red-50 text-red-800'
+          }`}
+        >
+          {notice.type === 'success' ? <CheckCircle2 className="h-5 w-5 shrink-0" /> : <AlertCircle className="h-5 w-5 shrink-0" />}
+          <span>{notice.message}</span>
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-        {groups.map((group) => {
+      <section className="grid grid-cols-1 gap-3 md:grid-cols-3" aria-label="Nhóm cấu hình">
+        {GROUPS.map((group) => {
           const Icon = group.icon;
-          const count = configs.filter((config) => toConfigGroup(config.config_group) === group.id).length;
+          const groupConfigs = configs.filter((config) => getConfigGroup(config) === group.id);
+          const changedCount = groupConfigs.filter((config) => changedKeys.has(config.key)).length;
+          const active = selectedGroup === group.id;
           return (
             <button
               key={group.id}
               type="button"
-              onClick={() => setSelectedGroup(group.id)}
-              className={`rounded-xl border p-5 text-left transition-colors ${
-                selectedGroup === group.id ? 'border-[#1D4532] bg-[#EDF7F2]' : 'border-[#DCEBE3] bg-white hover:bg-[#FAFCFB]'
+              onClick={() => {
+                setSelectedGroup(group.id);
+                setNotice(null);
+              }}
+              className={`rounded-2xl border p-5 text-left transition ${
+                active
+                  ? 'border-[#1D6750] bg-[#edf5f1] shadow-sm'
+                  : 'border-[#dfe9e3] bg-white hover:border-[#bfd3c7] hover:bg-[#fafcfb]'
               }`}
             >
-              <Icon className="mb-3 h-6 w-6 text-[#1D4532]" />
-              <p className="font-bold text-[#1D4532]">{group.label}</p>
-              <p className="mt-1 text-sm text-on-surface-variant">{group.description}</p>
-              <p className="mt-3 text-xs font-semibold text-[#1D4532]">{count} cấu hình</p>
+              <div className="flex items-start justify-between gap-3">
+                <span className={`grid h-10 w-10 place-items-center rounded-xl ${active ? 'bg-white text-[#1D4532]' : 'bg-[#f1f5f3] text-[#64736b]'}`}>
+                  <Icon className="h-5 w-5" />
+                </span>
+                <span className="rounded-full bg-white px-2.5 py-1 text-xs font-bold text-[#52655b]">{groupConfigs.length}</span>
+              </div>
+              <p className="mt-4 font-bold text-[#173f2f]">{group.label}</p>
+              <p className="mt-1 text-sm leading-5 text-[#718078]">{group.description}</p>
+              {changedCount > 0 && <p className="mt-3 text-xs font-semibold text-amber-700">{changedCount} thay đổi chưa lưu</p>}
             </button>
           );
         })}
-      </div>
+      </section>
 
-      <section className="rounded-xl border border-[#DCEBE3] bg-white p-6 shadow-sm">
-        <div className="mb-5 flex items-start gap-3 border-b border-[#E5EEE9] pb-5">
-          {(() => {
-            const group = groups.find((item) => item.id === selectedGroup)!;
-            const Icon = group.icon;
-            return <Icon className="mt-0.5 h-6 w-6 shrink-0 text-[#1D4532]" />;
-          })()}
+      <section className="overflow-hidden rounded-2xl border border-[#dfe9e3] bg-white shadow-[0_4px_18px_rgba(20,61,44,0.04)]">
+        <div className="flex items-start gap-3 border-b border-[#e8eeea] px-5 py-5 md:px-6">
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#edf5f1] text-[#1D4532]">
+            <SelectedIcon className="h-5 w-5" />
+          </span>
           <div>
-            <h3 className="text-lg font-bold text-[#1D4532]">{groups.find((group) => group.id === selectedGroup)?.label}</h3>
-            <p className="mt-1 text-sm text-on-surface-variant">{groups.find((group) => group.id === selectedGroup)?.description}</p>
+            <h2 className="text-lg font-bold text-[#173f2f]">{selectedGroupInfo.label}</h2>
+            <p className="mt-1 text-sm text-[#718078]">{selectedGroupInfo.description}</p>
           </div>
         </div>
 
-        {groupedConfigs.length === 0 ? (
-          <div className="grid min-h-40 place-items-center rounded-lg border border-dashed border-[#CFE3D8] bg-[#FAFCFB] px-5 text-center text-sm text-on-surface-variant">
-            Backend chưa cung cấp cấu hình thuộc nhóm này.
+        {loading ? (
+          <div className="space-y-4 p-5 md:p-6">
+            {[0, 1, 2].map((item) => <div key={item} className="h-32 animate-pulse rounded-xl bg-[#f1f5f3]" />)}
+          </div>
+        ) : groupedConfigs.length === 0 ? (
+          <div className="grid min-h-64 place-items-center px-6 py-12 text-center">
+            <div>
+              <SelectedIcon className="mx-auto h-8 w-8 text-[#9aaba2]" />
+              <p className="mt-3 font-semibold text-[#365647]">Chưa có cấu hình trong nhóm này</p>
+              <p className="mt-1 text-sm text-[#7a8780]">Giao diện chỉ hiển thị những cấu hình Backend thực tế trả về.</p>
+            </div>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="divide-y divide-[#edf1ef]">
             {groupedConfigs.map((config) => {
               const value = drafts[config.key] ?? '';
-              const changed = value !== (config.value ?? '');
-              const booleanValue = isBoolean(value);
+              const valueType = getValueType(config);
+              const options = parseOptions(config.options);
+              const changed = changedKeys.has(config.key);
+              const validationError = changed ? validateValue(config, value) : '';
+              const isSaving = savingKey === config.key;
+              const hasRange = valueType === 'number' && config.min !== undefined && config.max !== undefined;
+
               return (
-                <article key={config.key} className="rounded-xl border border-[#E1EBE5] bg-[#FAFCFB] p-5">
-                  <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                    <div className="min-w-0">
-                      <p className="font-semibold text-[#1D4532]">{config.description || config.key}</p>
-                      <p className="mt-1 font-mono text-xs text-on-surface-variant">{config.key}</p>
-                      {config.updated_at && <p className="mt-2 text-xs text-on-surface-variant">Cập nhật: {config.updated_at}{config.updated_by ? ` · ${config.updated_by}` : ''}</p>}
+                <article key={config.key} className="grid gap-5 px-5 py-5 lg:grid-cols-[minmax(260px,1fr)_minmax(320px,0.9fr)] lg:items-center md:px-6">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="font-semibold text-[#274b3b]">{config.description || config.key}</h3>
+                      {changed && <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-700">Chưa lưu</span>}
+                    </div>
+                    <p className="mt-1 break-all font-mono text-xs text-[#7a8780]">{config.key}</p>
+
+                    <div className="mt-3 flex flex-wrap gap-2 text-xs text-[#64736b]">
+                      {config.min !== undefined && <span className="rounded-md bg-[#f3f6f4] px-2 py-1">Tối thiểu: {config.min}</span>}
+                      {config.max !== undefined && <span className="rounded-md bg-[#f3f6f4] px-2 py-1">Tối đa: {config.max}</span>}
+                      {config.step !== undefined && <span className="rounded-md bg-[#f3f6f4] px-2 py-1">Bước: {config.step}</span>}
+                      {config.defaultValue !== undefined && <span className="rounded-md bg-[#f3f6f4] px-2 py-1">Mặc định: {config.defaultValue}</span>}
                     </div>
 
-                    <div className="flex w-full items-center gap-3 lg:w-auto">
-                      {booleanValue ? (
-                        <label className="inline-flex cursor-pointer items-center gap-3 text-sm font-semibold text-[#1D4532]">
+                    {(config.updated_at || config.updated_by) && (
+                      <p className="mt-3 text-xs text-[#87938c]">
+                        Cập nhật gần nhất{config.updated_at ? ` lúc ${formatDateTime(config.updated_at)}` : ''}
+                        {config.updated_by ? ` bởi ${config.updated_by}` : ''}
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    {valueType === 'boolean' ? (
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={value.toLowerCase() === 'true'}
+                        onClick={() => updateDraft(config.key, String(value.toLowerCase() !== 'true'))}
+                        className="flex w-full items-center justify-between rounded-xl border border-[#d8e4dd] bg-[#fafcfb] px-4 py-3 text-left"
+                      >
+                        <span>
+                          <span className="block text-sm font-semibold text-[#365647]">Trạng thái tính năng</span>
+                          <span className="mt-0.5 block text-xs text-[#7a8780]">{value.toLowerCase() === 'true' ? 'Đang bật' : 'Đang tắt'}</span>
+                        </span>
+                        <span className={`relative h-7 w-12 rounded-full transition ${value.toLowerCase() === 'true' ? 'bg-[#1D6750]' : 'bg-[#c9d3ce]'}`}>
+                          <span className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow-sm transition ${value.toLowerCase() === 'true' ? 'left-6' : 'left-1'}`} />
+                        </span>
+                      </button>
+                    ) : valueType === 'select' ? (
+                      <select
+                        value={value}
+                        onChange={(event) => updateDraft(config.key, event.target.value)}
+                        className="h-11 w-full rounded-xl border border-[#cfded6] bg-white px-3 text-sm text-[#274b3b] outline-none focus:border-[#1D6750]"
+                      >
+                        {options.map((option) => <option key={option} value={option}>{option}</option>)}
+                      </select>
+                    ) : valueType === 'json' ? (
+                      <textarea
+                        value={value}
+                        onChange={(event) => updateDraft(config.key, event.target.value)}
+                        rows={4}
+                        spellCheck={false}
+                        className="w-full rounded-xl border border-[#cfded6] bg-white px-3 py-2 font-mono text-sm text-[#274b3b] outline-none focus:border-[#1D6750]"
+                      />
+                    ) : (
+                      <div className={hasRange ? 'space-y-3' : ''}>
+                        {hasRange && (
                           <input
-                            type="checkbox"
-                            checked={value.toLowerCase() === 'true'}
-                            onChange={(event) => setDrafts((current) => ({ ...current, [config.key]: String(event.target.checked) }))}
-                            className="h-5 w-5 accent-[#1D4532]"
+                            type="range"
+                            min={config.min}
+                            max={config.max}
+                            step={config.step ?? 'any'}
+                            value={value}
+                            onChange={(event) => updateDraft(config.key, event.target.value)}
+                            className="w-full accent-[#1D6750]"
                           />
-                          {value.toLowerCase() === 'true' ? 'Đang bật' : 'Đang tắt'}
-                        </label>
-                      ) : (
+                        )}
                         <input
-                          type={isNumber(value) ? 'number' : 'text'}
+                          type={valueType === 'number' ? 'number' : 'text'}
+                          min={config.min}
+                          max={config.max}
+                          step={config.step ?? 'any'}
                           value={value}
-                          onChange={(event) => setDrafts((current) => ({ ...current, [config.key]: event.target.value }))}
-                          className="min-w-0 flex-1 rounded-lg border border-[#CFE3D8] bg-white px-3 py-2 text-sm text-on-surface outline-none focus:border-[#1D4532] lg:w-64 lg:flex-none"
+                          onChange={(event) => updateDraft(config.key, event.target.value)}
+                          className="h-11 w-full rounded-xl border border-[#cfded6] bg-white px-3 text-sm text-[#274b3b] outline-none focus:border-[#1D6750]"
                         />
+                      </div>
+                    )}
+
+                    {validationError && <p className="mt-2 text-xs font-medium text-red-700">{validationError}</p>}
+
+                    <div className="mt-3 flex flex-wrap justify-end gap-2">
+                      {config.defaultValue !== undefined && (
+                        <button
+                          type="button"
+                          disabled={isSaving || value === String(config.defaultValue)}
+                          onClick={() => updateDraft(config.key, String(config.defaultValue))}
+                          className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[#d8e4dd] bg-white px-3 text-xs font-semibold text-[#52655b] transition hover:bg-[#f7faf8] disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          <RotateCcw className="h-3.5 w-3.5" /> Dùng mặc định
+                        </button>
                       )}
                       <button
                         type="button"
-                        disabled={!changed || savingKey === config.key}
+                        disabled={!changed || Boolean(validationError) || isSaving || (savingKey !== null && !isSaving)}
                         onClick={() => void saveConfig(config)}
-                        className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-[#1D4532] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#163526] disabled:cursor-not-allowed disabled:opacity-40"
+                        className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-[#1D4532] px-4 text-xs font-semibold text-white transition hover:bg-[#163a2a] disabled:cursor-not-allowed disabled:opacity-40"
                       >
-                        <Save className="h-4 w-4" /> {savingKey === config.key ? 'Đang lưu' : 'Cập nhật'}
+                        {isSaving ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                        {isSaving ? 'Đang lưu' : 'Lưu thay đổi'}
                       </button>
                     </div>
                   </div>
@@ -187,10 +430,11 @@ const AdminSettings = () => {
         )}
       </section>
 
-      <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-900">
-        <CircleAlert className="mt-0.5 h-5 w-5 shrink-0" />
-        <p>Giao diện sử dụng kiểu dữ liệu do API hiện công bố. Backend cần trả metadata kiểu dữ liệu và giới hạn giá trị để hệ thống có thể kiểm tra chính xác hơn.</p>
-      </div>
+      {otherConfigCount > 0 && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-900">
+          Có {otherConfigCount} cấu hình Backend chưa khai báo nhóm scoring, difficulty hoặc feature nên chưa được hiển thị trong ba khu vực trên.
+        </div>
+      )}
     </div>
   );
 };

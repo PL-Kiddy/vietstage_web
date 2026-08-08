@@ -76,6 +76,12 @@ export interface AppConfig {
   key: string;
   value: string;
   description?: string;
+  valueType?: string;
+  min?: number;
+  max?: number;
+  step?: number;
+  options?: string;
+  defaultValue?: string;
   config_group?: string;
   updated_by?: string;
   updated_at?: string;

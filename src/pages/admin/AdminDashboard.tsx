@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Activity,
   ArrowRight,
@@ -12,7 +12,6 @@ import {
   Users,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { profileApi } from '../../api/management';
 import { adminDashboardApi, reviewsApi } from '../../api/services';
 import type {
   AdminDashboardStats,
@@ -24,7 +23,6 @@ import type {
 import { useAxiosRequest } from '../../hooks/useAxiosRequest';
 
 interface DashboardViewData {
-  adminName: string;
   analytics?: AdminDashboardStats;
   reviewQueue: ReviewItem[];
   pendingReviews?: number;
@@ -139,14 +137,12 @@ const AdminDashboard = () => {
         toDate: `${filters.toDate}T23:59:59`,
         granularity: filters.granularity,
       }, { signal }),
-      profileApi.get({ signal }),
       reviewsApi.list(new URLSearchParams({ page: '0', size: '5', status: 'PENDING' }), { signal }),
     ]);
-    const [analytics, profile, pendingReviews] = results;
+    const [analytics, pendingReviews] = results;
 
     return {
       analytics: analytics.status === 'fulfilled' ? analytics.value : undefined,
-      adminName: profile.status === 'fulfilled' ? profile.value.fullName : '',
       reviewQueue: pendingReviews.status === 'fulfilled' ? pendingReviews.value.content ?? [] : [],
       pendingReviews: pendingReviews.status === 'fulfilled' ? pendingReviews.value.totalElements : undefined,
       analyticsUnavailable: analytics.status === 'rejected',
@@ -155,12 +151,14 @@ const AdminDashboard = () => {
   }, [filters]);
 
   const { data, loading, execute } = useAxiosRequest(fetchDashboard, { auto: false });
+  const requestedFilterRef = useRef('');
 
   useEffect(() => {
-    const controller = new AbortController();
-    void execute(controller.signal).catch(() => undefined);
-    return () => controller.abort();
-  }, [execute, fetchDashboard]);
+    const requestKey = `${filters.fromDate}|${filters.toDate}|${filters.granularity}`;
+    if (requestedFilterRef.current === requestKey) return;
+    requestedFilterRef.current = requestKey;
+    void execute().catch(() => undefined);
+  }, [execute, fetchDashboard, filters]);
 
   const analytics = data?.analytics;
   const instruments = analytics?.popularInstruments ?? [];
@@ -209,7 +207,7 @@ const AdminDashboard = () => {
       <header className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-[#163d2d] md:text-4xl">
-            {data?.adminName?.trim() ? `Xin chào, ${data.adminName.trim()}` : 'Tổng quan hệ thống'}
+            Tổng quan hệ thống
           </h1>
           <p className="mt-2 text-sm text-[#68736d] md:text-base">
             Theo dõi mức độ sử dụng, hoạt động luyện tập và khả năng quay lại của người học.
