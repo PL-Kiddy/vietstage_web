@@ -13,6 +13,8 @@ import type {
   InstructorLearner,
   AdminDashboardStats,
   DashboardGranularity,
+  InstructorCreateRequest,
+  InstructorCreateResponse,
 } from './types';
 
 export const authApi = {
@@ -71,13 +73,8 @@ export const usersApi = {
       method: 'POST',
       body: { newPassword },
     }),
-  createInstructor: (body: {
-    email: string;
-    password: string;
-    fullName: string;
-    biography?: string;
-    yearsExperience?: number;
-  }) => apiRequest('/api/admin/create-instructor', { method: 'POST', body }),
+  createInstructor: (body: InstructorCreateRequest) =>
+    apiRequest<InstructorCreateResponse>('/api/admin/create-instructor', { method: 'POST', body }),
 };
 
 export const masterDataApi = {

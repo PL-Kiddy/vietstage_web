@@ -54,9 +54,9 @@ export interface AdminUser {
   id: number;
   name: string;
   email: string;
-  role: 'Admin' | 'Giảng viên' | 'Người học';
+  role: BackendRole;
   registeredAt: string;
-  status: 'active' | 'locked';
+  status: 'ACTIVE' | 'LOCKED';
   avatar?: string;
   initials?: string;
   specialty?: string;
@@ -206,6 +206,27 @@ export interface AdminDashboardStats {
   popularInstruments: PopularInstrumentStat[];
   sessionDuration: SessionDurationStat[];
   retention: RetentionStat[];
+}
+
+export interface InstructorCreateRequest {
+  email: string;
+  password: string;
+  fullName: string;
+  biography?: string;
+  yearsExperience?: number;
+  instrumentIds?: number[];
+}
+
+export interface InstructorCreateResponse {
+  id: number;
+  userCode?: string;
+  email: string;
+  fullName: string;
+  roleName: string;
+  isActive: boolean;
+  createdAt: string;
+  biography?: string;
+  yearsExperience?: number;
 }
 
 export interface FeedbackResponse {

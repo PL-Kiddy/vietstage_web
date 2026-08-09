@@ -20,8 +20,9 @@ import { masterDataApi, usersApi } from '../../api/services';
 import type { AdminUser as ApiAdminUser, Instrument, PageResponse } from '../../api/types';
 import { useAxiosRequest } from '../../hooks/useAxiosRequest';
 
-export interface ExtendedAdminUser extends Omit<ApiAdminUser, 'id' | 'status'> {
+export interface ExtendedAdminUser extends Omit<ApiAdminUser, 'id' | 'role' | 'status'> {
   id: string;
+  role: 'Admin' | 'Giảng viên' | 'Người học';
   status: 'active' | 'locked';
 }
 
@@ -294,8 +295,11 @@ const AdminUsers = () => {
 
   const isAddFormValid =
     newUserName.trim() !== '' &&
+    newUserName.trim().length <= 150 &&
     isEmailValid(newUserEmail) &&
-    newPassword.length >= 6;
+    newUserEmail.length <= 150 &&
+    newPassword.length >= 6 &&
+    !/\s/.test(newPassword);
 
   const isEditFormValid = editingUser !== null && editName.trim() !== '' && (
     editName !== editingUser.name ||
@@ -999,6 +1003,7 @@ const AdminUsers = () => {
                         <input
                           type="text"
                           required
+                          maxLength={150}
                           value={newUserName}
                           onChange={(e) => handleNameChange(e.target.value)}
                           className="w-full bg-white border border-[#d1e4fb] rounded-lg p-sm text-body-md focus:border-[#1D4532] focus:ring-1 focus:ring-[#1D4532] transition-all outline-none text-on-surface"
@@ -1017,6 +1022,7 @@ const AdminUsers = () => {
                         <input
                           type="email"
                           required
+                          maxLength={150}
                           value={newUserEmail}
                           onChange={(e) => setNewUserEmail(e.target.value)}
                           className={`w-full bg-white border rounded-lg p-sm text-body-md transition-all outline-none text-on-surface ${newUserEmail && !isEmailValid(newUserEmail)
@@ -1036,7 +1042,6 @@ const AdminUsers = () => {
                             <input
                               type="number"
                               min={0}
-                              max={60}
                               value={newYearsExperience}
                               onChange={(e) => setNewYearsExperience(Math.max(0, parseInt(e.target.value) || 0))}
                               placeholder="Ví dụ: 5"
@@ -1066,9 +1071,11 @@ const AdminUsers = () => {
                         <input
                           type="password"
                           required
+                          minLength={6}
+                          pattern="\S*"
                           value={newPassword}
                           onChange={(e) => setNewPassword(e.target.value)}
-                          placeholder="Nhập mật khẩu cho tài khoản (tối thiểu 6 ký tự)..."
+                          placeholder="Tối thiểu 6 ký tự, không chứa khoảng trắng..."
                           className="w-full bg-white border border-[#d1e4fb] rounded-lg p-sm text-body-md focus:border-[#1D4532] focus:ring-1 focus:ring-[#1D4532] transition-all outline-none text-on-surface font-medium"
                         />
                         <p className="text-[11px] text-[#5e5e5b] mt-1">
@@ -1173,6 +1180,7 @@ const AdminUsers = () => {
                         <input
                           type="text"
                           required
+                          maxLength={150}
                           value={editName}
                           onChange={(e) => setEditName(e.target.value)}
                           className="w-full bg-white border border-[#d1e4fb] rounded-lg p-md text-body-md focus:border-[#1D4532] focus:ring-1 focus:ring-[#1D4532] transition-all outline-none text-on-surface"
