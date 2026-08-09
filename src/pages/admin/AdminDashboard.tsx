@@ -59,6 +59,8 @@ const formatDecimal = (value?: number, suffix = '') =>
 const formatPeriod = (period: string) => {
   const dayMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(period);
   if (dayMatch) return `${dayMatch[3]}/${dayMatch[2]}`;
+  const weekMatch = /^(\d{4})-W(\d{1,2})$/i.exec(period);
+  if (weekMatch) return `T${Number(weekMatch[2])}/${weekMatch[1]}`;
   const monthMatch = /^(\d{4})-(\d{2})$/.exec(period);
   if (monthMatch) return `Tháng ${Number(monthMatch[2])}/${monthMatch[1]}`;
   return period;
@@ -102,6 +104,8 @@ const AnalyticsLineChart = ({ data, unit, emptyMessage, gradientId, color, fixed
   const points = data.map((item, index) => `${xFor(index)},${yFor(item.value)}`).join(' ');
   const areaPoints = `${padding.left},${padding.top + innerHeight} ${points} ${padding.left + innerWidth},${padding.top + innerHeight}`;
   const ticks = [0, 0.25, 0.5, 0.75, 1];
+  const labelStep = Math.max(1, Math.ceil(data.length / 7));
+  const pointRadius = data.length > 12 ? 4 : 7;
 
   return (
     <div className="w-full">
@@ -139,7 +143,7 @@ const AnalyticsLineChart = ({ data, unit, emptyMessage, gradientId, color, fixed
           const y = yFor(item.value);
           return (
             <g key={`${item.period}-${index}`}>
-              <circle cx={x} cy={y} r="7" fill="white" stroke={color} strokeWidth="3">
+              <circle cx={x} cy={y} r={pointRadius} fill="white" stroke={color} strokeWidth={data.length > 12 ? 2 : 3}>
                 <title>{`${formatPeriod(item.period)}: ${formatDecimal(item.value, unit)}`}</title>
               </circle>
               {index === data.length - 1 && (
@@ -147,9 +151,11 @@ const AnalyticsLineChart = ({ data, unit, emptyMessage, gradientId, color, fixed
                   {formatDecimal(item.value, unit)}
                 </text>
               )}
-              <text x={x} y={chartHeight - 14} textAnchor="middle" fontSize="12" fill="#66756d">
-                {formatPeriod(item.period)}
-              </text>
+              {(index % labelStep === 0 || index === data.length - 1) && (
+                <text x={x} y={chartHeight - 14} textAnchor="middle" fontSize="12" fill="#66756d">
+                  {formatPeriod(item.period)}
+                </text>
+              )}
             </g>
           );
         })}
@@ -209,9 +215,7 @@ const AdminDashboard = () => {
   const instruments = analytics?.popularInstruments ?? [];
   const durations = analytics?.sessionDuration ?? [];
   const retention = analytics?.retention ?? [];
-  const visibleInstruments = instruments.slice(0, 5);
-  const visibleDurations = durations.slice(-7);
-  const visibleRetention = retention.slice(-6);
+  const visibleInstruments = [...instruments].sort((a, b) => b.practiceCount - a.practiceCount).slice(0, 5);
   const latestDuration = durations.length > 0 ? durations[durations.length - 1] : undefined;
   const latestRetention = retention.length > 0 ? retention[retention.length - 1] : undefined;
   const topInstrument = instruments[0];
@@ -371,26 +375,26 @@ const AdminDashboard = () => {
           <div className="mb-3 flex items-start justify-between gap-3">
             <div>
               <h2 className="text-lg font-bold text-[#173f2f]">Xu hướng duy trì</h2>
-              <p className="mt-1 text-sm text-[#718078]">Tỷ lệ người dùng quay lại hoạt động trong 6 kỳ gần nhất.</p>
+              <p className="mt-1 text-sm text-[#718078]">Tỷ lệ người dùng quay lại hoạt động trong khoảng đã chọn.</p>
             </div>
           </div>
           {isDashboardLoading ? (
             <div className="space-y-4">{[0, 1, 2].map((item) => <div key={item} className="h-12 animate-pulse rounded-xl bg-[#f1f5f3]" />)}</div>
           ) : (
-            <RetentionChart data={visibleRetention} />
+            <RetentionChart data={retention} />
           )}
         </article>
       <article className="h-full rounded-2xl border border-[#e0e9e4] bg-white p-3 shadow-[0_4px_18px_rgba(20,61,44,0.04)]">
         <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h2 className="text-lg font-bold text-[#173f2f]">Thời lượng phiên trung bình</h2>
-            <p className="mt-1 text-sm text-[#718078]">Thời gian hoạt động trung bình trong mỗi phiên qua 7 kỳ gần nhất.</p>
+            <p className="mt-1 text-sm text-[#718078]">Thời gian hoạt động trung bình trong mỗi phiên theo khoảng đã chọn.</p>
           </div>
         </div>
         {isDashboardLoading ? (
           <div className="space-y-4">{[0, 1, 2, 3].map((item) => <div key={item} className="h-10 animate-pulse rounded-xl bg-[#f1f5f3]" />)}</div>
           ) : (
-          <SessionDurationChart data={visibleDurations} />
+          <SessionDurationChart data={durations} />
         )}
       </article>
       </section>
