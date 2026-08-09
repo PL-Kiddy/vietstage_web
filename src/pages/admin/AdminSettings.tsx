@@ -9,6 +9,7 @@ import {
   ToggleLeft,
 } from 'lucide-react';
 import { appConfigsApi, type AppConfig } from '../../api/services';
+import { ApiError } from '../../api/client';
 
 type ConfigGroup = 'scoring' | 'difficulty' | 'feature';
 type ConfigValueType = 'boolean' | 'number' | 'select' | 'json' | 'unsupported';
@@ -142,11 +143,13 @@ const AdminSettings = () => {
   const [loadError, setLoadError] = useState('');
   const [savingKey, setSavingKey] = useState<string | null>(null);
   const [notice, setNotice] = useState<Notice | null>(null);
+  const [hasVersionConflict, setHasVersionConflict] = useState(false);
 
   const loadConfigs = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
     setLoadError('');
     setNotice(null);
+    setHasVersionConflict(false);
     try {
       const groupResponses = await Promise.all(
         GROUPS.map((group) => appConfigsApi.list(group.id, { signal })),
@@ -195,6 +198,10 @@ const AdminSettings = () => {
   };
 
   const saveConfig = async (config: AppConfig) => {
+    if (!Number.isInteger(config.version) || Number(config.version) < 0) {
+      setNotice({ type: 'error', message: 'Backend chưa cung cấp version hợp lệ nên không thể cập nhật cấu hình an toàn.' });
+      return;
+    }
     const draftValue = drafts[config.key] ?? '';
     const value = normalizeValueForSave(config, draftValue);
     const validationError = validateValue(config, value);
@@ -206,12 +213,21 @@ const AdminSettings = () => {
     setSavingKey(config.key);
     setNotice(null);
     try {
-      const updated = await appConfigsApi.update(config.key, value);
+      const updated = await appConfigsApi.update(config.key, value, Number(config.version));
       const normalized = { ...config, ...updated, value: String(updated?.value ?? value) };
       setConfigs((current) => current.map((item) => item.key === config.key ? normalized : item));
       setDrafts((current) => ({ ...current, [config.key]: getDraftValue(normalized) }));
+      setHasVersionConflict(false);
       setNotice({ type: 'success', message: `Đã cập nhật “${config.description || config.key}”.` });
     } catch (error) {
+      if (error instanceof ApiError && error.status === 409) {
+        setHasVersionConflict(true);
+        setNotice({
+          type: 'error',
+          message: 'Cấu hình đã được Admin khác cập nhật. Hãy tải lại dữ liệu trước khi tiếp tục chỉnh sửa.',
+        });
+        return;
+      }
       setNotice({
         type: 'error',
         message: error instanceof Error ? error.message : 'Không thể cập nhật cấu hình.',
@@ -257,6 +273,15 @@ const AdminSettings = () => {
         >
           {notice.type === 'success' ? <CheckCircle2 className="h-5 w-5 shrink-0" /> : <AlertCircle className="h-5 w-5 shrink-0" />}
           <span>{notice.message}</span>
+          {hasVersionConflict && (
+            <button
+              type="button"
+              onClick={() => void loadConfigs()}
+              className="ml-auto inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-red-300 bg-white px-3 font-semibold text-red-800 hover:bg-red-50"
+            >
+              <RefreshCw className="h-3.5 w-3.5" /> Tải lại dữ liệu
+            </button>
+          )}
         </div>
       )}
 
@@ -327,6 +352,7 @@ const AdminSettings = () => {
               const changed = changedKeys.has(config.key);
               const validationError = changed ? validateValue(config, value) : '';
               const isSaving = savingKey === config.key;
+              const hasValidVersion = Number.isInteger(config.version) && Number(config.version) >= 0;
               const hasRange = valueType === 'number' && config.min !== undefined && config.max !== undefined;
 
               return (
@@ -343,6 +369,7 @@ const AdminSettings = () => {
                       {config.max !== undefined && <span className="rounded-md bg-[#f3f6f4] px-2 py-1">Tối đa: {String(config.max)}</span>}
                       {config.step !== undefined && <span className="rounded-md bg-[#f3f6f4] px-2 py-1">Bước: {String(config.step)}</span>}
                       {config.defaultValue !== undefined && <span className="rounded-md bg-[#f3f6f4] px-2 py-1">Mặc định: {config.defaultValue}</span>}
+                      {config.version !== undefined && <span className="rounded-md bg-[#f3f6f4] px-2 py-1">Phiên bản: {config.version}</span>}
                     </div>
 
                     {(config.updated_at || config.updated_by) && (
@@ -354,7 +381,11 @@ const AdminSettings = () => {
                   </div>
 
                   <div>
-                    {valueType === 'boolean' ? (
+                    {!hasValidVersion ? (
+                      <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                        Backend chưa cung cấp version hợp lệ nên không thể chỉnh sửa cấu hình an toàn.
+                      </div>
+                    ) : valueType === 'boolean' ? (
                       <button
                         type="button"
                         role="switch"
@@ -425,7 +456,7 @@ const AdminSettings = () => {
                     <div className="mt-3 flex flex-wrap justify-end gap-2">
                       <button
                         type="button"
-                        disabled={!changed || Boolean(validationError) || isSaving || (savingKey !== null && !isSaving)}
+                        disabled={!hasValidVersion || !changed || Boolean(validationError) || isSaving || (savingKey !== null && !isSaving)}
                         onClick={() => void saveConfig(config)}
                         className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-[#1D4532] px-4 text-xs font-semibold text-white transition hover:bg-[#163a2a] disabled:cursor-not-allowed disabled:opacity-40"
                       >

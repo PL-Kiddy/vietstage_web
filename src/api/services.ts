@@ -92,6 +92,7 @@ export interface AppConfig {
   step?: number;
   options?: string;
   defaultValue?: string;
+  version?: number;
   config_group?: string;
   updated_by?: string;
   updated_at?: string;
@@ -102,11 +103,11 @@ export const appConfigsApi = {
     const query = group ? `?group=${encodeURIComponent(group)}` : '';
     return apiRequest<AppConfig[]>(`/api/admin/configs${query}`, options);
   },
-  update: (key: string, value: string, options?: RequestOptions) =>
+  update: (key: string, value: string, version: number, options?: RequestOptions) =>
     apiRequest<AppConfig>(`/api/admin/configs/${encodeURIComponent(key)}`, {
       ...options,
       method: 'PUT',
-      body: { value },
+      body: { value, version },
     }),
 };
 
