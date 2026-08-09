@@ -73,52 +73,105 @@ const EmptyAnalytics = ({ message }: { message: string }) => (
   </div>
 );
 
-const SessionDurationChart = ({ data }: { data: SessionDurationStat[] }) => {
-  const maxValue = Math.max(...data.map((item) => item.averageDurationMinutes), 0);
-  if (data.length === 0) return <EmptyAnalytics message="Chưa có dữ liệu thời lượng phiên trong khoảng đã chọn." />;
+interface LineChartPoint {
+  period: string;
+  value: number;
+}
+
+interface AnalyticsLineChartProps {
+  data: LineChartPoint[];
+  unit: string;
+  emptyMessage: string;
+  gradientId: string;
+  fixedMax?: number;
+}
+
+const AnalyticsLineChart = ({ data, unit, emptyMessage, gradientId, fixedMax }: AnalyticsLineChartProps) => {
+  if (data.length === 0) return <EmptyAnalytics message={emptyMessage} />;
+
+  const chartWidth = 720;
+  const chartHeight = 240;
+  const padding = { top: 30, right: 24, bottom: 42, left: 48 };
+  const innerWidth = chartWidth - padding.left - padding.right;
+  const innerHeight = chartHeight - padding.top - padding.bottom;
+  const rawMax = Math.max(...data.map((item) => item.value), 0);
+  const maxValue = fixedMax ?? Math.max(1, Math.ceil(rawMax / 5) * 5);
+  const xFor = (index: number) => padding.left + (index / Math.max(1, data.length - 1)) * innerWidth;
+  const yFor = (value: number) => padding.top + innerHeight - (Math.min(Math.max(value, 0), maxValue) / maxValue) * innerHeight;
+  const points = data.map((item, index) => `${xFor(index)},${yFor(item.value)}`).join(' ');
+  const areaPoints = `${padding.left},${padding.top + innerHeight} ${points} ${padding.left + innerWidth},${padding.top + innerHeight}`;
+  const ticks = [0, 0.25, 0.5, 0.75, 1];
 
   return (
-    <div className="space-y-4">
-      {data.map((item) => {
-        const width = maxValue > 0 ? (item.averageDurationMinutes / maxValue) * 100 : 0;
-        return (
-          <div key={item.period} className="grid grid-cols-[72px_minmax(0,1fr)_72px] items-center gap-3">
-            <span className="truncate text-xs font-medium text-[#738078]" title={item.period}>{formatPeriod(item.period)}</span>
-            <div className="h-2.5 overflow-hidden rounded-full bg-[#edf2ef]">
-              <div className="h-full rounded-full bg-[#1D6750] transition-all" style={{ width: `${width}%` }} />
-            </div>
-            <span className="text-right text-sm font-semibold text-[#274b3b]">
-              {formatDecimal(item.averageDurationMinutes, ' phút')}
-            </span>
-          </div>
-        );
-      })}
+    <div className="w-full">
+      <svg
+        viewBox={`0 0 ${chartWidth} ${chartHeight}`}
+        role="img"
+        aria-label={`Biểu đồ xu hướng ${unit}`}
+        className="h-auto w-full"
+      >
+        <defs>
+          <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#1D6750" stopOpacity="0.24" />
+            <stop offset="100%" stopColor="#1D6750" stopOpacity="0.02" />
+          </linearGradient>
+        </defs>
+
+        {ticks.map((ratio) => {
+          const y = padding.top + innerHeight - ratio * innerHeight;
+          return (
+            <g key={ratio}>
+              <line x1={padding.left} x2={padding.left + innerWidth} y1={y} y2={y} stroke="#e4ece7" strokeDasharray="4 5" />
+              <text x={padding.left - 10} y={y + 4} textAnchor="end" fontSize="11" fill="#7a8780">
+                {formatDecimal(maxValue * ratio, unit)}
+              </text>
+            </g>
+          );
+        })}
+
+        <polygon points={areaPoints} fill={`url(#${gradientId})`} />
+        <polyline points={points} fill="none" stroke="#1D6750" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+
+        {data.map((item, index) => {
+          const x = xFor(index);
+          const y = yFor(item.value);
+          return (
+            <g key={`${item.period}-${index}`}>
+              <circle cx={x} cy={y} r="8" fill="white" stroke="#1D6750" strokeWidth="3">
+                <title>{`${formatPeriod(item.period)}: ${formatDecimal(item.value, unit)}`}</title>
+              </circle>
+              <text x={x} y={Math.max(14, y - 13)} textAnchor="middle" fontSize="11" fontWeight="700" fill="#274b3b">
+                {formatDecimal(item.value)}
+              </text>
+              <text x={x} y={chartHeight - 14} textAnchor="middle" fontSize="11" fill="#6f7d75">
+                {formatPeriod(item.period)}
+              </text>
+            </g>
+          );
+        })}
+      </svg>
     </div>
   );
 };
 
-const RetentionChart = ({ data }: { data: RetentionStat[] }) => {
-  if (data.length === 0) return <EmptyAnalytics message="Chưa có dữ liệu duy trì trong khoảng đã chọn." />;
+const SessionDurationChart = ({ data }: { data: SessionDurationStat[] }) => (
+  <AnalyticsLineChart
+    data={data.map((item) => ({ period: item.period, value: item.averageDurationMinutes }))}
+    unit=" phút"
+    emptyMessage="Chưa có dữ liệu thời lượng phiên trong khoảng đã chọn."
+    gradientId="session-duration-gradient"
+  />
+);
 
-  return (
-    <div className="space-y-4">
-      {data.map((item) => {
-        const width = Math.min(Math.max(item.retentionRate, 0), 100);
-        return (
-          <div key={item.period}>
-            <div className="mb-1.5 flex items-center justify-between gap-4">
-              <span className="text-xs font-medium text-[#738078]" title={item.period}>{formatPeriod(item.period)}</span>
-              <span className="text-sm font-semibold text-[#274b3b]">{formatDecimal(item.retentionRate, '%')}</span>
-            </div>
-            <div className="h-2.5 overflow-hidden rounded-full bg-[#edf2ef]">
-              <div className="h-full rounded-full bg-[#1D6750] transition-all" style={{ width: `${width}%` }} />
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-};
+const RetentionChart = ({ data }: { data: RetentionStat[] }) => (
+  <AnalyticsLineChart
+    data={data.map((item) => ({ period: item.period, value: item.retentionRate }))}
+    unit="%"
+    emptyMessage="Chưa có dữ liệu duy trì trong khoảng đã chọn."
+    gradientId="retention-gradient"
+    fixedMax={100}
+  />
+);
 
 const AdminDashboard = () => {
   const [draftFilters, setDraftFilters] = useState<DashboardFilters>(createInitialFilters);
