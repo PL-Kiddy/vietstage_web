@@ -95,6 +95,9 @@ const normalizeReviewStatus = (status?: string): ReviewItem['status'] => {
   }
 };
 
+const isModerationStatus = (status?: string) =>
+  ['PENDING', 'APPROVED', 'REJECTED'].includes(String(status ?? '').trim().toUpperCase());
+
 const AdminReview = () => {
   const [items, setItems] = useState<ReviewItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -158,7 +161,7 @@ const AdminReview = () => {
         reviewsApi.list(createParams('APPROVED', 0, 1), { signal }),
         reviewsApi.list(createParams('REJECTED', 0, 1), { signal }),
       ]);
-      setItems((reviewPage.content ?? []).map(normalizeReview));
+      setItems((reviewPage.content ?? []).filter((item) => isModerationStatus(item.status)).map(normalizeReview));
       setPageInfo({ totalElements: reviewPage.totalElements ?? 0, totalPages: reviewPage.totalPages ?? 1 });
       setReviewCounts({
         all: allPage.totalElements ?? 0,
@@ -205,7 +208,7 @@ const AdminReview = () => {
   };
 
   const handleApprove = async () => {
-    if (!selectedItem || isDecisionSubmitting) return;
+    if (!selectedItem || selectedItem.status !== 'pending' || isDecisionSubmitting) return;
     setIsDecisionSubmitting(true);
     try {
       await reviewsApi.approve(Number(selectedItem.id));
@@ -220,9 +223,13 @@ const AdminReview = () => {
   };
 
   const handleReject = async () => {
-    if (!selectedItem || isDecisionSubmitting) return;
+    if (!selectedItem || selectedItem.status !== 'pending' || isDecisionSubmitting) return;
     if (!feedback.trim()) {
       setFeedbackError('Lý do từ chối là bắt buộc để giảng viên nắm được thông tin chỉnh sửa.');
+      return;
+    }
+    if (feedback.trim().length > 1000) {
+      setFeedbackError('Lý do từ chối không được vượt quá 1.000 ký tự.');
       return;
     }
     setIsDecisionSubmitting(true);
@@ -774,6 +781,7 @@ const AdminReview = () => {
                         </label>
                         <textarea
                           value={feedback}
+                          maxLength={1000}
                           onChange={(e) => {
                             setFeedback(e.target.value);
                             if (e.target.value.trim() !== '') setFeedbackError('');
@@ -783,6 +791,7 @@ const AdminReview = () => {
                           }`}
                           placeholder="Bắt buộc phải nhập lý do chi tiết khi từ chối học liệu..."
                         />
+                        <p className="mt-1 text-right text-xs text-on-surface-variant">{feedback.length}/1.000 ký tự</p>
                         {feedbackError && (
                           <p className="text-xs text-[#ba1a1a] font-semibold mt-1 flex items-center gap-1">
                             <span className="w-1.5 h-1.5 rounded-full bg-[#ba1a1a] inline-block animate-ping" />

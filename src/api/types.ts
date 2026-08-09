@@ -138,7 +138,7 @@ export interface ReviewItem {
   }[];
   technicalNotes?: string;
   description?: string;
-  status: 'pending' | 'approved' | 'rejected';
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
   feedback?: string;
   approvedBy?: string;
   approvedAt?: string;
