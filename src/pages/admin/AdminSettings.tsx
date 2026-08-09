@@ -45,10 +45,10 @@ const GROUPS: Array<{
 ];
 
 const normalizeGroup = (value?: string): ConfigGroup | null => {
-  const normalized = (value ?? '').trim().toLowerCase().replaceAll('-', '_');
+  const normalized = (value ?? '').trim().toLowerCase();
   if (normalized === 'scoring') return 'scoring';
-  if (normalized === 'difficulty' || normalized === 'difficulty_curve') return 'difficulty';
-  if (['feature', 'features', 'feature_toggle', 'feature_toggles'].includes(normalized)) return 'feature';
+  if (normalized === 'difficulty') return 'difficulty';
+  if (normalized === 'feature') return 'feature';
   return null;
 };
 
@@ -69,11 +69,18 @@ const parseOptions = (options?: string): string[] => {
 
 const getValueType = (config: AppConfig): ConfigValueType => {
   const declaredType = (config.valueType ?? '').trim().toLowerCase();
-  if (declaredType.includes('bool')) return 'boolean';
-  if (['number', 'integer', 'decimal', 'double', 'float'].some((type) => declaredType.includes(type))) return 'number';
-  if (declaredType.includes('json')) return 'json';
-  if (declaredType.includes('enum') || declaredType.includes('select') || parseOptions(config.options).length > 0) return 'select';
+  if (declaredType === 'boolean') return 'boolean';
+  if (declaredType === 'number') return 'number';
+  if (declaredType === 'json') return 'json';
+  if (declaredType === 'select' && parseOptions(config.options).length > 0) return 'select';
   return 'unsupported';
+};
+
+const normalizeValueForSave = (config: AppConfig, value: string) => {
+  const type = getValueType(config);
+  if (type === 'boolean') return value.trim().toLowerCase();
+  if (type === 'number' || type === 'json') return value.trim();
+  return value;
 };
 
 const validateValue = (config: AppConfig, value: string): string => {
@@ -189,7 +196,7 @@ const AdminSettings = () => {
 
   const saveConfig = async (config: AppConfig) => {
     const draftValue = drafts[config.key] ?? '';
-    const value = draftValue;
+    const value = normalizeValueForSave(config, draftValue);
     const validationError = validateValue(config, value);
     if (validationError) {
       setNotice({ type: 'error', message: `${config.description || config.key}: ${validationError}` });
@@ -229,7 +236,7 @@ const AdminSettings = () => {
       </header>
 
       <div className="rounded-xl border border-[#dce8e1] bg-[#f6faf8] px-4 py-3 text-sm text-[#52655b]">
-        <span className="font-semibold text-[#244b39]">Chú thích dữ liệu:</span> Giá trị, giới hạn và bước điều chỉnh được lấy từ hệ thống. Các giá trị số được hiển thị và lưu với 2 chữ số thập phân.
+        <span className="font-semibold text-[#244b39]">Chú thích dữ liệu:</span> Giá trị, giới hạn và bước điều chỉnh được lấy từ hệ thống. Giá trị được lưu đúng theo kiểu và độ chính xác Backend khai báo.
       </div>
 
       {loadError && (
