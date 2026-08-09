@@ -27,6 +27,8 @@ interface DashboardFilters {
   granularity: DashboardGranularity;
 }
 
+const MAX_DASHBOARD_RANGE_DAYS = 365;
+
 const toDateInputValue = (date: Date) => {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -36,6 +38,18 @@ const toDateInputValue = (date: Date) => {
 
 const toVietnamDateTime = (date: string, endOfDay = false) =>
   `${date}T${endOfDay ? '23:59:59' : '00:00:00'}+07:00`;
+
+const parseDateInputUtc = (value: string) => {
+  const matched = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!matched) return Number.NaN;
+  return Date.UTC(Number(matched[1]), Number(matched[2]) - 1, Number(matched[3]));
+};
+
+const addDaysToDateInput = (value: string, days: number) => {
+  const timestamp = parseDateInputUtc(value);
+  if (!Number.isFinite(timestamp)) return undefined;
+  return new Date(timestamp + days * 86_400_000).toISOString().slice(0, 10);
+};
 
 const createInitialFilters = (): DashboardFilters => {
   const toDate = new Date();
@@ -220,7 +234,17 @@ const AdminDashboard = () => {
   const latestRetention = retention.length > 0 ? retention[retention.length - 1] : undefined;
   const topInstrument = instruments[0];
   const maxPracticeCount = Math.max(...instruments.map((item) => item.practiceCount), 0);
-  const invalidDateRange = !draftFilters.fromDate || !draftFilters.toDate || draftFilters.fromDate > draftFilters.toDate;
+  const selectedRangeDays = Math.round(
+    (parseDateInputUtc(draftFilters.toDate) - parseDateInputUtc(draftFilters.fromDate)) / 86_400_000,
+  );
+  const dateRangeError = !draftFilters.fromDate || !draftFilters.toDate
+    ? 'Vui lòng chọn đầy đủ ngày bắt đầu và ngày kết thúc.'
+    : draftFilters.fromDate > draftFilters.toDate
+      ? 'Ngày bắt đầu không được sau ngày kết thúc.'
+      : selectedRangeDays > MAX_DASHBOARD_RANGE_DAYS
+        ? `Khoảng thời gian truy vấn không được vượt quá ${MAX_DASHBOARD_RANGE_DAYS} ngày.`
+        : '';
+  const invalidDateRange = dateRangeError !== '';
   const isDashboardLoading = loading || !data;
 
   const cards = useMemo(() => [
@@ -270,6 +294,7 @@ const AdminDashboard = () => {
               type="date"
               value={draftFilters.fromDate}
               max={draftFilters.toDate}
+              min={addDaysToDateInput(draftFilters.toDate, -MAX_DASHBOARD_RANGE_DAYS)}
               onChange={(event) => setDraftFilters((current) => ({ ...current, fromDate: event.target.value }))}
               className="mt-1 block h-9 w-full rounded-lg border border-[#d8e4dd] bg-white px-3 text-sm font-medium text-[#274b3b] outline-none focus:border-[#1D6750]"
             />
@@ -280,6 +305,7 @@ const AdminDashboard = () => {
               type="date"
               value={draftFilters.toDate}
               min={draftFilters.fromDate}
+              max={addDaysToDateInput(draftFilters.fromDate, MAX_DASHBOARD_RANGE_DAYS)}
               onChange={(event) => setDraftFilters((current) => ({ ...current, toDate: event.target.value }))}
               className="mt-1 block h-9 w-full rounded-lg border border-[#d8e4dd] bg-white px-3 text-sm font-medium text-[#274b3b] outline-none focus:border-[#1D6750]"
             />
@@ -306,7 +332,7 @@ const AdminDashboard = () => {
           </button>
           </div>
           {invalidDateRange && (
-            <p className="mt-2 text-sm font-medium text-red-700">Vui lòng chọn khoảng ngày hợp lệ.</p>
+            <p className="mt-2 text-sm font-medium text-red-700">{dateRangeError}</p>
           )}
         </div>
       </header>
