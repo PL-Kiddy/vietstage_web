@@ -193,7 +193,7 @@ const AdminDashboard = () => {
 
   return (
     <div className="mx-auto w-full max-w-[1500px] space-y-6 pb-6">
-      <header className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+      <header className="space-y-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-[#163d2d] md:text-4xl">
             Tổng quan hệ thống
@@ -203,7 +203,7 @@ const AdminDashboard = () => {
           </p>
         </div>
 
-        <div className="flex flex-wrap items-end gap-2 rounded-2xl border border-[#dfe9e3] bg-white p-3 shadow-sm">
+        <div className="flex w-full flex-wrap items-end gap-3 rounded-2xl border border-[#dfe9e3] bg-white p-4 shadow-sm">
           <label className="min-w-36 text-xs font-semibold text-[#64736b]">
             Từ ngày
             <input
