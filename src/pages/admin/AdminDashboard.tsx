@@ -4,9 +4,9 @@ import {
   CalendarDays,
   Music2,
   RefreshCw,
-  Repeat2,
   Timer,
   Users,
+  UserRoundCheck,
 } from 'lucide-react';
 import { adminDashboardApi } from '../../api/services';
 import type {
@@ -236,7 +236,7 @@ const AdminDashboard = () => {
       value: formatDecimal(latestDuration?.averageDurationMinutes, ' phút'),
     },
     {
-      icon: Repeat2,
+      icon: UserRoundCheck,
       label: 'Tỷ lệ duy trì người dùng',
       value: formatDecimal(latestRetention?.retentionRate, '%'),
     },
@@ -258,10 +258,10 @@ const AdminDashboard = () => {
           </p>
         </div>
 
-        <div className="rounded-2xl border border-[#dfe9e3] bg-white p-3 shadow-sm">
+        <div className="w-full rounded-2xl border border-[#dfe9e3] bg-white p-3 shadow-sm xl:max-w-[920px]">
           <div className="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
             <div className="flex w-full flex-wrap items-end gap-3 xl:w-auto">
-          <label className="w-full text-xs font-semibold text-[#64736b] sm:w-auto sm:min-w-44">
+          <label className="w-full text-xs font-semibold text-[#64736b] sm:w-[220px]">
             Từ ngày
             <input
               type="date"
@@ -271,7 +271,7 @@ const AdminDashboard = () => {
               className="mt-1 block h-10 w-full rounded-lg border border-[#d8e4dd] bg-white px-3 text-sm font-medium text-[#274b3b] outline-none focus:border-[#1D6750]"
             />
           </label>
-          <label className="w-full text-xs font-semibold text-[#64736b] sm:w-auto sm:min-w-44">
+          <label className="w-full text-xs font-semibold text-[#64736b] sm:w-[220px]">
             Đến ngày
             <input
               type="date"
@@ -281,7 +281,7 @@ const AdminDashboard = () => {
               className="mt-1 block h-10 w-full rounded-lg border border-[#d8e4dd] bg-white px-3 text-sm font-medium text-[#274b3b] outline-none focus:border-[#1D6750]"
             />
           </label>
-          <label className="w-full text-xs font-semibold text-[#64736b] sm:w-auto sm:min-w-40">
+          <label className="w-full text-xs font-semibold text-[#64736b] sm:w-[200px]">
             Nhóm theo
             <select
               value={draftFilters.granularity}
@@ -297,7 +297,7 @@ const AdminDashboard = () => {
             type="button"
             disabled={invalidDateRange || isDashboardLoading}
             onClick={applyFilters}
-            className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-[#1D4532] px-5 text-sm font-semibold text-white transition hover:bg-[#163a2a] disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+            className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-[#1D4532] px-5 text-sm font-semibold text-white transition hover:bg-[#163a2a] disabled:cursor-not-allowed disabled:opacity-50 sm:w-40"
           >
             <CalendarDays className="h-4 w-4" /> Áp dụng
           </button>
