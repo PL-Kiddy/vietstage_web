@@ -41,7 +41,7 @@ const AdminSidebar = () => {
 
       {/* Navigation */}
       <nav className="flex-1 px-3 space-y-1.5 overflow-y-auto">
-        {/* Dashboard tổng: System analytics */}
+        {/* Dashboard: System analytics */}
         <Link
           to="/admin"
           className={`relative flex items-center gap-3 px-3.5 h-11 rounded-lg transition-all duration-150 text-[14px] font-medium ${
@@ -54,7 +54,7 @@ const AdminSidebar = () => {
             <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-[#1D4532] rounded-r-full" />
           )}
           <LayoutDashboard className={`w-5 h-5 flex-shrink-0 ${location.pathname === '/admin' ? 'text-[#1D4532]' : 'text-[#9CA3AF]'}`} />
-          <span className="whitespace-nowrap">Dashboard tổng</span>
+          <span className="whitespace-nowrap">Dashboard</span>
         </Link>
 
         {/* Quản lý người dùng Dropdown */}
