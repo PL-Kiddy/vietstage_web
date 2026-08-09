@@ -109,7 +109,7 @@ const AnalyticsLineChart = ({ data, unit, emptyMessage, gradientId, color, fixed
         viewBox={`0 0 ${chartWidth} ${chartHeight}`}
         role="img"
         aria-label={`Biểu đồ xu hướng ${unit}`}
-        className="h-[170px] w-full"
+        className="h-[185px] w-full"
       >
         <defs>
           <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
@@ -258,9 +258,9 @@ const AdminDashboard = () => {
           </p>
         </div>
 
-        <div className="w-full rounded-2xl border border-[#dfe9e3] bg-white p-2.5 shadow-sm xl:max-w-[920px]">
+        <div className="w-full rounded-2xl border border-[#dfe9e3] bg-white p-2.5 shadow-sm">
           <div className="flex w-full flex-wrap items-end gap-2.5">
-          <label className="w-full text-xs font-semibold text-[#64736b] sm:w-[220px]">
+          <label className="w-full text-xs font-semibold text-[#64736b] sm:min-w-[200px] sm:flex-1">
             Từ ngày
             <input
               type="date"
@@ -270,7 +270,7 @@ const AdminDashboard = () => {
               className="mt-1 block h-9 w-full rounded-lg border border-[#d8e4dd] bg-white px-3 text-sm font-medium text-[#274b3b] outline-none focus:border-[#1D6750]"
             />
           </label>
-          <label className="w-full text-xs font-semibold text-[#64736b] sm:w-[220px]">
+          <label className="w-full text-xs font-semibold text-[#64736b] sm:min-w-[200px] sm:flex-1">
             Đến ngày
             <input
               type="date"
@@ -280,7 +280,7 @@ const AdminDashboard = () => {
               className="mt-1 block h-9 w-full rounded-lg border border-[#d8e4dd] bg-white px-3 text-sm font-medium text-[#274b3b] outline-none focus:border-[#1D6750]"
             />
           </label>
-          <label className="w-full text-xs font-semibold text-[#64736b] sm:w-[200px]">
+          <label className="w-full text-xs font-semibold text-[#64736b] sm:min-w-[180px] sm:flex-1">
             Nhóm theo
             <select
               value={draftFilters.granularity}
@@ -296,7 +296,7 @@ const AdminDashboard = () => {
             type="button"
             disabled={invalidDateRange || isDashboardLoading}
             onClick={applyFilters}
-            className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-lg bg-[#1D4532] px-5 text-sm font-semibold text-white transition hover:bg-[#163a2a] disabled:cursor-not-allowed disabled:opacity-50 sm:w-40"
+            className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-lg bg-[#1D4532] px-5 text-sm font-semibold text-white transition hover:bg-[#163a2a] disabled:cursor-not-allowed disabled:opacity-50 sm:w-[200px]"
           >
             <CalendarDays className="h-4 w-4" /> Áp dụng
           </button>
