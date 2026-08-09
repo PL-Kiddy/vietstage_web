@@ -4,7 +4,6 @@ import {
   CheckCircle2,
   Gauge,
   RefreshCw,
-  RotateCcw,
   Save,
   SlidersHorizontal,
   ToggleLeft,
@@ -123,10 +122,24 @@ const formatDateTime = (value?: string) => {
   }).format(date);
 };
 
+const formatDecimal = (value: number | string) => {
+  const numericValue = Number(value);
+  return Number.isFinite(numericValue) ? numericValue.toFixed(2) : String(value);
+};
+
+const getDraftValue = (config: AppConfig) => (
+  getValueType(config) === 'number'
+    ? formatDecimal(config.value ?? '')
+    : String(config.value ?? '')
+);
+
+const PAGE_SIZE = 5;
+
 const AdminSettings = () => {
   const [configs, setConfigs] = useState<AppConfig[]>([]);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [selectedGroup, setSelectedGroup] = useState<ConfigGroup>('scoring');
+  const [currentPage, setCurrentPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [savingKey, setSavingKey] = useState<string | null>(null);
@@ -141,7 +154,7 @@ const AdminSettings = () => {
       if (signal?.aborted) return;
       const response = Array.isArray(data) ? data : [];
       setConfigs(response);
-      setDrafts(Object.fromEntries(response.map((config) => [config.key, String(config.value ?? '')])));
+      setDrafts(Object.fromEntries(response.map((config) => [config.key, getDraftValue(config)])));
     } catch (error) {
       if (!signal?.aborted) {
         setLoadError(error instanceof Error ? error.message : 'Không thể tải cấu hình hệ thống.');
@@ -165,13 +178,19 @@ const AdminSettings = () => {
     [configs, selectedGroup],
   );
 
+  const totalPages = Math.max(1, Math.ceil(groupedConfigs.length / PAGE_SIZE));
+  const paginatedConfigs = useMemo(
+    () => groupedConfigs.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE),
+    [currentPage, groupedConfigs],
+  );
+
   const otherConfigCount = useMemo(
     () => configs.filter((config) => getConfigGroup(config) === null).length,
     [configs],
   );
 
   const changedKeys = useMemo(
-    () => new Set(configs.filter((config) => (drafts[config.key] ?? '') !== String(config.value ?? '')).map((config) => config.key)),
+    () => new Set(configs.filter((config) => (drafts[config.key] ?? '') !== getDraftValue(config)).map((config) => config.key)),
     [configs, drafts],
   );
 
@@ -181,7 +200,8 @@ const AdminSettings = () => {
   };
 
   const saveConfig = async (config: AppConfig) => {
-    const value = drafts[config.key] ?? '';
+    const draftValue = drafts[config.key] ?? '';
+    const value = getValueType(config) === 'number' ? formatDecimal(draftValue) : draftValue;
     const validationError = validateValue(config, value);
     if (validationError) {
       setNotice({ type: 'error', message: `${config.description || config.key}: ${validationError}` });
@@ -194,7 +214,7 @@ const AdminSettings = () => {
       const updated = await appConfigsApi.update(config.key, value);
       const normalized = { ...config, ...updated, value: String(updated?.value ?? value) };
       setConfigs((current) => current.map((item) => item.key === config.key ? normalized : item));
-      setDrafts((current) => ({ ...current, [config.key]: normalized.value }));
+      setDrafts((current) => ({ ...current, [config.key]: getDraftValue(normalized) }));
       setNotice({ type: 'success', message: `Đã cập nhật “${config.description || config.key}”.` });
     } catch (error) {
       setNotice({
@@ -213,20 +233,16 @@ const AdminSettings = () => {
     <div className="mx-auto w-full max-w-[1400px] space-y-6 pb-6">
       <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-[#163d2d] md:text-4xl">Cấu hình ứng dụng</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-[#163d2d] md:text-4xl">Cấu hình hệ thống</h1>
           <p className="mt-2 max-w-3xl text-sm text-[#68736d] md:text-base">
             Quản trị thông số tính điểm, đường cong độ khó và trạng thái các tính năng từ dữ liệu Backend.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => void loadConfigs()}
-          disabled={loading || savingKey !== null}
-          className="inline-flex h-10 items-center justify-center gap-2 self-start rounded-xl border border-[#d8e4dd] bg-white px-4 text-sm font-semibold text-[#1D4532] shadow-sm transition hover:bg-[#f7faf8] disabled:cursor-not-allowed disabled:opacity-50 sm:self-auto"
-        >
-          <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> Làm mới
-        </button>
       </header>
+
+      <div className="rounded-xl border border-[#dce8e1] bg-[#f6faf8] px-4 py-3 text-sm text-[#52655b]">
+        <span className="font-semibold text-[#244b39]">Chú thích dữ liệu:</span> Giá trị, giới hạn và bước điều chỉnh được lấy từ hệ thống. Các giá trị số được hiển thị và lưu với 2 chữ số thập phân.
+      </div>
 
       {loadError && (
         <div className="flex flex-col gap-3 rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-800 sm:flex-row sm:items-center sm:justify-between">
@@ -261,6 +277,7 @@ const AdminSettings = () => {
               type="button"
               onClick={() => {
                 setSelectedGroup(group.id);
+                setCurrentPage(1);
                 setNotice(null);
               }}
               className={`rounded-2xl border p-5 text-left transition ${
@@ -308,7 +325,7 @@ const AdminSettings = () => {
           </div>
         ) : (
           <div className="divide-y divide-[#edf1ef]">
-            {groupedConfigs.map((config) => {
+            {paginatedConfigs.map((config) => {
               const value = drafts[config.key] ?? '';
               const valueType = getValueType(config);
               const options = parseOptions(config.options);
@@ -327,10 +344,9 @@ const AdminSettings = () => {
                     <p className="mt-1 break-all font-mono text-xs text-[#7a8780]">{config.key}</p>
 
                     <div className="mt-3 flex flex-wrap gap-2 text-xs text-[#64736b]">
-                      {config.min !== undefined && <span className="rounded-md bg-[#f3f6f4] px-2 py-1">Tối thiểu: {config.min}</span>}
-                      {config.max !== undefined && <span className="rounded-md bg-[#f3f6f4] px-2 py-1">Tối đa: {config.max}</span>}
-                      {config.step !== undefined && <span className="rounded-md bg-[#f3f6f4] px-2 py-1">Bước: {config.step}</span>}
-                      {config.defaultValue !== undefined && <span className="rounded-md bg-[#f3f6f4] px-2 py-1">Mặc định: {config.defaultValue}</span>}
+                      {config.min !== undefined && <span className="rounded-md bg-[#f3f6f4] px-2 py-1">Tối thiểu: {formatDecimal(config.min)}</span>}
+                      {config.max !== undefined && <span className="rounded-md bg-[#f3f6f4] px-2 py-1">Tối đa: {formatDecimal(config.max)}</span>}
+                      {config.step !== undefined && <span className="rounded-md bg-[#f3f6f4] px-2 py-1">Bước: {formatDecimal(config.step)}</span>}
                     </div>
 
                     {(config.updated_at || config.updated_by) && (
@@ -383,7 +399,7 @@ const AdminSettings = () => {
                             max={config.max}
                             step={config.step ?? 'any'}
                             value={value}
-                            onChange={(event) => updateDraft(config.key, event.target.value)}
+                            onChange={(event) => updateDraft(config.key, formatDecimal(event.target.value))}
                             className="w-full accent-[#1D6750]"
                           />
                         )}
@@ -394,6 +410,11 @@ const AdminSettings = () => {
                           step={config.step ?? 'any'}
                           value={value}
                           onChange={(event) => updateDraft(config.key, event.target.value)}
+                          onBlur={() => {
+                            if (valueType === 'number' && value.trim() && Number.isFinite(Number(value))) {
+                              updateDraft(config.key, formatDecimal(value));
+                            }
+                          }}
                           className="h-11 w-full rounded-xl border border-[#cfded6] bg-white px-3 text-sm text-[#274b3b] outline-none focus:border-[#1D6750]"
                         />
                       </div>
@@ -402,16 +423,6 @@ const AdminSettings = () => {
                     {validationError && <p className="mt-2 text-xs font-medium text-red-700">{validationError}</p>}
 
                     <div className="mt-3 flex flex-wrap justify-end gap-2">
-                      {config.defaultValue !== undefined && (
-                        <button
-                          type="button"
-                          disabled={isSaving || value === String(config.defaultValue)}
-                          onClick={() => updateDraft(config.key, String(config.defaultValue))}
-                          className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[#d8e4dd] bg-white px-3 text-xs font-semibold text-[#52655b] transition hover:bg-[#f7faf8] disabled:cursor-not-allowed disabled:opacity-40"
-                        >
-                          <RotateCcw className="h-3.5 w-3.5" /> Dùng mặc định
-                        </button>
-                      )}
                       <button
                         type="button"
                         disabled={!changed || Boolean(validationError) || isSaving || (savingKey !== null && !isSaving)}
@@ -426,6 +437,19 @@ const AdminSettings = () => {
                 </article>
               );
             })}
+          </div>
+        )}
+
+        {!loading && groupedConfigs.length > 0 && (
+          <div className="flex flex-col gap-3 border-t border-[#e8eeea] px-5 py-4 text-sm text-[#66756d] sm:flex-row sm:items-center sm:justify-between md:px-6">
+            <span>
+              Hiển thị {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, groupedConfigs.length)} trong {groupedConfigs.length} cấu hình
+            </span>
+            <div className="flex items-center gap-2">
+              <button type="button" disabled={currentPage === 1} onClick={() => setCurrentPage((page) => Math.max(1, page - 1))} className="h-9 rounded-lg border border-[#d8e4dd] px-3 font-semibold text-[#365647] disabled:opacity-40">Trước</button>
+              <span className="min-w-20 text-center font-semibold text-[#294c3c]">Trang {currentPage}/{totalPages}</span>
+              <button type="button" disabled={currentPage === totalPages} onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))} className="h-9 rounded-lg border border-[#d8e4dd] px-3 font-semibold text-[#365647] disabled:opacity-40">Sau</button>
+            </div>
           </div>
         )}
       </section>

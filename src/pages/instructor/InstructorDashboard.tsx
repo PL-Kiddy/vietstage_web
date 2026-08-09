@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   Activity,
   ArrowRight,
@@ -34,7 +34,7 @@ const lessonStatusMeta: Record<LessonStatus, { label: string; color: string; ico
   DRAFT: { label: 'Bản nháp', color: 'bg-slate-400', icon: FilePenLine },
   PENDING: { label: 'Chờ duyệt', color: 'bg-amber-500', icon: Clock3 },
   APPROVED: { label: 'Đã duyệt', color: 'bg-emerald-600', icon: CheckCircle2 },
-  REJECTED: { label: 'Cần chỉnh sửa', color: 'bg-rose-500', icon: RefreshCw },
+  REJECTED: { label: 'Từ chối', color: 'bg-rose-500', icon: RefreshCw },
 };
 
 const toLocalDate = (date: Date) => {
@@ -45,9 +45,12 @@ const toLocalDate = (date: Date) => {
 };
 
 const scoreLabel = (score?: number) =>
-  typeof score === 'number' ? `${Math.round(score)} điểm` : 'Chưa chấm điểm';
+  typeof score === 'number' ? `${score.toFixed(2)} điểm` : 'Chưa chấm điểm';
+
+const RECENT_PAGE_SIZE = 5;
 
 const InstructorDashboard = () => {
+  const [recentPage, setRecentPage] = useState(1);
   const fetchDashboard = useCallback(async (signal?: AbortSignal): Promise<InstructorDashboardData> => {
     const today = new Date();
     const firstDay = new Date(today);
@@ -55,7 +58,22 @@ const InstructorDashboard = () => {
 
     const profilePromise = profileApi.get({ signal });
     const studentsPromise = instructorStudentsApi.listStudents(0, 1, undefined, { signal });
-    const recentAttemptsPromise = instructorStudentsApi.getInstructorAttempts({ page: 0, size: 5 }, { signal });
+    const recentAttemptsPromise = (async () => {
+      const attempts: PracticeAttemptDetailResponse[] = [];
+      let page = 0;
+      let totalPages = 1;
+      while (page < totalPages) {
+        const response = await instructorStudentsApi.getInstructorAttempts({ page, size: 100 }, { signal });
+        attempts.push(...(response.content ?? []));
+        totalPages = response.totalPages ?? 1;
+        page += 1;
+      }
+      return attempts.sort((left, right) => {
+        const leftTime = left.createdAt ? new Date(left.createdAt).getTime() : 0;
+        const rightTime = right.createdAt ? new Date(right.createdAt).getTime() : 0;
+        return rightTime - leftTime;
+      });
+    })();
     const weeklyAttemptsPromise = (async () => {
       const attempts: PracticeAttemptDetailResponse[] = [];
       let page = 0;
@@ -101,9 +119,9 @@ const InstructorDashboard = () => {
       teacherName: profileResult.status === 'fulfilled' ? profileResult.value.fullName : '',
       totalStudents: studentsResult.status === 'fulfilled' ? studentsResult.value.totalElements : undefined,
       totalLessons: lessonsResult.status === 'fulfilled' ? lessonsResult.value.length : undefined,
-      totalAttempts: recentResult.status === 'fulfilled' ? recentResult.value.totalElements : undefined,
+      totalAttempts: recentResult.status === 'fulfilled' ? recentResult.value.length : undefined,
       lessons: lessonsResult.status === 'fulfilled' ? lessonsResult.value : [],
-      recentAttempts: recentResult.status === 'fulfilled' ? recentResult.value.content ?? [] : [],
+      recentAttempts: recentResult.status === 'fulfilled' ? recentResult.value : [],
       weeklyAttempts: weeklyResult.status === 'fulfilled' ? weeklyResult.value : [],
       hasPartialError: results.some((result) => result.status === 'rejected'),
     };
@@ -148,6 +166,12 @@ const InstructorDashboard = () => {
       ...lessonStatusMeta[status],
     }));
   }, [data?.lessons]);
+
+  const recentTotalPages = Math.max(1, Math.ceil((data?.recentAttempts.length ?? 0) / RECENT_PAGE_SIZE));
+  const paginatedRecentAttempts = useMemo(
+    () => (data?.recentAttempts ?? []).slice((recentPage - 1) * RECENT_PAGE_SIZE, recentPage * RECENT_PAGE_SIZE),
+    [data?.recentAttempts, recentPage],
+  );
 
   const maxAttempts = Math.max(1, ...chartRows.map((row) => row.attempts));
   const weeklyTotal = chartRows.reduce((total, row) => total + row.attempts, 0);
@@ -294,6 +318,7 @@ const InstructorDashboard = () => {
           <div>
             <h2 className="text-lg font-bold text-[#173f2f]">Lượt luyện tập mới nhất</h2>
             <p className="mt-1 text-sm text-[#718078]">Các bài nộp gần đây từ học viên của bạn.</p>
+            <p className="mt-1 text-xs text-[#8a9690]">Chú thích: sắp xếp theo ngày và thời gian gửi mới nhất; điểm hiển thị đến 2 chữ số thập phân.</p>
           </div>
           <Link to="/instructor/students" className="inline-flex shrink-0 items-center gap-1 text-sm font-semibold text-[#1D4532] hover:underline">
             Xem tất cả <ArrowRight className="h-4 w-4" />
@@ -314,7 +339,7 @@ const InstructorDashboard = () => {
           </div>
         ) : (
           <div className="divide-y divide-[#edf1ef]">
-            {data?.recentAttempts.map((attempt) => (
+            {paginatedRecentAttempts.map((attempt) => (
               <article key={attempt.attemptId} className="grid gap-3 px-5 py-4 transition hover:bg-[#fafcfb] md:grid-cols-[minmax(180px,0.8fr)_minmax(240px,1.4fr)_120px_190px] md:items-center md:px-6">
                 <div className="min-w-0">
                   <p className="truncate text-sm font-semibold text-[#294c3c]">{attempt.learnerName || 'Chưa cập nhật tên'}</p>
@@ -334,6 +359,16 @@ const InstructorDashboard = () => {
                 </time>
               </article>
             ))}
+            <div className="flex flex-col gap-3 px-5 py-4 text-sm text-[#66756d] sm:flex-row sm:items-center sm:justify-between md:px-6">
+              <span>
+                Hiển thị {(recentPage - 1) * RECENT_PAGE_SIZE + 1}–{Math.min(recentPage * RECENT_PAGE_SIZE, data?.recentAttempts.length ?? 0)} trong {data?.recentAttempts.length ?? 0} lượt luyện tập
+              </span>
+              <div className="flex items-center gap-2">
+                <button type="button" disabled={recentPage === 1} onClick={() => setRecentPage((page) => Math.max(1, page - 1))} className="h-9 rounded-lg border border-[#d8e4dd] px-3 font-semibold text-[#365647] disabled:opacity-40">Trước</button>
+                <span className="min-w-20 text-center font-semibold text-[#294c3c]">Trang {recentPage}/{recentTotalPages}</span>
+                <button type="button" disabled={recentPage === recentTotalPages} onClick={() => setRecentPage((page) => Math.min(recentTotalPages, page + 1))} className="h-9 rounded-lg border border-[#d8e4dd] px-3 font-semibold text-[#365647] disabled:opacity-40">Sau</button>
+              </div>
+            </div>
           </div>
         )}
       </section>
