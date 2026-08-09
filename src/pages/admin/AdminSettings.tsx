@@ -11,7 +11,7 @@ import {
 import { appConfigsApi, type AppConfig } from '../../api/services';
 
 type ConfigGroup = 'scoring' | 'difficulty' | 'feature';
-type ConfigValueType = 'boolean' | 'number' | 'select' | 'json' | 'text';
+type ConfigValueType = 'boolean' | 'number' | 'select' | 'json' | 'unsupported';
 
 interface Notice {
   type: 'success' | 'error';
@@ -53,9 +53,7 @@ const normalizeGroup = (value?: string): ConfigGroup | null => {
 };
 
 const getConfigGroup = (config: AppConfig): ConfigGroup | null => {
-  const declaredGroup = normalizeGroup(config.config_group);
-  if (declaredGroup) return declaredGroup;
-  return normalizeGroup(config.key.split('.')[0]);
+  return normalizeGroup(config.config_group);
 };
 
 const parseOptions = (options?: string): string[] => {
@@ -71,14 +69,11 @@ const parseOptions = (options?: string): string[] => {
 
 const getValueType = (config: AppConfig): ConfigValueType => {
   const declaredType = (config.valueType ?? '').trim().toLowerCase();
-  const rawValue = String(config.value ?? '').trim();
   if (declaredType.includes('bool')) return 'boolean';
   if (['number', 'integer', 'decimal', 'double', 'float'].some((type) => declaredType.includes(type))) return 'number';
   if (declaredType.includes('json')) return 'json';
   if (declaredType.includes('enum') || declaredType.includes('select') || parseOptions(config.options).length > 0) return 'select';
-  if (/^(true|false)$/i.test(rawValue)) return 'boolean';
-  if (/^-?\d+(\.\d+)?$/.test(rawValue)) return 'number';
-  return 'text';
+  return 'unsupported';
 };
 
 const validateValue = (config: AppConfig, value: string): string => {
@@ -94,6 +89,11 @@ const validateValue = (config: AppConfig, value: string): string => {
     if (!Number.isFinite(number)) return 'Giá trị phải là một số hợp lệ.';
     if (config.min !== undefined && number < config.min) return `Giá trị nhỏ nhất là ${config.min}.`;
     if (config.max !== undefined && number > config.max) return `Giá trị lớn nhất là ${config.max}.`;
+    if (config.step !== undefined && config.step > 0) {
+      const origin = config.min ?? 0;
+      const quotient = (number - origin) / config.step;
+      if (Math.abs(quotient - Math.round(quotient)) > 1e-8) return `Giá trị phải tăng theo bước ${config.step}.`;
+    }
   }
 
   if (type === 'select') {
@@ -122,16 +122,7 @@ const formatDateTime = (value?: string) => {
   }).format(date);
 };
 
-const formatDecimal = (value: number | string) => {
-  const numericValue = Number(value);
-  return Number.isFinite(numericValue) ? numericValue.toFixed(2) : String(value);
-};
-
-const getDraftValue = (config: AppConfig) => (
-  getValueType(config) === 'number'
-    ? formatDecimal(config.value ?? '')
-    : String(config.value ?? '')
-);
+const getDraftValue = (config: AppConfig) => String(config.value ?? '');
 
 const PAGE_SIZE = 5;
 
@@ -150,9 +141,11 @@ const AdminSettings = () => {
     setLoadError('');
     setNotice(null);
     try {
-      const data = await appConfigsApi.list(undefined, { signal });
+      const groupResponses = await Promise.all(
+        GROUPS.map((group) => appConfigsApi.list(group.id, { signal })),
+      );
       if (signal?.aborted) return;
-      const response = Array.isArray(data) ? data : [];
+      const response = groupResponses.flat().filter((config) => getConfigGroup(config) !== null);
       setConfigs(response);
       setDrafts(Object.fromEntries(response.map((config) => [config.key, getDraftValue(config)])));
     } catch (error) {
@@ -184,11 +177,6 @@ const AdminSettings = () => {
     [currentPage, groupedConfigs],
   );
 
-  const otherConfigCount = useMemo(
-    () => configs.filter((config) => getConfigGroup(config) === null).length,
-    [configs],
-  );
-
   const changedKeys = useMemo(
     () => new Set(configs.filter((config) => (drafts[config.key] ?? '') !== getDraftValue(config)).map((config) => config.key)),
     [configs, drafts],
@@ -201,7 +189,7 @@ const AdminSettings = () => {
 
   const saveConfig = async (config: AppConfig) => {
     const draftValue = drafts[config.key] ?? '';
-    const value = getValueType(config) === 'number' ? formatDecimal(draftValue) : draftValue;
+    const value = draftValue;
     const validationError = validateValue(config, value);
     if (validationError) {
       setNotice({ type: 'error', message: `${config.description || config.key}: ${validationError}` });
@@ -344,9 +332,10 @@ const AdminSettings = () => {
                     <p className="mt-1 break-all font-mono text-xs text-[#7a8780]">{config.key}</p>
 
                     <div className="mt-3 flex flex-wrap gap-2 text-xs text-[#64736b]">
-                      {config.min !== undefined && <span className="rounded-md bg-[#f3f6f4] px-2 py-1">Tối thiểu: {formatDecimal(config.min)}</span>}
-                      {config.max !== undefined && <span className="rounded-md bg-[#f3f6f4] px-2 py-1">Tối đa: {formatDecimal(config.max)}</span>}
-                      {config.step !== undefined && <span className="rounded-md bg-[#f3f6f4] px-2 py-1">Bước: {formatDecimal(config.step)}</span>}
+                      {config.min !== undefined && <span className="rounded-md bg-[#f3f6f4] px-2 py-1">Tối thiểu: {String(config.min)}</span>}
+                      {config.max !== undefined && <span className="rounded-md bg-[#f3f6f4] px-2 py-1">Tối đa: {String(config.max)}</span>}
+                      {config.step !== undefined && <span className="rounded-md bg-[#f3f6f4] px-2 py-1">Bước: {String(config.step)}</span>}
+                      {config.defaultValue !== undefined && <span className="rounded-md bg-[#f3f6f4] px-2 py-1">Mặc định: {config.defaultValue}</span>}
                     </div>
 
                     {(config.updated_at || config.updated_by) && (
@@ -363,7 +352,12 @@ const AdminSettings = () => {
                         type="button"
                         role="switch"
                         aria-checked={value.toLowerCase() === 'true'}
-                        onClick={() => updateDraft(config.key, String(value.toLowerCase() !== 'true'))}
+                        onClick={() => {
+                          const nextValue = String(value.toLowerCase() !== 'true');
+                          if (window.confirm(`Xác nhận ${nextValue === 'true' ? 'bật' : 'tắt'} tính năng này?`)) {
+                            updateDraft(config.key, nextValue);
+                          }
+                        }}
                         className="flex w-full items-center justify-between rounded-xl border border-[#d8e4dd] bg-[#fafcfb] px-4 py-3 text-left"
                       >
                         <span>
@@ -382,6 +376,10 @@ const AdminSettings = () => {
                       >
                         {options.map((option) => <option key={option} value={option}>{option}</option>)}
                       </select>
+                    ) : valueType === 'unsupported' ? (
+                      <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                        Backend chưa khai báo valueType hợp lệ cho cấu hình này nên không thể chỉnh sửa an toàn.
+                      </div>
                     ) : valueType === 'json' ? (
                       <textarea
                         value={value}
@@ -399,7 +397,7 @@ const AdminSettings = () => {
                             max={config.max}
                             step={config.step ?? 'any'}
                             value={value}
-                            onChange={(event) => updateDraft(config.key, formatDecimal(event.target.value))}
+                            onChange={(event) => updateDraft(config.key, event.target.value)}
                             className="w-full accent-[#1D6750]"
                           />
                         )}
@@ -410,11 +408,6 @@ const AdminSettings = () => {
                           step={config.step ?? 'any'}
                           value={value}
                           onChange={(event) => updateDraft(config.key, event.target.value)}
-                          onBlur={() => {
-                            if (valueType === 'number' && value.trim() && Number.isFinite(Number(value))) {
-                              updateDraft(config.key, formatDecimal(value));
-                            }
-                          }}
                           className="h-11 w-full rounded-xl border border-[#cfded6] bg-white px-3 text-sm text-[#274b3b] outline-none focus:border-[#1D6750]"
                         />
                       </div>
@@ -454,11 +447,6 @@ const AdminSettings = () => {
         )}
       </section>
 
-      {otherConfigCount > 0 && (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-900">
-          Có {otherConfigCount} cấu hình Backend chưa khai báo nhóm scoring, difficulty hoặc feature nên chưa được hiển thị trong ba khu vực trên.
-        </div>
-      )}
     </div>
   );
 };
