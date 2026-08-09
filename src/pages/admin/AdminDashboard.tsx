@@ -109,7 +109,7 @@ const AnalyticsLineChart = ({ data, unit, emptyMessage, gradientId, color, fixed
         viewBox={`0 0 ${chartWidth} ${chartHeight}`}
         role="img"
         aria-label={`Biểu đồ xu hướng ${unit}`}
-        className="h-[200px] w-full"
+        className="h-[170px] w-full"
       >
         <defs>
           <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
@@ -247,20 +247,19 @@ const AdminDashboard = () => {
   };
 
   return (
-    <div className="mx-auto w-full max-w-[1500px] space-y-4 pb-4">
-      <header className="space-y-3">
+    <div className="mx-auto w-full max-w-[1500px] space-y-3 pb-3">
+      <header className="space-y-2">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-[#163d2d] md:text-4xl">
             Tổng quan hệ thống
           </h1>
-          <p className="mt-2 text-sm text-[#68736d] md:text-base">
+          <p className="mt-1 text-sm text-[#68736d] md:text-base">
             Theo dõi mức độ sử dụng, hoạt động luyện tập và khả năng quay lại của người học.
           </p>
         </div>
 
-        <div className="w-full rounded-2xl border border-[#dfe9e3] bg-white p-3 shadow-sm xl:max-w-[920px]">
-          <div className="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
-            <div className="flex w-full flex-wrap items-end gap-3 xl:w-auto">
+        <div className="w-full rounded-2xl border border-[#dfe9e3] bg-white p-2.5 shadow-sm xl:max-w-[920px]">
+          <div className="flex w-full flex-wrap items-end gap-2.5">
           <label className="w-full text-xs font-semibold text-[#64736b] sm:w-[220px]">
             Từ ngày
             <input
@@ -268,7 +267,7 @@ const AdminDashboard = () => {
               value={draftFilters.fromDate}
               max={draftFilters.toDate}
               onChange={(event) => setDraftFilters((current) => ({ ...current, fromDate: event.target.value }))}
-              className="mt-1 block h-10 w-full rounded-lg border border-[#d8e4dd] bg-white px-3 text-sm font-medium text-[#274b3b] outline-none focus:border-[#1D6750]"
+              className="mt-1 block h-9 w-full rounded-lg border border-[#d8e4dd] bg-white px-3 text-sm font-medium text-[#274b3b] outline-none focus:border-[#1D6750]"
             />
           </label>
           <label className="w-full text-xs font-semibold text-[#64736b] sm:w-[220px]">
@@ -278,7 +277,7 @@ const AdminDashboard = () => {
               value={draftFilters.toDate}
               min={draftFilters.fromDate}
               onChange={(event) => setDraftFilters((current) => ({ ...current, toDate: event.target.value }))}
-              className="mt-1 block h-10 w-full rounded-lg border border-[#d8e4dd] bg-white px-3 text-sm font-medium text-[#274b3b] outline-none focus:border-[#1D6750]"
+              className="mt-1 block h-9 w-full rounded-lg border border-[#d8e4dd] bg-white px-3 text-sm font-medium text-[#274b3b] outline-none focus:border-[#1D6750]"
             />
           </label>
           <label className="w-full text-xs font-semibold text-[#64736b] sm:w-[200px]">
@@ -286,7 +285,7 @@ const AdminDashboard = () => {
             <select
               value={draftFilters.granularity}
               onChange={(event) => setDraftFilters((current) => ({ ...current, granularity: event.target.value as DashboardGranularity }))}
-              className="mt-1 block h-10 w-full rounded-lg border border-[#d8e4dd] bg-white px-3 text-sm font-medium text-[#274b3b] outline-none focus:border-[#1D6750]"
+              className="mt-1 block h-9 w-full rounded-lg border border-[#d8e4dd] bg-white px-3 text-sm font-medium text-[#274b3b] outline-none focus:border-[#1D6750]"
             >
               <option value="DAY">Ngày</option>
               <option value="WEEK">Tuần</option>
@@ -297,11 +296,10 @@ const AdminDashboard = () => {
             type="button"
             disabled={invalidDateRange || isDashboardLoading}
             onClick={applyFilters}
-            className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-[#1D4532] px-5 text-sm font-semibold text-white transition hover:bg-[#163a2a] disabled:cursor-not-allowed disabled:opacity-50 sm:w-40"
+            className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-lg bg-[#1D4532] px-5 text-sm font-semibold text-white transition hover:bg-[#163a2a] disabled:cursor-not-allowed disabled:opacity-50 sm:w-40"
           >
             <CalendarDays className="h-4 w-4" /> Áp dụng
           </button>
-            </div>
           </div>
           {invalidDateRange && (
             <p className="mt-2 text-sm font-medium text-red-700">Vui lòng chọn khoảng ngày hợp lệ.</p>
@@ -318,23 +316,25 @@ const AdminDashboard = () => {
         </div>
       )}
 
-      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="Chỉ số phân tích hệ thống">
+      <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="Chỉ số phân tích hệ thống">
         {cards.map((card) => (
-          <article key={card.label} className="rounded-2xl border border-[#e0e9e4] bg-white p-4 shadow-[0_4px_18px_rgba(20,61,44,0.04)]">
-            <span className="grid h-9 w-9 place-items-center rounded-xl bg-[#edf5f1] text-[#1D4532]">
+          <article key={card.label} className="flex min-h-[108px] items-center gap-3 rounded-2xl border border-[#e0e9e4] bg-white p-3 shadow-[0_4px_18px_rgba(20,61,44,0.04)]">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#edf5f1] text-[#1D4532]">
               <card.icon className="h-[18px] w-[18px]" />
             </span>
-            <p className="mt-3 truncate text-2xl font-bold tracking-tight text-[#173f2f]" title={card.value}>
-              {isDashboardLoading ? '—' : card.value}
-            </p>
-            <p className="mt-1 text-sm font-semibold text-[#52655b]">{card.label}</p>
+            <div className="min-w-0">
+              <p className="truncate text-2xl font-bold tracking-tight text-[#173f2f]" title={card.value}>
+                {isDashboardLoading ? '—' : card.value}
+              </p>
+              <p className="mt-0.5 text-sm font-semibold leading-5 text-[#52655b]">{card.label}</p>
+            </div>
           </article>
         ))}
       </section>
 
-      <section className="grid grid-cols-1 items-stretch gap-4 xl:grid-cols-[minmax(230px,0.56fr)_minmax(0,1fr)_minmax(0,1fr)]">
-        <article className="h-full rounded-2xl border border-[#e0e9e4] bg-white p-4 shadow-[0_4px_18px_rgba(20,61,44,0.04)]">
-          <div className="mb-4 flex items-start justify-between gap-3">
+      <section className="grid grid-cols-1 items-stretch gap-3 xl:grid-cols-[minmax(230px,0.56fr)_minmax(0,1fr)_minmax(0,1fr)]">
+        <article className="h-full rounded-2xl border border-[#e0e9e4] bg-white p-3 shadow-[0_4px_18px_rgba(20,61,44,0.04)]">
+          <div className="mb-3 flex items-start justify-between gap-3">
             <div>
               <h2 className="text-lg font-bold text-[#173f2f]">Nhạc cụ phổ biến</h2>
               <p className="mt-1 text-sm text-[#718078]">Top 5 theo số lượt luyện tập trong khoảng đã chọn.</p>
@@ -367,8 +367,8 @@ const AdminDashboard = () => {
           )}
         </article>
 
-        <article className="h-full rounded-2xl border border-[#e0e9e4] bg-white p-4 shadow-[0_4px_18px_rgba(20,61,44,0.04)]">
-          <div className="mb-4 flex items-start justify-between gap-3">
+        <article className="h-full rounded-2xl border border-[#e0e9e4] bg-white p-3 shadow-[0_4px_18px_rgba(20,61,44,0.04)]">
+          <div className="mb-3 flex items-start justify-between gap-3">
             <div>
               <h2 className="text-lg font-bold text-[#173f2f]">Xu hướng duy trì</h2>
               <p className="mt-1 text-sm text-[#718078]">Tỷ lệ người dùng quay lại hoạt động trong 6 kỳ gần nhất.</p>
@@ -380,8 +380,8 @@ const AdminDashboard = () => {
             <RetentionChart data={visibleRetention} />
           )}
         </article>
-      <article className="h-full rounded-2xl border border-[#e0e9e4] bg-white p-4 shadow-[0_4px_18px_rgba(20,61,44,0.04)]">
-        <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+      <article className="h-full rounded-2xl border border-[#e0e9e4] bg-white p-3 shadow-[0_4px_18px_rgba(20,61,44,0.04)]">
+        <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h2 className="text-lg font-bold text-[#173f2f]">Thời lượng phiên trung bình</h2>
             <p className="mt-1 text-sm text-[#718078]">Thời gian hoạt động trung bình trong mỗi phiên qua 7 kỳ gần nhất.</p>
