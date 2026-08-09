@@ -90,8 +90,8 @@ interface AnalyticsLineChartProps {
 const AnalyticsLineChart = ({ data, unit, emptyMessage, gradientId, color, fixedMax }: AnalyticsLineChartProps) => {
   if (data.length === 0) return <EmptyAnalytics message={emptyMessage} />;
 
-  const chartWidth = 720;
-  const chartHeight = 240;
+  const chartWidth = 560;
+  const chartHeight = 210;
   const padding = { top: 30, right: 24, bottom: 42, left: 48 };
   const innerWidth = chartWidth - padding.left - padding.right;
   const innerHeight = chartHeight - padding.top - padding.bottom;
@@ -109,7 +109,7 @@ const AnalyticsLineChart = ({ data, unit, emptyMessage, gradientId, color, fixed
         viewBox={`0 0 ${chartWidth} ${chartHeight}`}
         role="img"
         aria-label={`Biểu đồ xu hướng ${unit}`}
-        className="h-auto w-full"
+        className="h-[190px] w-full"
       >
         <defs>
           <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
@@ -251,8 +251,8 @@ const AdminDashboard = () => {
   };
 
   return (
-    <div className="mx-auto w-full max-w-[1500px] space-y-6 pb-6">
-      <header className="space-y-4">
+    <div className="mx-auto w-full max-w-[1500px] space-y-4 pb-4">
+      <header className="space-y-3">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-[#163d2d] md:text-4xl">
             Tổng quan hệ thống
@@ -262,7 +262,7 @@ const AdminDashboard = () => {
           </p>
         </div>
 
-        <div className="rounded-2xl border border-[#dfe9e3] bg-white p-4 shadow-sm">
+        <div className="rounded-2xl border border-[#dfe9e3] bg-white p-3 shadow-sm">
           <div className="flex w-full flex-wrap items-end gap-3">
           <label className="w-full text-xs font-semibold text-[#64736b] sm:w-auto sm:min-w-44">
             Từ ngày
@@ -305,7 +305,7 @@ const AdminDashboard = () => {
             <CalendarDays className="h-4 w-4" /> Áp dụng
           </button>
           </div>
-          <p className="mt-3 border-t border-[#edf1ef] pt-3 text-xs text-[#718078]">
+          <p className="mt-2 text-xs text-[#718078]">
             Khoảng ngày áp dụng cho toàn bộ chỉ số và biểu đồ. “Nhóm theo” điều chỉnh cách hiển thị dữ liệu theo thời gian.
           </p>
           {invalidDateRange && (
@@ -325,11 +325,11 @@ const AdminDashboard = () => {
 
       <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="Chỉ số phân tích hệ thống">
         {cards.map((card) => (
-          <article key={card.label} className="rounded-2xl border border-[#e0e9e4] bg-white p-5 shadow-[0_4px_18px_rgba(20,61,44,0.04)]">
-            <span className="grid h-10 w-10 place-items-center rounded-xl bg-[#edf5f1] text-[#1D4532]">
-              <card.icon className="h-5 w-5" />
+          <article key={card.label} className="rounded-2xl border border-[#e0e9e4] bg-white p-4 shadow-[0_4px_18px_rgba(20,61,44,0.04)]">
+            <span className="grid h-9 w-9 place-items-center rounded-xl bg-[#edf5f1] text-[#1D4532]">
+              <card.icon className="h-[18px] w-[18px]" />
             </span>
-            <p className="mt-5 truncate text-3xl font-bold tracking-tight text-[#173f2f]" title={card.value}>
+            <p className="mt-3 truncate text-2xl font-bold tracking-tight text-[#173f2f]" title={card.value}>
               {isDashboardLoading ? '—' : card.value}
             </p>
             <p className="mt-1 text-sm font-semibold text-[#52655b]">{card.label}</p>
@@ -338,9 +338,9 @@ const AdminDashboard = () => {
         ))}
       </section>
 
-      <section className="grid grid-cols-1 items-start gap-5 xl:grid-cols-2">
-        <article className="rounded-2xl border border-[#e0e9e4] bg-white p-5 shadow-[0_4px_18px_rgba(20,61,44,0.04)] md:p-6 xl:col-span-2">
-          <div className="mb-6 flex items-start justify-between gap-4">
+      <section className="grid grid-cols-1 items-stretch gap-4 xl:grid-cols-12">
+        <article className="h-full rounded-2xl border border-[#e0e9e4] bg-white p-4 shadow-[0_4px_18px_rgba(20,61,44,0.04)] xl:col-span-3">
+          <div className="mb-4 flex items-start justify-between gap-3">
             <div>
               <h2 className="text-lg font-bold text-[#173f2f]">Nhạc cụ phổ biến</h2>
               <p className="mt-1 text-sm text-[#718078]">Top 5 theo số lượt luyện tập trong khoảng đã chọn.</p>
@@ -374,8 +374,8 @@ const AdminDashboard = () => {
           )}
         </article>
 
-        <article className="rounded-2xl border border-[#e0e9e4] bg-white p-5 shadow-[0_4px_18px_rgba(20,61,44,0.04)] md:p-6">
-          <div className="mb-6 flex items-start justify-between gap-4">
+        <article className="h-full rounded-2xl border border-[#e0e9e4] bg-white p-4 shadow-[0_4px_18px_rgba(20,61,44,0.04)] xl:col-span-4">
+          <div className="mb-4 flex items-start justify-between gap-3">
             <div>
               <h2 className="text-lg font-bold text-[#173f2f]">Xu hướng duy trì người dùng</h2>
               <p className="mt-1 text-sm text-[#718078]">Tỷ lệ người dùng quay lại hoạt động trong 6 kỳ gần nhất.</p>
@@ -388,8 +388,8 @@ const AdminDashboard = () => {
             <RetentionChart data={visibleRetention} />
           )}
         </article>
-      <article className="rounded-2xl border border-[#e0e9e4] bg-white p-5 shadow-[0_4px_18px_rgba(20,61,44,0.04)] md:p-6">
-        <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+      <article className="h-full rounded-2xl border border-[#e0e9e4] bg-white p-4 shadow-[0_4px_18px_rgba(20,61,44,0.04)] xl:col-span-5">
+        <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h2 className="text-lg font-bold text-[#173f2f]">Xu hướng thời lượng phiên trung bình</h2>
             <p className="mt-1 text-sm text-[#718078]">Thời gian hoạt động trung bình trong mỗi phiên qua 7 kỳ gần nhất.</p>
