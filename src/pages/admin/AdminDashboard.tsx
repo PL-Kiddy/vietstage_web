@@ -83,10 +83,11 @@ interface AnalyticsLineChartProps {
   unit: string;
   emptyMessage: string;
   gradientId: string;
+  color: string;
   fixedMax?: number;
 }
 
-const AnalyticsLineChart = ({ data, unit, emptyMessage, gradientId, fixedMax }: AnalyticsLineChartProps) => {
+const AnalyticsLineChart = ({ data, unit, emptyMessage, gradientId, color, fixedMax }: AnalyticsLineChartProps) => {
   if (data.length === 0) return <EmptyAnalytics message={emptyMessage} />;
 
   const chartWidth = 720;
@@ -112,8 +113,8 @@ const AnalyticsLineChart = ({ data, unit, emptyMessage, gradientId, fixedMax }: 
       >
         <defs>
           <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#1D6750" stopOpacity="0.24" />
-            <stop offset="100%" stopColor="#1D6750" stopOpacity="0.02" />
+            <stop offset="0%" stopColor={color} stopOpacity="0.22" />
+            <stop offset="100%" stopColor={color} stopOpacity="0.02" />
           </linearGradient>
         </defs>
 
@@ -123,26 +124,29 @@ const AnalyticsLineChart = ({ data, unit, emptyMessage, gradientId, fixedMax }: 
             <g key={ratio}>
               <line x1={padding.left} x2={padding.left + innerWidth} y1={y} y2={y} stroke="#e4ece7" strokeDasharray="4 5" />
               <text x={padding.left - 10} y={y + 4} textAnchor="end" fontSize="11" fill="#7a8780">
-                {formatDecimal(maxValue * ratio, unit)}
+                {formatDecimal(maxValue * ratio)}
               </text>
             </g>
           );
         })}
 
         <polygon points={areaPoints} fill={`url(#${gradientId})`} />
-        <polyline points={points} fill="none" stroke="#1D6750" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+        <text x={padding.left} y="14" fontSize="11" fontWeight="600" fill="#6f7d75">Đơn vị: {unit.trim()}</text>
+        <polyline points={points} fill="none" stroke={color} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
 
         {data.map((item, index) => {
           const x = xFor(index);
           const y = yFor(item.value);
           return (
             <g key={`${item.period}-${index}`}>
-              <circle cx={x} cy={y} r="8" fill="white" stroke="#1D6750" strokeWidth="3">
+              <circle cx={x} cy={y} r="7" fill="white" stroke={color} strokeWidth="3">
                 <title>{`${formatPeriod(item.period)}: ${formatDecimal(item.value, unit)}`}</title>
               </circle>
-              <text x={x} y={Math.max(14, y - 13)} textAnchor="middle" fontSize="11" fontWeight="700" fill="#274b3b">
-                {formatDecimal(item.value)}
-              </text>
+              {index === data.length - 1 && (
+                <text x={x} y={Math.max(14, y - 13)} textAnchor="middle" fontSize="11" fontWeight="700" fill="#274b3b">
+                  {formatDecimal(item.value, unit)}
+                </text>
+              )}
               <text x={x} y={chartHeight - 14} textAnchor="middle" fontSize="11" fill="#6f7d75">
                 {formatPeriod(item.period)}
               </text>
@@ -160,6 +164,7 @@ const SessionDurationChart = ({ data }: { data: SessionDurationStat[] }) => (
     unit=" phút"
     emptyMessage="Chưa có dữ liệu thời lượng phiên trong khoảng đã chọn."
     gradientId="session-duration-gradient"
+    color="#2563EB"
   />
 );
 
@@ -169,6 +174,7 @@ const RetentionChart = ({ data }: { data: RetentionStat[] }) => (
     unit="%"
     emptyMessage="Chưa có dữ liệu duy trì trong khoảng đã chọn."
     gradientId="retention-gradient"
+    color="#1D6750"
     fixedMax={100}
   />
 );
@@ -228,13 +234,13 @@ const AdminDashboard = () => {
     },
     {
       icon: Timer,
-      label: 'Thời lượng phiên',
+      label: 'Thời lượng phiên TB',
       value: formatDecimal(latestDuration?.averageDurationMinutes, ' phút'),
       helper: latestDuration ? `Trung bình kỳ ${formatPeriod(latestDuration.period)}` : 'Chưa có dữ liệu phiên',
     },
     {
       icon: Repeat2,
-      label: 'Số liệu duy trì',
+      label: 'Tỷ lệ duy trì',
       value: formatDecimal(latestRetention?.retentionRate, '%'),
       helper: latestRetention ? `Kỳ ${formatPeriod(latestRetention.period)}` : 'Chưa có dữ liệu duy trì',
     },
@@ -256,8 +262,9 @@ const AdminDashboard = () => {
           </p>
         </div>
 
-        <div className="flex w-full flex-wrap items-end gap-3 rounded-2xl border border-[#dfe9e3] bg-white p-4 shadow-sm">
-          <label className="min-w-36 text-xs font-semibold text-[#64736b]">
+        <div className="rounded-2xl border border-[#dfe9e3] bg-white p-4 shadow-sm">
+          <div className="flex w-full flex-wrap items-end gap-3">
+          <label className="w-full text-xs font-semibold text-[#64736b] sm:w-auto sm:min-w-44">
             Từ ngày
             <input
               type="date"
@@ -267,7 +274,7 @@ const AdminDashboard = () => {
               className="mt-1 block h-10 w-full rounded-lg border border-[#d8e4dd] bg-white px-3 text-sm font-medium text-[#274b3b] outline-none focus:border-[#1D6750]"
             />
           </label>
-          <label className="min-w-36 text-xs font-semibold text-[#64736b]">
+          <label className="w-full text-xs font-semibold text-[#64736b] sm:w-auto sm:min-w-44">
             Đến ngày
             <input
               type="date"
@@ -277,7 +284,7 @@ const AdminDashboard = () => {
               className="mt-1 block h-10 w-full rounded-lg border border-[#d8e4dd] bg-white px-3 text-sm font-medium text-[#274b3b] outline-none focus:border-[#1D6750]"
             />
           </label>
-          <label className="min-w-32 text-xs font-semibold text-[#64736b]">
+          <label className="w-full text-xs font-semibold text-[#64736b] sm:w-auto sm:min-w-40">
             Nhóm theo
             <select
               value={draftFilters.granularity}
@@ -293,16 +300,19 @@ const AdminDashboard = () => {
             type="button"
             disabled={invalidDateRange || isDashboardLoading}
             onClick={applyFilters}
-            className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#1D4532] px-4 text-sm font-semibold text-white transition hover:bg-[#163a2a] disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-[#1D4532] px-5 text-sm font-semibold text-white transition hover:bg-[#163a2a] disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
           >
             <CalendarDays className="h-4 w-4" /> Áp dụng
           </button>
+          </div>
+          <p className="mt-3 border-t border-[#edf1ef] pt-3 text-xs text-[#718078]">
+            Khoảng ngày áp dụng cho toàn bộ chỉ số và biểu đồ. “Nhóm theo” điều chỉnh cách hiển thị dữ liệu theo thời gian.
+          </p>
+          {invalidDateRange && (
+            <p className="mt-2 text-sm font-medium text-red-700">Vui lòng chọn khoảng ngày hợp lệ.</p>
+          )}
         </div>
       </header>
-
-      {invalidDateRange && (
-        <p className="text-right text-sm font-medium text-red-700">Vui lòng chọn khoảng ngày hợp lệ.</p>
-      )}
 
       {dashboardError && (
         <div className="flex flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 sm:flex-row sm:items-center sm:justify-between">
@@ -329,7 +339,7 @@ const AdminDashboard = () => {
       </section>
 
       <section className="grid grid-cols-1 items-start gap-5 xl:grid-cols-2">
-        <article className="rounded-2xl border border-[#e0e9e4] bg-white p-5 shadow-[0_4px_18px_rgba(20,61,44,0.04)] md:p-6">
+        <article className="rounded-2xl border border-[#e0e9e4] bg-white p-5 shadow-[0_4px_18px_rgba(20,61,44,0.04)] md:p-6 xl:col-span-2">
           <div className="mb-6 flex items-start justify-between gap-4">
             <div>
               <h2 className="text-lg font-bold text-[#173f2f]">Nhạc cụ phổ biến</h2>
@@ -367,8 +377,8 @@ const AdminDashboard = () => {
         <article className="rounded-2xl border border-[#e0e9e4] bg-white p-5 shadow-[0_4px_18px_rgba(20,61,44,0.04)] md:p-6">
           <div className="mb-6 flex items-start justify-between gap-4">
             <div>
-              <h2 className="text-lg font-bold text-[#173f2f]">Số liệu duy trì</h2>
-              <p className="mt-1 text-sm text-[#718078]">Tỷ lệ người dùng tiếp tục hoạt động theo 6 kỳ gần nhất.</p>
+              <h2 className="text-lg font-bold text-[#173f2f]">Xu hướng duy trì người dùng</h2>
+              <p className="mt-1 text-sm text-[#718078]">Tỷ lệ người dùng quay lại hoạt động trong 6 kỳ gần nhất.</p>
             </div>
             <span className="rounded-full bg-[#edf5f1] px-2.5 py-1 text-xs font-semibold text-[#466957]">6 kỳ gần nhất</span>
           </div>
@@ -378,17 +388,15 @@ const AdminDashboard = () => {
             <RetentionChart data={visibleRetention} />
           )}
         </article>
-      </section>
-
       <article className="rounded-2xl border border-[#e0e9e4] bg-white p-5 shadow-[0_4px_18px_rgba(20,61,44,0.04)] md:p-6">
         <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h2 className="text-lg font-bold text-[#173f2f]">Thời lượng phiên</h2>
-            <p className="mt-1 text-sm text-[#718078]">Thời gian trung bình người dùng hoạt động trong 7 kỳ gần nhất.</p>
+            <h2 className="text-lg font-bold text-[#173f2f]">Xu hướng thời lượng phiên trung bình</h2>
+            <p className="mt-1 text-sm text-[#718078]">Thời gian hoạt động trung bình trong mỗi phiên qua 7 kỳ gần nhất.</p>
           </div>
           {latestDuration && (
             <div className="rounded-xl bg-[#edf5f1] px-3 py-2 text-right">
-              <p className="text-xs font-medium text-[#64736b]">Tổng thời lượng kỳ gần nhất</p>
+              <p className="text-xs font-medium text-[#64736b]">Tổng thời gian hoạt động · kỳ gần nhất</p>
               <p className="text-sm font-bold text-[#173f2f]">{formatDecimal(latestDuration.totalDurationMinutes, ' phút')}</p>
             </div>
           )}
@@ -399,6 +407,7 @@ const AdminDashboard = () => {
           <SessionDurationChart data={visibleDurations} />
         )}
       </article>
+      </section>
 
     </div>
   );
