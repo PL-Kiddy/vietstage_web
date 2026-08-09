@@ -138,7 +138,7 @@ export interface ReviewItem {
   }[];
   technicalNotes?: string;
   description?: string;
-  status: 'draft' | 'pending' | 'approved' | 'rejected';
+  status: 'pending' | 'approved' | 'rejected';
   feedback?: string;
   approvedBy?: string;
   approvedAt?: string;
@@ -202,11 +202,7 @@ export interface RetentionStat {
 }
 
 export interface AdminDashboardStats {
-  totalUsers: number;
   activeUsers: number;
-  totalRevenue?: number | null;
-  totalLessons: number;
-  activeInstructors: number;
   popularInstruments: PopularInstrumentStat[];
   sessionDuration: SessionDurationStat[];
   retention: RetentionStat[];

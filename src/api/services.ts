@@ -51,10 +51,25 @@ export const authApi = {
 
 export const usersApi = {
   list: (options?: RequestOptions) => apiRequest<PageResponse<AdminUser>>('/api/admin/users', options),
-  updateStatus: (id: number, status: 'active' | 'locked') =>
+  updateProfile: (id: number, body: { fullName: string; avatarUrl?: string }) =>
+    apiRequest<void>(`/api/admin/users/${id}`, {
+      method: 'PUT',
+      body,
+    }),
+  updateRole: (id: number, role: 'LEARNER' | 'INSTRUCTOR') =>
+    apiRequest<void>(`/api/admin/users/${id}/role`, {
+      method: 'PUT',
+      body: { role },
+    }),
+  updateStatus: (id: number, status: 'ACTIVE' | 'LOCKED') =>
     apiRequest<void>(`/api/admin/users/${id}/status`, {
       method: 'PUT',
       body: { status },
+    }),
+  resetAdminPassword: (id: number, newPassword: string) =>
+    apiRequest<void>(`/api/admin/users/${id}/reset-password`, {
+      method: 'POST',
+      body: { newPassword },
     }),
   createInstructor: (body: {
     email: string;
@@ -63,8 +78,6 @@ export const usersApi = {
     biography?: string;
     yearsExperience?: number;
   }) => apiRequest('/api/admin/create-instructor', { method: 'POST', body }),
-  createAdmin: (body: { email: string; password: string; fullName: string }) =>
-    apiRequest('/api/admin/create-admin', { method: 'POST', body }),
 };
 
 export const masterDataApi = {

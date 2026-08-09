@@ -36,7 +36,7 @@ interface ReviewItem {
   description: string;
   technicalNotes: string;
   lessonId?: number;
-  status: 'draft' | 'pending' | 'approved' | 'rejected';
+  status: 'pending' | 'approved' | 'rejected';
   feedback?: string;
   approvedBy?: string;
   approvedAt?: string;
@@ -76,11 +76,23 @@ const normalizeReview = (item: ApiReviewItem): ReviewItem => {
     assets,
     description: item.description || '',
     technicalNotes: item.technicalNotes || '',
-    status: String(item.status || 'pending').trim().toLowerCase() as ReviewItem['status'],
+    status: normalizeReviewStatus(item.status),
     feedback: item.feedback,
     approvedBy: item.approvedBy,
     approvedAt: item.approvedAt,
   };
+};
+
+const normalizeReviewStatus = (status?: string): ReviewItem['status'] => {
+  switch (String(status || 'PENDING').trim().toUpperCase()) {
+    case 'APPROVED':
+      return 'approved';
+    case 'REJECTED':
+      return 'rejected';
+    case 'PENDING':
+    default:
+      return 'pending';
+  }
 };
 
 const AdminReview = () => {
@@ -146,8 +158,7 @@ const AdminReview = () => {
         reviewsApi.list(createParams('APPROVED', 0, 1), { signal }),
         reviewsApi.list(createParams('REJECTED', 0, 1), { signal }),
       ]);
-      // Draft lessons are an Instructor concern and must never enter the Admin moderation queue.
-      setItems((reviewPage.content ?? []).map(normalizeReview).filter((review) => review.status !== 'draft'));
+      setItems((reviewPage.content ?? []).map(normalizeReview));
       setPageInfo({ totalElements: reviewPage.totalElements ?? 0, totalPages: reviewPage.totalPages ?? 1 });
       setReviewCounts({
         all: allPage.totalElements ?? 0,
@@ -175,6 +186,7 @@ const AdminReview = () => {
   const [selectedItem, setSelectedItem] = useState<ReviewItem | null>(null);
   const [feedback, setFeedback] = useState<string>('');
   const [feedbackError, setFeedbackError] = useState<string>('');
+  const [isDecisionSubmitting, setIsDecisionSubmitting] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
   const [isPreviewZoomed, setIsPreviewZoomed] = useState<boolean>(false);
   const [previewAsset, setPreviewAsset] = useState<ReviewAsset | null>(null);
@@ -193,7 +205,8 @@ const AdminReview = () => {
   };
 
   const handleApprove = async () => {
-    if (!selectedItem) return;
+    if (!selectedItem || isDecisionSubmitting) return;
+    setIsDecisionSubmitting(true);
     try {
       await reviewsApi.approve(Number(selectedItem.id));
       await loadReviews();
@@ -201,15 +214,18 @@ const AdminReview = () => {
       closeDrawer();
     } catch (error) {
       alert(error instanceof Error ? error.message : 'Không thể phê duyệt học liệu.');
+    } finally {
+      setIsDecisionSubmitting(false);
     }
   };
 
   const handleReject = async () => {
-    if (!selectedItem) return;
+    if (!selectedItem || isDecisionSubmitting) return;
     if (!feedback.trim()) {
       setFeedbackError('Lý do từ chối là bắt buộc để giảng viên nắm được thông tin chỉnh sửa.');
       return;
     }
+    setIsDecisionSubmitting(true);
     try {
       await reviewsApi.reject(Number(selectedItem.id), feedback.trim());
       await loadReviews();
@@ -217,6 +233,8 @@ const AdminReview = () => {
       closeDrawer();
     } catch (error) {
       alert(error instanceof Error ? error.message : 'Không thể từ chối học liệu.');
+    } finally {
+      setIsDecisionSubmitting(false);
     }
   };
 
@@ -513,11 +531,7 @@ const AdminReview = () => {
                       {item.date}
                     </td>
                     <td className="px-xl py-lg whitespace-nowrap text-center">
-                      {item.status === 'draft' && (
-                        <span className="px-lg py-sm bg-slate-50 border border-slate-200 text-slate-700 rounded-full text-[11px] font-bold tracking-wide whitespace-nowrap">
-                          Bản nháp
-                        </span>
-                      )}                      {item.status === 'pending' && (
+                      {item.status === 'pending' && (
                         <span className="px-lg py-sm bg-orange-50 border border-orange-200 text-orange-700 rounded-full text-[11px] font-bold tracking-wide whitespace-nowrap">
                           Chờ duyệt
                         </span>
@@ -782,10 +796,10 @@ const AdminReview = () => {
                           Thông tin phê duyệt
                         </span>
                         <p className="text-body-md text-on-surface font-semibold">
-                          Đã phê duyệt bởi: <span className="text-[#1b5e20]">{selectedItem.approvedBy || 'Trần Minh Quân (Admin)'}</span>
+                          Đã phê duyệt bởi: <span className="text-[#1b5e20]">{selectedItem.approvedBy || 'Chưa có thông tin'}</span>
                         </p>
                         <p className="text-body-sm text-on-surface-variant mt-1">
-                          Thời gian phê duyệt: {selectedItem.approvedAt || '25/10/2024 10:45'}
+                          Thời gian phê duyệt: {selectedItem.approvedAt || 'Chưa có thông tin'}
                         </p>
                       </div>
                     ) : (
@@ -808,17 +822,19 @@ const AdminReview = () => {
                   <>
                     <button
                       onClick={handleReject}
-                      className="flex-1 flex items-center justify-center gap-sm bg-[#c62828] text-white py-lg rounded-xl font-bold hover:bg-[#b71c1c] active:scale-[0.98] transition-all shadow-sm"
+                      disabled={isDecisionSubmitting}
+                      className="flex-1 flex items-center justify-center gap-sm bg-[#c62828] text-white py-lg rounded-xl font-bold hover:bg-[#b71c1c] active:scale-[0.98] transition-all shadow-sm disabled:cursor-wait disabled:opacity-60"
                     >
                       <X className="w-5 h-5" />
-                      Từ chối
+                      {isDecisionSubmitting ? 'Đang xử lý...' : 'Từ chối'}
                     </button>
                     <button
                       onClick={handleApprove}
-                      className="flex-1 flex items-center justify-center gap-sm bg-[#1b5e20] text-white py-lg rounded-xl font-bold hover:bg-[#1b5e20]/90 active:scale-[0.98] transition-all shadow-sm"
+                      disabled={isDecisionSubmitting}
+                      className="flex-1 flex items-center justify-center gap-sm bg-[#1b5e20] text-white py-lg rounded-xl font-bold hover:bg-[#1b5e20]/90 active:scale-[0.98] transition-all shadow-sm disabled:cursor-wait disabled:opacity-60"
                     >
                       <Check className="w-5 h-5" />
-                      Phê duyệt
+                      {isDecisionSubmitting ? 'Đang xử lý...' : 'Phê duyệt'}
                     </button>
                   </>
                 ) : (

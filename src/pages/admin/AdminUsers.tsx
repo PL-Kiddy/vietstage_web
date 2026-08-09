@@ -20,10 +20,9 @@ import { masterDataApi, usersApi } from '../../api/services';
 import type { AdminUser as ApiAdminUser, Instrument, PageResponse } from '../../api/types';
 import { useAxiosRequest } from '../../hooks/useAxiosRequest';
 
-// Extended type to support 'pending' status
 export interface ExtendedAdminUser extends Omit<ApiAdminUser, 'id' | 'status'> {
   id: string;
-  status: 'active' | 'locked' | 'pending';
+  status: 'active' | 'locked';
 }
 
 const INSTRUMENT_OPTIONS = [
@@ -114,6 +113,7 @@ const mapExtendedUser = (user: ApiAdminUser): ExtendedAdminUser => ({
   specialty: user.specialty ? normalizeInstrumentText(user.specialty) : user.specialty,
   instruments: user.instruments ? uniqueInstrumentOptions(user.instruments) : user.instruments,
   role: normalizeRole(user),
+  status: normalizeStatus(user.status),
   id: String((user as any).userId ?? (user as any).user_id ?? user.id),
 });
 
@@ -122,12 +122,15 @@ const isStaffAccount = (user: any): boolean => {
   return role === 'Admin' || role === 'Giảng viên';
 };
 
+const normalizeStatus = (status?: string): ExtendedAdminUser['status'] =>
+  String(status).toUpperCase() === 'LOCKED' ? 'locked' : 'active';
+
 const AdminUsers = () => {
   const location = useLocation();
   const isLearnersMode = location.pathname.includes('/learners');
 
   const [roleFilter, setRoleFilter] = useState<'ALL' | 'ADMIN' | 'INSTRUCTOR'>('ALL');
-  const [statusFilter, setStatusFilter] = useState<'ALL' | 'active' | 'locked' | 'pending'>('ALL');
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'ACTIVE' | 'LOCKED'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
 
   // Reset filters when switching between modes
@@ -145,23 +148,22 @@ const AdminUsers = () => {
   // Add User Drawer State
   const [isAddDrawerOpen, setIsAddDrawerOpen] = useState(false);
   const [newUserName, setNewUserName] = useState('');
-  const [newUserRole, setNewUserRole] = useState<'Admin' | 'Giảng viên'>('Giảng viên');
   const [newUserEmail, setNewUserEmail] = useState('');
   const [newBiography, setNewBiography] = useState('');
   const [newYearsExperience, setNewYearsExperience] = useState<number>(0);
-  const [authMethod, setAuthMethod] = useState<'invite' | 'password'>('password');
   const [newPassword, setNewPassword] = useState('');
 
   // Edit User Drawer State
   const [isEditDrawerOpen, setIsEditDrawerOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<ExtendedAdminUser | null>(null);
   const [editName, setEditName] = useState('');
-  const [editEmail, setEditEmail] = useState('');
-  const [editInstrument, setEditInstrument] = useState<string>('Đàn Bầu');
+  const [editRole, setEditRole] = useState<'LEARNER' | 'INSTRUCTOR'>('LEARNER');
+  const [resetPasswordValue, setResetPasswordValue] = useState('');
+  const [resetPasswordConfirmation, setResetPasswordConfirmation] = useState('');
 
   // Confirmation Modal State
   const [confirmModalData, setConfirmModalData] = useState<{
-    type: 'lock' | 'unlock' | 'reset_password' | 'activate';
+    type: 'lock' | 'unlock' | 'reset_password';
     user: ExtendedAdminUser;
   } | null>(null);
   const [isActionSubmitting, setIsActionSubmitting] = useState(false);
@@ -295,17 +297,21 @@ const AdminUsers = () => {
     isEmailValid(newUserEmail) &&
     newPassword.length >= 6;
 
-  const isEditFormValid =
-    editName.trim() !== '' &&
-    isEmailValid(editEmail) &&
-    (editingUser ? (
-      editName !== editingUser.name ||
-      editEmail !== editingUser.email ||
-      (editingUser.role === 'Giảng viên' && (editingUser.specialty !== `Giảng viên ${editInstrument}`))
-    ) : false);
+  const isEditFormValid = editingUser !== null && editName.trim() !== '' && (
+    editName !== editingUser.name ||
+    (editingUser.role !== 'Admin' && editRole !== (editingUser.role === 'Giảng viên' ? 'INSTRUCTOR' : 'LEARNER'))
+  );
 
   /* ── Handlers ────────────────────────────────────────────── */
-  const triggerConfirmModal = (type: 'lock' | 'unlock' | 'reset_password' | 'activate', user: ExtendedAdminUser) => {
+  const triggerConfirmModal = (type: 'lock' | 'unlock' | 'reset_password', user: ExtendedAdminUser) => {
+    if (user.role === 'Admin') {
+      setActionFeedback({ type: 'error', message: 'Không thể thay đổi quyền truy cập của tài khoản Admin từ màn hình này.' });
+      return;
+    }
+    if (type === 'reset_password') {
+      setResetPasswordValue('');
+      setResetPasswordConfirmation('');
+    }
     setConfirmModalData({ type, user });
   };
 
@@ -316,14 +322,28 @@ const AdminUsers = () => {
     setActionFeedback(null);
 
     try {
-      if (type === 'lock' || type === 'unlock' || type === 'activate') {
-        const status = type === 'lock' ? 'locked' : 'active';
+      if (type === 'lock' || type === 'unlock') {
+        const status = type === 'lock' ? 'LOCKED' : 'ACTIVE';
+        const displayStatus = status === 'LOCKED' ? 'locked' : 'active';
         await usersApi.updateStatus(Number(user.id), status);
-        setSelectedUser((current) => current?.id === user.id ? { ...current, status } : current);
-        setActionFeedback({ type: 'success', message: type === 'lock' ? 'Đã khóa tài khoản thành công.' : type === 'unlock' ? 'Đã mở khóa tài khoản thành công.' : 'Đã kích hoạt tài khoản thành công.' });
+        setSelectedUser((current) => current?.id === user.id ? { ...current, status: displayStatus } : current);
+        setActionFeedback({ type: 'success', message: type === 'lock' ? 'Đã khóa tài khoản thành công.' : 'Đã mở khóa tài khoản thành công.' });
         void loadUsers().catch(() => undefined);
       } else {
-        alert('Luồng đặt lại mật khẩu quản trị sẽ sử dụng API quên mật khẩu.');
+        if (resetPasswordValue.length < 8) {
+          setActionFeedback({ type: 'error', message: 'Mật khẩu mới phải có ít nhất 8 ký tự.' });
+          return;
+        }
+        if (/\s/.test(resetPasswordValue)) {
+          setActionFeedback({ type: 'error', message: 'Mật khẩu mới không được chứa khoảng trắng.' });
+          return;
+        }
+        if (resetPasswordValue !== resetPasswordConfirmation) {
+          setActionFeedback({ type: 'error', message: 'Xác nhận mật khẩu chưa khớp.' });
+          return;
+        }
+        await usersApi.resetAdminPassword(Number(user.id), resetPasswordValue);
+        setActionFeedback({ type: 'success', message: 'Đã đặt lại mật khẩu. Hãy gửi mật khẩu mới qua kênh bảo mật.' });
       }
     } catch (error) {
       setActionFeedback({ type: 'error', message: error instanceof Error ? error.message : 'Không thể cập nhật trạng thái tài khoản.' });
@@ -336,10 +356,8 @@ const AdminUsers = () => {
   const handleAddUserClick = () => {
     setNewUserName('');
     setNewUserEmail('');
-    setNewUserRole('Giảng viên');
     setNewBiography('');
     setNewYearsExperience(0);
-    setAuthMethod('password');
     setNewPassword('');
     setIsAddDrawerOpen(true);
   };
@@ -358,33 +376,17 @@ const AdminUsers = () => {
     e.preventDefault();
     if (!isAddFormValid) return;
 
-    const passwordToSubmit = authMethod === 'password'
-      ? newPassword
-      : `Vs@${crypto.randomUUID().replaceAll('-', '').slice(0, 10)}`;
-
     try {
-      if (newUserRole === 'Giảng viên') {
-        // Swagger: POST /api/admin/create-instructor
-        // Payload: { email, password, fullName, biography, yearsExperience }
-        await usersApi.createInstructor({
-          email: newUserEmail.trim(),
-          password: passwordToSubmit,
-          fullName: newUserName.trim(),
-          biography: newBiography.trim() || undefined,
-          yearsExperience: Number(newYearsExperience) || 0,
-        });
-      } else {
-        // Swagger: POST /api/admin/create-admin
-        // Payload: { email, password, fullName }
-        await usersApi.createAdmin({
-          email: newUserEmail.trim(),
-          password: passwordToSubmit,
-          fullName: newUserName.trim(),
-        });
-      }
+      await usersApi.createInstructor({
+        email: newUserEmail.trim(),
+        password: newPassword,
+        fullName: newUserName.trim(),
+        biography: newBiography.trim() || undefined,
+        yearsExperience: Number(newYearsExperience) || 0,
+      });
       await loadUsers();
       setIsAddDrawerOpen(false);
-      alert(`Tạo tài khoản ${newUserRole} thành công!`);
+      alert('Tạo tài khoản giảng viên thành công!');
     } catch (error) {
       alert(error instanceof Error ? error.message : 'Không thể tạo tài khoản.');
     }
@@ -393,18 +395,7 @@ const AdminUsers = () => {
   const handleEditUserClick = (user: ExtendedAdminUser) => {
     setEditingUser(user);
     setEditName(user.name);
-    setEditEmail(user.email);
-
-    // Parse primary instrument from specialty or instruments
-    let defaultInst = 'Đàn Bầu';
-    if (user.instruments && user.instruments.length > 0) {
-      defaultInst = normalizeInstrumentName(user.instruments[0]);
-    } else if (user.specialty) {
-      const normalizedSpecialty = normalizeInstrumentText(user.specialty);
-      const found = instrumentOptions.find(inst => normalizedSpecialty.includes(inst));
-      if (found) defaultInst = found;
-    }
-    setEditInstrument(defaultInst);
+    setEditRole(user.role === 'Giảng viên' ? 'INSTRUCTOR' : 'LEARNER');
     setIsEditDrawerOpen(true);
   };
 
@@ -412,8 +403,19 @@ const AdminUsers = () => {
     e.preventDefault();
     if (!isEditFormValid || !editingUser) return;
 
-    alert('Backend hiện chưa cung cấp endpoint cập nhật thông tin người dùng. Bạn vẫn có thể khóa hoặc mở khóa tài khoản.');
-    setIsEditDrawerOpen(false);
+    try {
+      if (editName !== editingUser.name) {
+        await usersApi.updateProfile(Number(editingUser.id), { fullName: editName.trim() });
+      }
+      if (editingUser.role !== 'Admin' && editRole !== (editingUser.role === 'Giảng viên' ? 'INSTRUCTOR' : 'LEARNER')) {
+        await usersApi.updateRole(Number(editingUser.id), editRole);
+      }
+      await loadUsers();
+      setIsEditDrawerOpen(false);
+      setActionFeedback({ type: 'success', message: 'Đã cập nhật tài khoản và quyền truy cập.' });
+    } catch (error) {
+      setActionFeedback({ type: 'error', message: error instanceof Error ? error.message : 'Không thể cập nhật tài khoản.' });
+    }
   };
 
   return (
@@ -477,15 +479,14 @@ const AdminUsers = () => {
                 <select
                   value={statusFilter}
                   onChange={(e) => {
-                    setStatusFilter(e.target.value as 'ALL' | 'active' | 'locked' | 'pending');
+                    setStatusFilter(e.target.value as 'ALL' | 'ACTIVE' | 'LOCKED');
                     setCurrentPage(1);
                   }}
                   className="bg-transparent border-none py-0 pl-0 pr-4 text-label-md font-semibold text-[#1D4532] focus:ring-0 cursor-pointer"
                 >
                   <option value="ALL">Tất cả</option>
-                  <option value="active">Hoạt động</option>
-                  <option value="locked">Đã khóa</option>
-                  <option value="pending">Chờ kích hoạt</option>
+                  <option value="ACTIVE">Hoạt động</option>
+                  <option value="LOCKED">Đã khóa</option>
                 </select>
               </div>
 
@@ -605,12 +606,6 @@ const AdminUsers = () => {
                               Bị khóa
                             </span>
                           )}
-                          {user.status === 'pending' && (
-                            <span className="flex items-center gap-1 text-[12px] font-semibold text-[#cca730]">
-                              <span className="w-2.5 h-2.5 rounded-full bg-[#ffe088] animate-pulse" />
-                              Chờ xác nhận
-                            </span>
-                          )}
                         </td>
 
                         {/* Actions Menu */}
@@ -646,26 +641,30 @@ const AdminUsers = () => {
                                   <UserCheck className="w-4 h-4 text-[#1D4532]" />
                                   Xem chi tiết
                                 </button>
-                                <button
-                                  onClick={() => {
-                                    setOpenActionMenuUserId(null);
-                                    handleEditUserClick(user);
-                                  }}
-                                  className="w-full flex items-center gap-xs px-4 py-2 hover:bg-[#EDF7F2] text-[13px] text-on-surface transition-colors"
-                                >
-                                  <Edit2 className="w-4 h-4 text-[#1D4532]" />
-                                  Sửa thông tin
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    setOpenActionMenuUserId(null);
-                                    triggerConfirmModal('reset_password', user);
-                                  }}
-                                  className="w-full flex items-center gap-xs px-4 py-2 hover:bg-[#EDF7F2] text-[13px] text-on-surface transition-colors"
-                                >
-                                  <Key className="w-4 h-4 text-[#5e5e5b]" />
-                                  Đặt lại mật khẩu
-                                </button>
+                                {user.role !== 'Admin' && (
+                                  <>
+                                    <button
+                                      onClick={() => {
+                                        setOpenActionMenuUserId(null);
+                                        handleEditUserClick(user);
+                                      }}
+                                      className="w-full flex items-center gap-xs px-4 py-2 hover:bg-[#EDF7F2] text-[13px] text-on-surface transition-colors"
+                                    >
+                                      <Edit2 className="w-4 h-4 text-[#1D4532]" />
+                                      Sửa thông tin
+                                    </button>
+                                    <button
+                                      onClick={() => {
+                                        setOpenActionMenuUserId(null);
+                                        triggerConfirmModal('reset_password', user);
+                                      }}
+                                      className="w-full flex items-center gap-xs px-4 py-2 hover:bg-[#EDF7F2] text-[13px] text-on-surface transition-colors"
+                                    >
+                                      <Key className="w-4 h-4 text-[#5e5e5b]" />
+                                      Đặt lại mật khẩu
+                                    </button>
+                                  </>
+                                )}
 
                               </div>
                             </>,
@@ -804,12 +803,6 @@ const AdminUsers = () => {
                     ĐÃ BỊ KHÓA
                   </span>
                 )}
-                {selectedUser.status === 'pending' && (
-                  <span className="bg-amber-100 text-amber-800 px-lg py-sm rounded-full text-xs font-bold flex items-center gap-1">
-                    <span className="w-2.5 h-2.5 bg-[#cca730] rounded-full inline-block animate-pulse" />
-                    CHỜ XÁC NHẬN
-                  </span>
-                )}
               </div>
 
               {/* Account information */}
@@ -928,23 +921,18 @@ const AdminUsers = () => {
 
             {/* Modal Actions */}
             <div className="px-xl py-lg border-t border-[#d1e4fb] bg-white flex gap-md justify-end">
-              <button
-                onClick={() => {
-                  setSelectedUser(null);
-                  handleEditUserClick(selectedUser);
-                }}
-                className="px-lg py-sm border border-[#1D4532] text-[#1D4532] font-label-md rounded-lg hover:bg-[#1D4532]/5 transition-colors"
-              >
-                Sửa thông tin
-              </button>
-              {selectedUser.status === 'pending' ? (
+              {selectedUser.role !== 'Admin' && (
                 <button
-                  onClick={() => triggerConfirmModal('activate', selectedUser)}
-                  className="px-lg py-sm font-label-md rounded-lg hover:opacity-90 bg-emerald-700 text-white transition-opacity"
+                  onClick={() => {
+                    setSelectedUser(null);
+                    handleEditUserClick(selectedUser);
+                  }}
+                  className="px-lg py-sm border border-[#1D4532] text-[#1D4532] font-label-md rounded-lg hover:bg-[#1D4532]/5 transition-colors"
                 >
-                  Kích hoạt
+                  Sửa thông tin
                 </button>
-              ) : (
+              )}
+              {selectedUser.role !== 'Admin' && (
                 <button
                   onClick={() => triggerConfirmModal(selectedUser.status === 'active' ? 'lock' : 'unlock', selectedUser)}
                   className={`px-lg py-sm font-label-md rounded-lg hover:opacity-90 transition-opacity text-white ${selectedUser.status === 'active' ? 'bg-error' : 'bg-[#1D4532]'
@@ -988,7 +976,7 @@ const AdminUsers = () => {
                       Thêm thành viên mới
                     </h4>
                     <p className="text-[12px] text-on-surface-variant mt-xs">
-                      Tạo tài khoản quản trị hoặc giảng viên mới trên hệ thống.
+                      Tạo tài khoản giảng viên mới trên hệ thống.
                     </p>
                   </div>
                   <button
@@ -1039,24 +1027,8 @@ const AdminUsers = () => {
                         />
                       </div>
 
-                      {/* Role Select (Only Admin & Giảng viên) */}
-                      <div className="flex flex-col gap-xs">
-                        <label className="font-label-sm text-on-surface-variant font-semibold uppercase tracking-wider text-xs">
-                          Vai trò trên hệ thống
-                        </label>
-                        <select
-                          value={newUserRole}
-                          onChange={(e) => setNewUserRole(e.target.value as 'Admin' | 'Giảng viên')}
-                          className="w-full bg-white border border-[#d1e4fb] rounded-lg p-sm text-body-md focus:border-[#1D4532] focus:ring-1 focus:ring-[#1D4532] transition-all outline-none text-on-surface cursor-pointer font-medium"
-                        >
-                          <option value="Giảng viên">Giảng viên (Instructor)</option>
-                          <option value="Admin">Quản trị viên (Admin)</option>
-                        </select>
-                      </div>
-
-                      {/* Instructor Specific Fields: Biography & Years of Experience */}
-                      {newUserRole === 'Giảng viên' && (
-                        <>
+                      {/* Instructor fields supported by POST /api/admin/create-instructor */}
+                      <>
                           <div className="flex flex-col gap-xs animate-in fade-in slide-in-from-top-2 duration-200">
                             <label className="font-label-sm text-on-surface-variant font-semibold uppercase tracking-wider text-xs">
                               Số năm kinh nghiệm giảng dạy
@@ -1084,8 +1056,7 @@ const AdminUsers = () => {
                               className="w-full bg-white border border-[#d1e4fb] rounded-lg p-sm text-body-md focus:border-[#1D4532] focus:ring-1 focus:ring-[#1D4532] transition-all outline-none text-on-surface resize-none"
                             />
                           </div>
-                        </>
-                      )}
+                      </>
 
                       {/* Password Input (Required by Swagger API) */}
                       <div className="flex flex-col gap-xs border-t border-[#d1e4fb] pt-md">
@@ -1213,16 +1184,16 @@ const AdminUsers = () => {
                       <div className="flex flex-col gap-xs">
                         <label className="font-label-sm text-on-surface-variant font-semibold uppercase tracking-wider text-xs flex justify-between">
                           <span>Email đăng nhập <span className="text-error">*</span></span>
-                          {editEmail && !isEmailValid(editEmail) && (
+                          {editingUser.email && !isEmailValid(editingUser.email) && (
                             <span className="text-[11px] text-error font-normal">Định dạng email không hợp lệ</span>
                           )}
                         </label>
                         <input
                           type="email"
                           required
-                          value={editEmail}
-                          onChange={(e) => setEditEmail(e.target.value)}
-                          className={`w-full bg-white border rounded-lg p-md text-body-md transition-all outline-none text-on-surface ${editEmail && !isEmailValid(editEmail)
+                          value={editingUser.email}
+                          disabled
+                          className={`w-full bg-[#f1f3f2] border rounded-lg p-md text-body-md transition-all outline-none text-on-surface-variant/80 ${editingUser.email && !isEmailValid(editingUser.email)
                               ? 'border-error focus:border-error focus:ring-error'
                               : 'border-[#d1e4fb] focus:border-[#1D4532] focus:ring-1 focus:ring-[#1D4532]'
                             }`}
@@ -1230,17 +1201,26 @@ const AdminUsers = () => {
                         />
                       </div>
 
-                      {/* Role Display (Read-only) */}
+                      {/* Admin accounts are display-only; learner/instructor roles can be changed. */}
                       <div className="flex flex-col gap-xs">
                         <label className="font-label-sm text-on-surface-variant font-semibold uppercase tracking-wider text-xs">
                           Vai trò trên hệ thống
                         </label>
-                        <input
-                          type="text"
-                          disabled
-                          value={editingUser.role}
-                          className="w-full bg-[#f1f3f2] border border-[#d1e4fb] rounded-lg p-md text-body-md text-on-surface-variant/80 select-none outline-none font-bold"
-                        />
+                        <select
+                          disabled={editingUser.role === 'Admin'}
+                          value={editingUser.role === 'Admin' ? 'ADMIN' : editRole}
+                          onChange={(e) => setEditRole(e.target.value as 'LEARNER' | 'INSTRUCTOR')}
+                          className="w-full bg-white disabled:bg-[#f1f3f2] border border-[#d1e4fb] rounded-lg p-md text-body-md text-on-surface disabled:text-on-surface-variant/80 outline-none font-bold disabled:cursor-not-allowed"
+                        >
+                          {editingUser.role === 'Admin' ? (
+                            <option value="ADMIN">Quản trị viên</option>
+                          ) : (
+                            <>
+                              <option value="LEARNER">Người học</option>
+                              <option value="INSTRUCTOR">Giảng viên</option>
+                            </>
+                          )}
+                        </select>
                       </div>
 
                       {/* Instrument Specialty Selection (Visible only for Giảng viên) */}
@@ -1250,9 +1230,9 @@ const AdminUsers = () => {
                             Chuyên môn nhạc cụ
                           </label>
                           <select
-                            value={editInstrument}
-                            onChange={(e) => setEditInstrument(e.target.value)}
-                            className="w-full bg-white border border-[#d1e4fb] rounded-lg p-md text-body-md focus:border-[#1D4532] focus:ring-1 focus:ring-[#1D4532] transition-all outline-none text-on-surface cursor-pointer font-medium"
+                            value={editingUser.specialty ?? ''}
+                            disabled
+                            className="w-full bg-[#f1f3f2] border border-[#d1e4fb] rounded-lg p-md text-body-md text-on-surface-variant/80 outline-none font-medium"
                           >
                             {instrumentOptions.map((inst) => (
                               <option key={inst} value={inst}>{inst}</option>
@@ -1316,7 +1296,6 @@ const AdminUsers = () => {
                   {confirmModalData.type === 'lock' && 'Khóa tài khoản?'}
                   {confirmModalData.type === 'unlock' && 'Mở khóa tài khoản?'}
                   {confirmModalData.type === 'reset_password' && 'Đặt lại mật khẩu?'}
-                  {confirmModalData.type === 'activate' && 'Kích hoạt tài khoản?'}
                 </h4>
                 <p className="text-body-md text-on-surface-variant mt-sm">
                   {confirmModalData.type === 'lock' && (
@@ -1326,12 +1305,29 @@ const AdminUsers = () => {
                     <>Mở khóa tài khoản của <strong>{confirmModalData.user.name}</strong>? Người dùng sẽ lấy lại quyền đăng nhập vào nền tảng.</>
                   )}
                   {confirmModalData.type === 'reset_password' && (
-                    <>Bạn có muốn đặt lại mật khẩu tạm thời cho <strong>{confirmModalData.user.name}</strong>? Mật khẩu sẽ được reset về mặc định là <strong>123456</strong>.</>
-                  )}
-                  {confirmModalData.type === 'activate' && (
-                    <>Kích hoạt và xác nhận tài khoản cho <strong>{confirmModalData.user.name}</strong>? Tài khoản sẽ chuyển sang trạng thái Đang hoạt động.</>
+                    <>Đặt mật khẩu mới cho <strong>{confirmModalData.user.name}</strong>. Mật khẩu phải có ít nhất 8 ký tự và không chứa khoảng trắng.</>
                   )}
                 </p>
+                {confirmModalData.type === 'reset_password' && (
+                  <div className="mt-md space-y-sm">
+                    <input
+                      type="password"
+                      autoComplete="new-password"
+                      value={resetPasswordValue}
+                      onChange={(e) => setResetPasswordValue(e.target.value)}
+                      placeholder="Mật khẩu mới"
+                      className="w-full rounded-lg border border-[#d1e4fb] p-md text-body-md outline-none focus:border-[#1D4532] focus:ring-1 focus:ring-[#1D4532]"
+                    />
+                    <input
+                      type="password"
+                      autoComplete="new-password"
+                      value={resetPasswordConfirmation}
+                      onChange={(e) => setResetPasswordConfirmation(e.target.value)}
+                      placeholder="Xác nhận mật khẩu mới"
+                      className="w-full rounded-lg border border-[#d1e4fb] p-md text-body-md outline-none focus:border-[#1D4532] focus:ring-1 focus:ring-[#1D4532]"
+                    />
+                  </div>
+                )}
               </div>
             </div>
             <div className="flex justify-end gap-md mt-lg">
