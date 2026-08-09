@@ -92,7 +92,7 @@ const AnalyticsLineChart = ({ data, unit, emptyMessage, gradientId, color, fixed
 
   const chartWidth = 560;
   const chartHeight = 210;
-  const padding = { top: 30, right: 24, bottom: 42, left: 48 };
+  const padding = { top: 30, right: 14, bottom: 42, left: 42 };
   const innerWidth = chartWidth - padding.left - padding.right;
   const innerHeight = chartHeight - padding.top - padding.bottom;
   const rawMax = Math.max(...data.map((item) => item.value), 0);
@@ -109,7 +109,7 @@ const AnalyticsLineChart = ({ data, unit, emptyMessage, gradientId, color, fixed
         viewBox={`0 0 ${chartWidth} ${chartHeight}`}
         role="img"
         aria-label={`Biểu đồ xu hướng ${unit}`}
-        className="h-[190px] w-full"
+        className="h-[200px] w-full"
       >
         <defs>
           <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
@@ -123,7 +123,7 @@ const AnalyticsLineChart = ({ data, unit, emptyMessage, gradientId, color, fixed
           return (
             <g key={ratio}>
               <line x1={padding.left} x2={padding.left + innerWidth} y1={y} y2={y} stroke="#e4ece7" strokeDasharray="4 5" />
-              <text x={padding.left - 10} y={y + 4} textAnchor="end" fontSize="11" fill="#7a8780">
+              <text x={padding.left - 8} y={y + 4} textAnchor="end" fontSize="12" fill="#66756d">
                 {formatDecimal(maxValue * ratio)}
               </text>
             </g>
@@ -131,7 +131,7 @@ const AnalyticsLineChart = ({ data, unit, emptyMessage, gradientId, color, fixed
         })}
 
         <polygon points={areaPoints} fill={`url(#${gradientId})`} />
-        <text x={padding.left} y="14" fontSize="11" fontWeight="600" fill="#6f7d75">Đơn vị: {unit.trim()}</text>
+        <text x={padding.left} y="14" fontSize="12" fontWeight="600" fill="#66756d">Đơn vị: {unit.trim()}</text>
         <polyline points={points} fill="none" stroke={color} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
 
         {data.map((item, index) => {
@@ -147,7 +147,7 @@ const AnalyticsLineChart = ({ data, unit, emptyMessage, gradientId, color, fixed
                   {formatDecimal(item.value, unit)}
                 </text>
               )}
-              <text x={x} y={chartHeight - 14} textAnchor="middle" fontSize="11" fill="#6f7d75">
+              <text x={x} y={chartHeight - 14} textAnchor="middle" fontSize="12" fill="#66756d">
                 {formatPeriod(item.period)}
               </text>
             </g>
@@ -224,25 +224,21 @@ const AdminDashboard = () => {
       icon: Users,
       label: 'Người dùng hoạt động',
       value: formatNumber(analytics?.activeUsers),
-      helper: 'Trong khoảng đã chọn',
     },
     {
       icon: Music2,
       label: 'Nhạc cụ phổ biến',
       value: topInstrument?.instrumentName || '—',
-      helper: topInstrument ? `${formatNumber(topInstrument.practiceCount)} lượt luyện tập` : 'Chưa có dữ liệu luyện tập',
     },
     {
       icon: Timer,
-      label: 'Thời lượng phiên TB',
+      label: 'Thời lượng sử dụng trung bình',
       value: formatDecimal(latestDuration?.averageDurationMinutes, ' phút'),
-      helper: latestDuration ? `Trung bình kỳ ${formatPeriod(latestDuration.period)}` : 'Chưa có dữ liệu phiên',
     },
     {
       icon: Repeat2,
-      label: 'Tỷ lệ duy trì',
+      label: 'Tỷ lệ duy trì người dùng',
       value: formatDecimal(latestRetention?.retentionRate, '%'),
-      helper: latestRetention ? `Kỳ ${formatPeriod(latestRetention.period)}` : 'Chưa có dữ liệu duy trì',
     },
   ], [analytics, latestDuration, latestRetention, topInstrument]);
 
@@ -263,7 +259,8 @@ const AdminDashboard = () => {
         </div>
 
         <div className="rounded-2xl border border-[#dfe9e3] bg-white p-3 shadow-sm">
-          <div className="flex w-full flex-wrap items-end gap-3">
+          <div className="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
+            <div className="flex w-full flex-wrap items-end gap-3 xl:w-auto">
           <label className="w-full text-xs font-semibold text-[#64736b] sm:w-auto sm:min-w-44">
             Từ ngày
             <input
@@ -304,10 +301,8 @@ const AdminDashboard = () => {
           >
             <CalendarDays className="h-4 w-4" /> Áp dụng
           </button>
+            </div>
           </div>
-          <p className="mt-2 text-xs text-[#718078]">
-            Khoảng ngày áp dụng cho toàn bộ chỉ số và biểu đồ. “Nhóm theo” điều chỉnh cách hiển thị dữ liệu theo thời gian.
-          </p>
           {invalidDateRange && (
             <p className="mt-2 text-sm font-medium text-red-700">Vui lòng chọn khoảng ngày hợp lệ.</p>
           )}
@@ -333,19 +328,17 @@ const AdminDashboard = () => {
               {isDashboardLoading ? '—' : card.value}
             </p>
             <p className="mt-1 text-sm font-semibold text-[#52655b]">{card.label}</p>
-            <p className="mt-1 text-xs text-[#87938c]">{isDashboardLoading ? 'Đang tải dữ liệu...' : card.helper}</p>
           </article>
         ))}
       </section>
 
-      <section className="grid grid-cols-1 items-stretch gap-4 xl:grid-cols-12">
-        <article className="h-full rounded-2xl border border-[#e0e9e4] bg-white p-4 shadow-[0_4px_18px_rgba(20,61,44,0.04)] xl:col-span-3">
+      <section className="grid grid-cols-1 items-stretch gap-4 xl:grid-cols-[minmax(230px,0.56fr)_minmax(0,1fr)_minmax(0,1fr)]">
+        <article className="h-full rounded-2xl border border-[#e0e9e4] bg-white p-4 shadow-[0_4px_18px_rgba(20,61,44,0.04)]">
           <div className="mb-4 flex items-start justify-between gap-3">
             <div>
               <h2 className="text-lg font-bold text-[#173f2f]">Nhạc cụ phổ biến</h2>
               <p className="mt-1 text-sm text-[#718078]">Top 5 theo số lượt luyện tập trong khoảng đã chọn.</p>
             </div>
-            <span className="rounded-full bg-[#edf5f1] px-2.5 py-1 text-xs font-semibold text-[#466957]">Top 5</span>
           </div>
           {isDashboardLoading ? (
             <div className="space-y-4">{[0, 1, 2].map((item) => <div key={item} className="h-12 animate-pulse rounded-xl bg-[#f1f5f3]" />)}</div>
@@ -374,13 +367,12 @@ const AdminDashboard = () => {
           )}
         </article>
 
-        <article className="h-full rounded-2xl border border-[#e0e9e4] bg-white p-4 shadow-[0_4px_18px_rgba(20,61,44,0.04)] xl:col-span-4">
+        <article className="h-full rounded-2xl border border-[#e0e9e4] bg-white p-4 shadow-[0_4px_18px_rgba(20,61,44,0.04)]">
           <div className="mb-4 flex items-start justify-between gap-3">
             <div>
-              <h2 className="text-lg font-bold text-[#173f2f]">Xu hướng duy trì người dùng</h2>
+              <h2 className="text-lg font-bold text-[#173f2f]">Xu hướng duy trì</h2>
               <p className="mt-1 text-sm text-[#718078]">Tỷ lệ người dùng quay lại hoạt động trong 6 kỳ gần nhất.</p>
             </div>
-            <span className="rounded-full bg-[#edf5f1] px-2.5 py-1 text-xs font-semibold text-[#466957]">6 kỳ gần nhất</span>
           </div>
           {isDashboardLoading ? (
             <div className="space-y-4">{[0, 1, 2].map((item) => <div key={item} className="h-12 animate-pulse rounded-xl bg-[#f1f5f3]" />)}</div>
@@ -388,18 +380,12 @@ const AdminDashboard = () => {
             <RetentionChart data={visibleRetention} />
           )}
         </article>
-      <article className="h-full rounded-2xl border border-[#e0e9e4] bg-white p-4 shadow-[0_4px_18px_rgba(20,61,44,0.04)] xl:col-span-5">
+      <article className="h-full rounded-2xl border border-[#e0e9e4] bg-white p-4 shadow-[0_4px_18px_rgba(20,61,44,0.04)]">
         <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h2 className="text-lg font-bold text-[#173f2f]">Xu hướng thời lượng phiên trung bình</h2>
+            <h2 className="text-lg font-bold text-[#173f2f]">Thời lượng phiên trung bình</h2>
             <p className="mt-1 text-sm text-[#718078]">Thời gian hoạt động trung bình trong mỗi phiên qua 7 kỳ gần nhất.</p>
           </div>
-          {latestDuration && (
-            <div className="rounded-xl bg-[#edf5f1] px-3 py-2 text-right">
-              <p className="text-xs font-medium text-[#64736b]">Tổng thời gian hoạt động · kỳ gần nhất</p>
-              <p className="text-sm font-bold text-[#173f2f]">{formatDecimal(latestDuration.totalDurationMinutes, ' phút')}</p>
-            </div>
-          )}
         </div>
         {isDashboardLoading ? (
           <div className="space-y-4">{[0, 1, 2, 3].map((item) => <div key={item} className="h-10 animate-pulse rounded-xl bg-[#f1f5f3]" />)}</div>
