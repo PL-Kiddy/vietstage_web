@@ -259,8 +259,8 @@ const AdminDashboard = () => {
         </div>
 
         <div className="w-full rounded-2xl border border-[#dfe9e3] bg-white p-2.5 shadow-sm">
-          <div className="flex w-full flex-wrap items-end gap-2.5">
-          <label className="w-full text-xs font-semibold text-[#64736b] sm:min-w-[200px] sm:flex-1">
+          <div className="grid w-full grid-cols-1 items-end gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <label className="w-full text-xs font-semibold text-[#64736b]">
             Từ ngày
             <input
               type="date"
@@ -270,7 +270,7 @@ const AdminDashboard = () => {
               className="mt-1 block h-9 w-full rounded-lg border border-[#d8e4dd] bg-white px-3 text-sm font-medium text-[#274b3b] outline-none focus:border-[#1D6750]"
             />
           </label>
-          <label className="w-full text-xs font-semibold text-[#64736b] sm:min-w-[200px] sm:flex-1">
+          <label className="w-full text-xs font-semibold text-[#64736b]">
             Đến ngày
             <input
               type="date"
@@ -280,7 +280,7 @@ const AdminDashboard = () => {
               className="mt-1 block h-9 w-full rounded-lg border border-[#d8e4dd] bg-white px-3 text-sm font-medium text-[#274b3b] outline-none focus:border-[#1D6750]"
             />
           </label>
-          <label className="w-full text-xs font-semibold text-[#64736b] sm:min-w-[180px] sm:flex-1">
+          <label className="w-full text-xs font-semibold text-[#64736b]">
             Nhóm theo
             <select
               value={draftFilters.granularity}
@@ -296,7 +296,7 @@ const AdminDashboard = () => {
             type="button"
             disabled={invalidDateRange || isDashboardLoading}
             onClick={applyFilters}
-            className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-lg bg-[#1D4532] px-5 text-sm font-semibold text-white transition hover:bg-[#163a2a] disabled:cursor-not-allowed disabled:opacity-50 sm:w-[200px]"
+            className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-lg bg-[#1D4532] px-5 text-sm font-semibold text-white transition hover:bg-[#163a2a] disabled:cursor-not-allowed disabled:opacity-50"
           >
             <CalendarDays className="h-4 w-4" /> Áp dụng
           </button>
