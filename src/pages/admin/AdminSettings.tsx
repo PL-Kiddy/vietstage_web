@@ -7,8 +7,8 @@ import {
   Gauge,
   RefreshCw,
   Save,
-  SlidersHorizontal,
-  ToggleLeft,
+  Target,
+  ToggleRight,
   MoreVertical,
   X,
 } from 'lucide-react';
@@ -40,13 +40,13 @@ const GROUPS: Array<{
     id: 'difficulty',
     label: 'Độ chính xác và độ khó',
     description: 'Thiết lập các ngưỡng sai số và khả năng điều chỉnh độ khó theo kết quả luyện tập.',
-    icon: SlidersHorizontal,
+    icon: Target,
   },
   {
     id: 'feature',
     label: 'Bật/tắt tính năng',
     description: 'Quản lý trạng thái các tính năng áp dụng cho toàn hệ thống. Thay đổi chỉ có hiệu lực sau khi được lưu.',
-    icon: ToggleLeft,
+    icon: ToggleRight,
   },
 ];
 
@@ -464,7 +464,6 @@ const AdminSettings = () => {
             >
               <Icon className="h-4 w-4" />
               <span>{group.label}</span>
-              <span className="rounded-full bg-white px-2 py-0.5 text-xs font-bold text-[#52655b]">{groupConfigs.length}</span>
               {changedCount > 0 && <span className="h-2 w-2 rounded-full bg-amber-500" title={`${changedCount} thay đổi chưa lưu`} />}
             </button>
           );
@@ -485,11 +484,6 @@ const AdminSettings = () => {
               </p>
             )}
           </div>
-          {!loading && (
-            <span className="shrink-0 rounded-full bg-[#edf5f1] px-3 py-1 text-xs font-bold text-[#1D6750]">
-              {groupedConfigs.length} cấu hình
-            </span>
-          )}
         </div>
 
         {loading ? (
