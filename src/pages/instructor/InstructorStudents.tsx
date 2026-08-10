@@ -16,7 +16,17 @@ interface LessonProgress {
   error: boolean;
 }
 
-const toDateInputValue = (date: Date) => date.toISOString().slice(0, 10);
+const toDateInputValue = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const toPercentage = (score?: number) => {
+  if (typeof score !== 'number' || !Number.isFinite(score)) return null;
+  return Math.max(0, Math.min(100, score <= 1 ? score * 100 : score));
+};
 
 const getInitialDateFrom = () => {
   const date = new Date();
@@ -316,7 +326,7 @@ const InstructorStudents = () => {
       totalStars: filteredRows.reduce((acc, r) => acc + (r.stars || 0), 0),
       totalLessons: studentLessons.length,
       avgScore: filteredRows.length > 0
-        ? ((filteredRows.reduce((acc, r) => acc + (r.bestPracticeScore || 0), 0) / filteredRows.length) * 100).toFixed(0)
+        ? (filteredRows.reduce((acc, r) => acc + (toPercentage(r.bestPracticeScore) ?? 0), 0) / filteredRows.length).toFixed(0)
         : null,
     };
   }, [lessonProgressMap, studentLessons]);
@@ -623,6 +633,7 @@ const InstructorStudents = () => {
                     <tbody className="divide-y divide-outline-variant/5">
                       {progressRows.map((row: { id: number; title: string; progress: LessonProgress | null }) => {
                         const p = row.progress;
+                        const bestScore = toPercentage(p?.bestPracticeScore);
                         return (
                           <tr key={row.id} className="hover:bg-[#EDF7F2]/30 transition-colors">
                             <td className="px-lg py-md">
@@ -671,11 +682,11 @@ const InstructorStudents = () => {
                               ) : p.error ? (
                                 <span className="text-on-surface-variant/40 text-xs">—</span>
                               ) : (
-                                <span className={`text-xs font-bold ${p.bestPracticeScore >= 0.8 ? 'text-emerald-600'
-                                  : p.bestPracticeScore >= 0.5 ? 'text-amber-600'
+                                <span className={`text-xs font-bold ${(bestScore ?? 0) >= 80 ? 'text-emerald-600'
+                                  : (bestScore ?? 0) >= 50 ? 'text-amber-600'
                                     : 'text-rose-500'
                                   }`}>
-                                  {(p.bestPracticeScore * 100).toFixed(0)}%
+                                  {bestScore === null ? '—' : `${bestScore.toFixed(0)}%`}
                                 </span>
                               )}
                             </td>
