@@ -542,7 +542,7 @@ const AdminSettings = () => {
                     </div>
                     <p className="mt-1 text-sm leading-5 text-[#718078]">{presentation.helpText}</p>
 
-                    {selectedGroup !== 'scoring' && <details className="mt-3 text-xs text-[#7a8780]">
+                    {!['scoring', 'difficulty', 'feature'].includes(selectedGroup) && <details className="mt-3 text-xs text-[#7a8780]">
                       <summary className="w-fit cursor-pointer font-semibold text-[#52655b] hover:text-[#1D6750]">Thông tin kỹ thuật</summary>
                       <div className="mt-2 space-y-1 rounded-lg bg-[#f6f8f7] px-3 py-2">
                         <p className="break-all font-mono">Key: {config.key}</p>
@@ -568,9 +568,9 @@ const AdminSettings = () => {
                   </div>
 
                   <div>
-                    {selectedGroup === 'scoring' ? (
+                    {selectedGroup === 'scoring' || selectedGroup === 'difficulty' || selectedGroup === 'feature' ? (
                       <div className="relative flex flex-wrap items-center justify-end gap-2">
-                        <span className="text-sm font-semibold text-[#274b3b]">{formatNumberVi(value)}{presentation.unit ? ` ${presentation.unit}` : ''}</span>
+                        <span className="text-sm font-semibold text-[#274b3b]">{valueType === 'boolean' ? (value.toLowerCase() === 'true' ? 'Đang bật' : 'Đang tắt') : `${formatNumberVi(value)}${presentation.unit ? ` ${presentation.unit}` : ''}`}</span>
                         <button
                           type="button"
                           aria-label={`Thao tác ${presentation.label}`}
@@ -707,6 +707,7 @@ const AdminSettings = () => {
           const value = drafts[editingConfig.key] ?? '';
           const changed = changedKeys.has(editingConfig.key);
           const validationError = changed ? validateValue(editingConfig, value) || validateScoringRelationship(editingConfig, value) : '';
+          const editingValueType = getValueType(editingConfig);
           const isSaving = savingKey === editingConfig.key;
           const hasValidVersion = Number.isInteger(editingConfig.version) && Number(editingConfig.version) >= 0;
           return (
@@ -728,7 +729,9 @@ const AdminSettings = () => {
                     <div className="flex items-center justify-start gap-5">
                     <label htmlFor={`config-${editingConfig.key}`} className="whitespace-nowrap text-base font-semibold leading-none text-[#274b3b]">Giá trị hiện tại <span className="align-baseline text-xs font-normal leading-none text-[#718078]">(Hợp lệ: {formatNumberVi(editingConfig.min ?? '—')}–{formatNumberVi(editingConfig.max ?? '—')}{presentation.unit ? ` ${presentation.unit}` : ''})</span></label>
                     <div className="flex items-center gap-2">
-                      <input id={`config-${editingConfig.key}`} type="number" min={editingConfig.min} max={editingConfig.max} step={editingConfig.step ?? 'any'} value={value} onChange={(event) => updateDraft(editingConfig.key, event.target.value)} className="h-11 w-36 rounded-lg border border-[#cfded6] px-3 text-right text-sm font-semibold text-[#274b3b] outline-none focus:border-[#1D6750]" />
+                      {editingValueType === 'boolean' ? (
+                        <button type="button" role="switch" aria-checked={value.toLowerCase() === 'true'} onClick={() => updateDraft(editingConfig.key, String(value.toLowerCase() !== 'true'))} className={`relative h-8 w-14 rounded-full transition ${value.toLowerCase() === 'true' ? 'bg-[#1D6750]' : 'bg-[#c9d3ce]'}`}><span className={`absolute top-1 h-6 w-6 rounded-full bg-white shadow-sm transition ${value.toLowerCase() === 'true' ? 'left-7' : 'left-1'}`} /></button>
+                      ) : <input id={`config-${editingConfig.key}`} type="number" min={editingConfig.min} max={editingConfig.max} step={editingConfig.step ?? 'any'} value={value} onChange={(event) => updateDraft(editingConfig.key, event.target.value)} className="h-11 w-36 rounded-lg border border-[#cfded6] px-3 text-right text-sm font-semibold text-[#274b3b] outline-none focus:border-[#1D6750]" />}
                       {presentation.unit && <span className="text-sm font-semibold text-[#52655b]">{presentation.unit}</span>}
                     </div>
                     </div>
