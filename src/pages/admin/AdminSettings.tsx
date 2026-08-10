@@ -34,7 +34,7 @@ const GROUPS: Array<{
   {
     id: 'difficulty',
     label: 'Độ chính xác và độ khó',
-    description: 'Thiết lập các ngưỡng sai số và khả năng điều chỉnh độ khó theo kết quả luyện tập. Giá trị nhỏ nghiêm ngặt hơn, giá trị lớn dễ đạt hơn.',
+    description: 'Thiết lập các ngưỡng sai số và khả năng điều chỉnh độ khó theo kết quả luyện tập.',
     icon: SlidersHorizontal,
   },
   {
@@ -465,6 +465,11 @@ const AdminSettings = () => {
           <div className="min-w-0 flex-1">
             <h2 className="text-lg font-bold text-[#173f2f]">{selectedGroupInfo.label}</h2>
             <p className="mt-1 text-sm text-[#718078]">{selectedGroupInfo.description}</p>
+            {selectedGroup === 'difficulty' && (
+              <p className="mt-2 inline-flex rounded-md bg-[#edf5f1] px-2.5 py-1 text-xs font-semibold text-[#1D6750]">
+                Quy ước: giá trị nhỏ nghiêm ngặt hơn, giá trị lớn dễ đạt hơn.
+              </p>
+            )}
           </div>
           {!loading && (
             <span className="shrink-0 rounded-full bg-[#edf5f1] px-3 py-1 text-xs font-bold text-[#1D6750]">
@@ -521,7 +526,7 @@ const AdminSettings = () => {
               const hasValidVersion = Number.isInteger(config.version) && Number(config.version) >= 0;
 
               return (
-                <article key={config.key} className={`grid gap-4 border-b border-[#e8eeea] px-5 py-4 last:border-b-0 lg:grid-cols-[minmax(300px,1fr)_minmax(320px,0.75fr)] lg:items-center ${isStarThreshold ? 'bg-[#fbfdfc]' : 'bg-white'} ${changed ? 'bg-amber-50/60' : ''}`}>
+                <article key={config.key} className={`grid gap-4 border-b border-[#e8eeea] px-5 py-4 last:border-b-0 lg:grid-cols-[minmax(300px,1fr)_minmax(380px,0.8fr)] lg:items-center ${isStarThreshold ? 'bg-[#fbfdfc]' : 'bg-white'} ${changed ? 'bg-amber-50/60' : ''}`}>
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <h3 className="font-semibold text-[#274b3b]">{presentation.label}</h3>
@@ -599,7 +604,7 @@ const AdminSettings = () => {
                       />
                     ) : (
                       <div>
-                        <div className="flex items-center justify-end gap-2">
+                        <div className="flex flex-wrap items-center justify-end gap-2">
                           <input
                             type={valueType === 'number' ? 'number' : 'text'}
                             min={config.min}
@@ -611,6 +616,17 @@ const AdminSettings = () => {
                             className="h-10 w-32 rounded-lg border border-[#cfded6] bg-white px-3 text-right text-sm font-semibold text-[#274b3b] outline-none focus:border-[#1D6750]"
                           />
                           {presentation.unit && <span className="min-w-12 text-sm font-semibold text-[#52655b]">{presentation.unit}</span>}
+                          {selectedGroup === 'difficulty' && (
+                            <button
+                              type="button"
+                              disabled={!hasValidVersion || !changed || Boolean(validationError) || isSaving || (savingKey !== null && !isSaving)}
+                              onClick={() => void saveConfig(config)}
+                              className="inline-flex h-10 items-center gap-1.5 rounded-lg bg-[#1D6750] px-3 text-xs font-semibold text-white shadow-sm transition hover:bg-[#174f3e] disabled:cursor-not-allowed disabled:bg-[#a9b9b1] disabled:shadow-none"
+                            >
+                              {isSaving ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                              {isSaving ? 'Đang lưu' : 'Lưu'}
+                            </button>
+                          )}
                         </div>
                         {config.min !== undefined && config.max !== undefined && (
                           <p className="mt-1.5 text-right text-xs text-[#718078]">
@@ -618,15 +634,12 @@ const AdminSettings = () => {
                             {config.step !== undefined ? ` · Bước ${formatNumberVi(config.step)}` : ''}
                           </p>
                         )}
-                        {presentation.accuracyTolerance && (
-                          <p className="mt-1 text-right text-xs font-medium text-[#1D6750]">Giá trị nhỏ nghiêm ngặt hơn · Giá trị lớn dễ đạt hơn</p>
-                        )}
                       </div>
                     )}
 
                     {validationError && <p className="mt-2 text-xs font-medium text-red-700">{validationError}</p>}
 
-                    <div className="mt-3 flex flex-wrap justify-end gap-2">
+                    {(selectedGroup !== 'difficulty' || valueType !== 'number') && <div className="mt-3 flex flex-wrap justify-end gap-2">
                       <button
                         type="button"
                         disabled={!hasValidVersion || !changed || Boolean(validationError) || isSaving || (savingKey !== null && !isSaving)}
@@ -636,7 +649,7 @@ const AdminSettings = () => {
                         {isSaving ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
                         {isSaving ? 'Đang lưu' : 'Lưu thay đổi'}
                       </button>
-                    </div>
+                    </div>}
                   </div>
                 </article>
               );
