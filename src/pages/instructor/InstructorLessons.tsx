@@ -50,6 +50,9 @@ const mapLesson = (lesson: ApiLesson): Lesson => ({
   orderIndex: lesson.orderIndex ?? 0,
 });
 
+const MAX_REFERENCE_AUDIO_BYTES = 20 * 1024 * 1024;
+const MAX_SHEET_MUSIC_BYTES = 5 * 1024 * 1024;
+
 const getStatusMeta = (status: ApiLesson['status']) => {
   switch (status) {
     case 'PENDING':
@@ -196,6 +199,11 @@ const InstructorLessons = () => {
       : ['image/png', 'image/jpeg', 'image/webp'].includes(file.type) || ['png', 'jpg', 'jpeg', 'webp'].includes(extension ?? '');
     if (!valid) {
       setMaterialsError(type === 'REFERENCE_AUDIO' ? 'Chỉ hỗ trợ file MP3 hoặc WAV.' : 'Chỉ hỗ trợ file ảnh cho bản ký âm.');
+      return;
+    }
+    const maximumSize = type === 'REFERENCE_AUDIO' ? MAX_REFERENCE_AUDIO_BYTES : MAX_SHEET_MUSIC_BYTES;
+    if (file.size > maximumSize) {
+      setMaterialsError(type === 'REFERENCE_AUDIO' ? 'File âm thanh không được vượt quá 20 MB.' : 'Ảnh bản ký âm không được vượt quá 5 MB.');
       return;
     }
     setUploadingType(type);
