@@ -72,6 +72,12 @@ const CONFIG_PRESENTATION: Record<string, ConfigPresentation> = {
     unit: 'điểm',
     order: 30,
   },
+  'scoring.points_multiplier_per_star': {
+    label: 'Điểm thưởng cho mỗi sao',
+    helpText: 'Số điểm cộng thêm cho mỗi sao người học đạt được. Giá trị lớn hơn sẽ làm điểm thưởng theo sao tăng.',
+    unit: 'điểm',
+    order: 35,
+  },
   'scoring.pitch_weight': { label: 'Trọng số cao độ', helpText: 'Mức đóng góp của độ chính xác cao độ vào điểm tổng.', order: 40 },
   'scoring.rhythm_weight': { label: 'Trọng số nhịp điệu', helpText: 'Mức đóng góp của độ chính xác nhịp điệu vào điểm tổng.', order: 50 },
   'scoring.tonal_weight': { label: 'Trọng số âm sắc', helpText: 'Mức đóng góp của chất lượng âm sắc vào điểm tổng.', order: 60 },
@@ -124,6 +130,10 @@ const TOLERANCE_PRESENTATIONS: Record<string, ConfigPresentation> = {
   'Rhythm timing tolerance in seconds': CONFIG_PRESENTATION['difficulty.rhythm_timing_tolerance_seconds'],
 };
 
+const SCORING_PRESENTATIONS: Record<string, ConfigPresentation> = {
+  'Points multiplier per star': CONFIG_PRESENTATION['scoring.points_multiplier_per_star'],
+};
+
 const FEATURE_PRESENTATIONS: Record<string, ConfigPresentation> = {
   'Enable or disable leaderboard globally': CONFIG_PRESENTATION['feature.leaderboard_enabled'],
   'Enable or disable minigames': CONFIG_PRESENTATION['feature.minigames_enabled'],
@@ -135,6 +145,7 @@ CONFIG_PRESENTATION['difficulty.rhythm_tolerance_seconds'] = CONFIG_PRESENTATION
 const getPresentation = (config: AppConfig): ConfigPresentation =>
   CONFIG_PRESENTATION[config.key]
   ?? TOLERANCE_PRESENTATIONS[config.description ?? '']
+  ?? SCORING_PRESENTATIONS[config.description ?? '']
   ?? FEATURE_PRESENTATIONS[config.description ?? '']
   ?? {
   label: config.description || config.key,
