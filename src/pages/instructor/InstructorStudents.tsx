@@ -16,6 +16,10 @@ interface LessonProgress {
   error: boolean;
 }
 
+interface FeedbackAttempt extends PracticeAttempt {
+  exerciseTitle?: string;
+}
+
 const toDateInputValue = (date: Date) => {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -69,7 +73,7 @@ const InstructorStudents = () => {
   const [studentPage, setStudentPage] = useState(1);
   const studentsPerPage = 5;
   const [lessonProgressMap, setLessonProgressMap] = useState<Record<number, LessonProgress>>({});
-  const [practiceAttempts, setPracticeAttempts] = useState<PracticeAttempt[]>([]);
+  const [practiceAttempts, setPracticeAttempts] = useState<FeedbackAttempt[]>([]);
   const [practiceAttemptsLoading, setPracticeAttemptsLoading] = useState(false);
   const [practiceAttemptsError, setPracticeAttemptsError] = useState('');
   const [practiceDateFrom, setPracticeDateFrom] = useState(getInitialDateFrom);
@@ -241,7 +245,7 @@ const InstructorStudents = () => {
       setPracticeAttemptsError('');
       setSelectedAttemptId(null);
       try {
-        const attempts: PracticeAttempt[] = [];
+        const attempts: FeedbackAttempt[] = [];
         let page = 0;
         let totalPages = 1;
         while (page < totalPages) {
@@ -259,6 +263,7 @@ const InstructorStudents = () => {
             id: attempt.attemptId,
             createdAt: attempt.createdAt,
             lessonName: attempt.lessonTitle,
+            exerciseTitle: attempt.exerciseTitle,
             overall_score: attempt.totalScore,
             pitch_score: attempt.pitchScore,
             rhythm_score: attempt.rhythmScore,
@@ -727,6 +732,7 @@ const InstructorStudents = () => {
                       const selected = selectedAttemptId === attempt.id;
                       return <button type="button" key={attempt.id} onClick={() => setSelectedAttemptId(attempt.id)} className={`w-full text-left p-4 flex items-center justify-between gap-3 transition-colors ${selected ? 'bg-[#EDF7F2] border-l-4 border-l-[#1D4532]' : 'hover:bg-[#fbf9f4]'}`}>
                         <div className="min-w-0"><p className="text-xs font-bold text-[#1D4532]">{attempt.lessonName || 'Bài học'} · Lượt #{attempt.id}</p><p className="text-xs text-on-surface-variant mt-1 inline-flex items-center gap-1"><Clock3 className="w-3 h-3" />{attempt.createdAt ? new Date(attempt.createdAt).toLocaleString('vi-VN') : 'Chưa có thời gian'}</p></div>
+                        {attempt.exerciseTitle && <p className="mt-0.5 truncate text-[11px] text-on-surface-variant">{attempt.exerciseTitle}</p>}
                         <span className="shrink-0 rounded-full bg-[#f7f5ef] px-2.5 py-1 text-xs font-bold text-[#574500]">{typeof rawScore === 'number' ? `${Math.round(rawScore * (rawScore <= 1 ? 100 : 1))}%` : '—'}</span>
                       </button>;
                     })}
@@ -739,7 +745,7 @@ const InstructorStudents = () => {
                       </div>
                       {feedbackError && <p className="mb-3 text-xs text-red-700">{feedbackError}</p>}
                       <label className="block text-xs font-semibold text-on-surface-variant mb-2">Nhận xét cho lượt tập này</label>
-                      <textarea value={feedbackComment} onChange={(event) => setFeedbackComment(event.target.value)} maxLength={2000} placeholder="Ví dụ: Cần giữ nhịp đều hơn ở ô nhịp thứ hai." className="w-full min-h-24 rounded-xl border border-outline-variant/25 bg-white p-3 text-sm outline-none focus:border-[#1D4532]" />
+                      <textarea value={feedbackComment} onChange={(event) => setFeedbackComment(event.target.value)} placeholder="Ví dụ: Cần giữ nhịp đều hơn ở ô nhịp thứ hai." className="w-full min-h-24 rounded-xl border border-outline-variant/25 bg-white p-3 text-sm outline-none focus:border-[#1D4532]" />
                       <button type="button" disabled={feedbackSaving || !feedbackComment.trim()} onClick={() => void submitFeedback()} className="mt-3 inline-flex items-center gap-2 rounded-xl bg-[#1D4532] px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50"><Send className="w-4 h-4" />{feedbackSaving ? 'Đang gửi...' : 'Gửi phản hồi'}</button>
                     </>}
                   </div>
