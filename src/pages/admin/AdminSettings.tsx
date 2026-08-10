@@ -33,8 +33,8 @@ const GROUPS: Array<{
   },
   {
     id: 'difficulty',
-    label: 'Đường cong độ khó',
-    description: 'Thiết lập khả năng điều chỉnh độ khó và lộ trình thích ứng theo kết quả luyện tập.',
+    label: 'Độ chính xác và độ khó',
+    description: 'Thiết lập các ngưỡng sai số và khả năng điều chỉnh độ khó theo kết quả luyện tập. Giá trị nhỏ nghiêm ngặt hơn, giá trị lớn dễ đạt hơn.',
     icon: SlidersHorizontal,
   },
   {
@@ -50,6 +50,7 @@ interface ConfigPresentation {
   helpText: string;
   unit?: string;
   order: number;
+  accuracyTolerance?: boolean;
 }
 
 const CONFIG_PRESENTATION: Record<string, ConfigPresentation> = {
@@ -82,6 +83,20 @@ const CONFIG_PRESENTATION: Record<string, ConfigPresentation> = {
     unit: 'lượt',
     order: 10,
   },
+  'difficulty.pitch_matching_tolerance_cents': {
+    label: 'Sai số cao độ cho phép',
+    helpText: 'Độ lệch cao độ tối đa vẫn được xem là chơi đúng. Giá trị càng nhỏ thì yêu cầu càng chính xác.',
+    unit: 'cent',
+    order: 20,
+    accuracyTolerance: true,
+  },
+  'difficulty.rhythm_timing_tolerance_seconds': {
+    label: 'Sai số nhịp cho phép',
+    helpText: 'Độ lệch thời gian tối đa giữa nốt được chơi và nhịp chuẩn. Giá trị càng nhỏ thì yêu cầu giữ nhịp càng chính xác.',
+    unit: 'giây',
+    order: 30,
+    accuracyTolerance: true,
+  },
   'feature.minigame_enabled': {
     label: 'Mini game',
     helpText: 'Cho phép hoặc tạm dừng tính năng mini game trên toàn hệ thống.',
@@ -94,10 +109,26 @@ const CONFIG_PRESENTATION: Record<string, ConfigPresentation> = {
   },
 };
 
-const getPresentation = (config: AppConfig): ConfigPresentation => CONFIG_PRESENTATION[config.key] ?? {
+const TOLERANCE_PRESENTATIONS: Record<string, ConfigPresentation> = {
+  'Pitch matching tolerance in cents': CONFIG_PRESENTATION['difficulty.pitch_matching_tolerance_cents'],
+  'Rhythm timing tolerance in seconds': CONFIG_PRESENTATION['difficulty.rhythm_timing_tolerance_seconds'],
+};
+
+CONFIG_PRESENTATION['difficulty.pitch_tolerance_cents'] = CONFIG_PRESENTATION['difficulty.pitch_matching_tolerance_cents'];
+CONFIG_PRESENTATION['difficulty.rhythm_tolerance_seconds'] = CONFIG_PRESENTATION['difficulty.rhythm_timing_tolerance_seconds'];
+
+const getPresentation = (config: AppConfig): ConfigPresentation =>
+  CONFIG_PRESENTATION[config.key]
+  ?? TOLERANCE_PRESENTATIONS[config.description ?? '']
+  ?? {
   label: config.description || config.key,
   helpText: config.description || 'Cấu hình do Backend cung cấp.',
   order: 999,
+};
+
+const formatNumberVi = (value: number | string) => {
+  const number = Number(value);
+  return Number.isFinite(number) ? new Intl.NumberFormat('vi-VN').format(number) : String(value);
 };
 
 const normalizeGroup = (value?: string): ConfigGroup | null => {
@@ -321,7 +352,7 @@ const AdminSettings = () => {
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-[#163d2d] md:text-4xl">Cấu hình hệ thống</h1>
           <p className="mt-2 max-w-3xl text-sm text-[#68736d] md:text-base">
-            Quản trị thông số tính điểm, đường cong độ khó và trạng thái các tính năng từ dữ liệu Backend.
+            Quản trị thông số tính điểm, độ chính xác, độ khó và trạng thái các tính năng từ dữ liệu Backend.
           </p>
         </div>
       </header>
@@ -434,10 +465,10 @@ const AdminSettings = () => {
                     <p className="mt-1 text-sm leading-5 text-[#718078]">{presentation.helpText}</p>
 
                     <div className="mt-3 flex flex-wrap gap-2 text-xs text-[#64736b]">
-                      {config.min !== undefined && <span className="rounded-md bg-[#f3f6f4] px-2 py-1">Tối thiểu: {String(config.min)}</span>}
-                      {config.max !== undefined && <span className="rounded-md bg-[#f3f6f4] px-2 py-1">Tối đa: {String(config.max)}</span>}
-                      {config.step !== undefined && <span className="rounded-md bg-[#f3f6f4] px-2 py-1">Bước: {String(config.step)}</span>}
-                      {config.defaultValue !== undefined && <span className="rounded-md bg-[#f3f6f4] px-2 py-1">Mặc định: {config.defaultValue}</span>}
+                      {config.min !== undefined && <span className="rounded-md bg-[#f3f6f4] px-2 py-1">Tối thiểu: {formatNumberVi(config.min)}{presentation.unit ? ` ${presentation.unit}` : ''}</span>}
+                      {config.max !== undefined && <span className="rounded-md bg-[#f3f6f4] px-2 py-1">Tối đa: {formatNumberVi(config.max)}{presentation.unit ? ` ${presentation.unit}` : ''}</span>}
+                      {config.step !== undefined && <span className="rounded-md bg-[#f3f6f4] px-2 py-1">Bước: {formatNumberVi(config.step)}{presentation.unit ? ` ${presentation.unit}` : ''}</span>}
+                      {config.defaultValue !== undefined && <span className="rounded-md bg-[#f3f6f4] px-2 py-1">Mặc định: {formatNumberVi(config.defaultValue)}{presentation.unit ? ` ${presentation.unit}` : ''}</span>}
                     </div>
 
                     <details className="mt-3 text-xs text-[#7a8780]">
@@ -514,10 +545,17 @@ const AdminSettings = () => {
                               onChange={(event) => updateDraft(config.key, event.target.value)}
                               className="w-full accent-[#1D6750]"
                             />
-                            <div className="mt-1 flex justify-between text-xs text-[#7a8780]">
-                              <span>{config.min}</span>
-                              <span>{config.max}</span>
-                            </div>
+                            {presentation.accuracyTolerance ? (
+                              <div className="mt-1 flex justify-between gap-4 text-xs font-medium text-[#64736b]">
+                                <span>Chính xác cao ← {formatNumberVi(config.min!)} {presentation.unit}</span>
+                                <span className="text-right">{formatNumberVi(config.max!)} {presentation.unit} → Dễ đạt hơn</span>
+                              </div>
+                            ) : (
+                              <div className="mt-1 flex justify-between text-xs text-[#7a8780]">
+                                <span>{formatNumberVi(config.min!)}</span>
+                                <span>{formatNumberVi(config.max!)}</span>
+                              </div>
+                            )}
                           </div>
                         )}
                         <div className="flex items-center justify-end gap-2">
