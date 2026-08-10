@@ -105,17 +105,17 @@ const CONFIG_PRESENTATION: Record<string, ConfigPresentation> = {
   },
   'feature.minigame_enabled': {
     label: 'Trò chơi nhỏ',
-    helpText: 'Cho phép hoặc tạm dừng các trò chơi nhỏ đối với toàn bộ người dùng trong hệ thống.',
+    helpText: 'Cho phép người học sử dụng các trò chơi nhỏ.',
     order: 10,
   },
   'feature.minigames_enabled': {
     label: 'Trò chơi nhỏ',
-    helpText: 'Cho phép hoặc tạm dừng các trò chơi nhỏ đối với toàn bộ người dùng trong hệ thống.',
+    helpText: 'Cho phép người học sử dụng các trò chơi nhỏ.',
     order: 10,
   },
   'feature.leaderboard_enabled': {
     label: 'Bảng xếp hạng',
-    helpText: 'Cho phép hoặc tạm dừng bảng xếp hạng đối với toàn bộ người dùng trong hệ thống.',
+    helpText: 'Cho phép người học xem và tham gia bảng xếp hạng.',
     order: 20,
   },
   'feature.adaptive_difficulty': {
@@ -565,23 +565,30 @@ const AdminSettings = () => {
                         Backend chưa cung cấp version hợp lệ nên không thể chỉnh sửa cấu hình an toàn.
                       </div>
                     ) : valueType === 'boolean' ? (
-                      <button
-                        type="button"
-                        role="switch"
-                        aria-checked={value.toLowerCase() === 'true'}
-                        onClick={() => updateDraft(config.key, String(value.toLowerCase() !== 'true'))}
-                        className={`flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1D6750]/30 ${changed ? 'border-amber-300 bg-amber-50/50' : 'border-[#d8e4dd] bg-[#fafcfb]'}`}
-                      >
-                        <span>
-                          <span className="block text-sm font-semibold text-[#365647]">Trạng thái tính năng</span>
-                          <span className="mt-0.5 block text-xs text-[#7a8780]">
-                            {changed ? (value.toLowerCase() === 'true' ? 'Sẽ bật sau khi lưu' : 'Sẽ tắt sau khi lưu') : (value.toLowerCase() === 'true' ? 'Đang bật' : 'Đang tắt')}
-                          </span>
+                      <div className="flex flex-wrap items-center justify-end gap-3">
+                        <span className={`text-sm font-semibold ${changed ? 'text-amber-700' : 'text-[#52655b]'}`}>
+                          {changed ? (value.toLowerCase() === 'true' ? 'Sẽ bật sau khi lưu' : 'Sẽ tắt sau khi lưu') : (value.toLowerCase() === 'true' ? 'Bật' : 'Tắt')}
                         </span>
-                        <span className={`relative h-7 w-12 rounded-full transition ${value.toLowerCase() === 'true' ? 'bg-[#1D6750]' : 'bg-[#c9d3ce]'}`}>
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-checked={value.toLowerCase() === 'true'}
+                          aria-label={`Chuyển trạng thái ${presentation.label}`}
+                          onClick={() => updateDraft(config.key, String(value.toLowerCase() !== 'true'))}
+                          className={`relative h-7 w-12 rounded-full transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1D6750]/30 ${value.toLowerCase() === 'true' ? 'bg-[#1D6750]' : 'bg-[#c9d3ce]'}`}
+                        >
                           <span className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow-sm transition ${value.toLowerCase() === 'true' ? 'left-6' : 'left-1'}`} />
-                        </span>
-                      </button>
+                        </button>
+                        <button
+                          type="button"
+                          disabled={!changed || isSaving || (savingKey !== null && !isSaving)}
+                          onClick={() => void saveConfig(config)}
+                          className="inline-flex h-10 items-center gap-1.5 rounded-lg bg-[#1D6750] px-3 text-xs font-semibold text-white shadow-sm transition hover:bg-[#174f3e] disabled:cursor-not-allowed disabled:bg-[#a9b9b1] disabled:shadow-none"
+                        >
+                          {isSaving ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                          {isSaving ? 'Đang lưu' : 'Lưu'}
+                        </button>
+                      </div>
                     ) : valueType === 'select' ? (
                       <select
                         value={value}
@@ -639,7 +646,7 @@ const AdminSettings = () => {
 
                     {validationError && <p className="mt-2 text-xs font-medium text-red-700">{validationError}</p>}
 
-                    {(selectedGroup !== 'difficulty' || valueType !== 'number') && <div className="mt-3 flex flex-wrap justify-end gap-2">
+                    {(selectedGroup !== 'difficulty' || valueType !== 'number') && valueType !== 'boolean' && <div className="mt-3 flex flex-wrap justify-end gap-2">
                       <button
                         type="button"
                         disabled={!hasValidVersion || !changed || Boolean(validationError) || isSaving || (savingKey !== null && !isSaving)}
