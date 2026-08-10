@@ -719,15 +719,19 @@ const AdminSettings = () => {
             <>
               <motion.div className="fixed inset-0 z-[90] bg-slate-950/35 backdrop-blur-sm" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => closeConfigEditor(editingConfig)} />
               <motion.aside className="fixed inset-y-0 right-0 z-[100] flex h-dvh w-full max-w-xl flex-col bg-white shadow-2xl" initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }} transition={{ type: 'spring', damping: 28, stiffness: 260 }} role="dialog" aria-modal="true" aria-label="Chỉnh sửa thông số">
-                <div className="flex items-start justify-between gap-4 border-b border-[#d8e4dd] bg-[#edf5f1] px-7 py-6">
+                <div className="flex items-start justify-between gap-4 border-b border-[#d8e4dd] bg-[#edf5f1] px-6 py-5">
                   <div>
                     <h3 className="text-2xl font-bold text-[#173f2f]">Chỉnh sửa thông số</h3>
+                    <div className="mt-3 border-l-4 border-[#1D6750] pl-3">
+                      <p className="font-semibold text-[#274b3b]">{presentation.label}</p>
+                      <p className="mt-1 text-sm leading-5 text-[#718078]">{presentation.helpText}</p>
+                    </div>
                   </div>
                   <button type="button" aria-label="Đóng form chỉnh sửa" onClick={() => closeConfigEditor(editingConfig)} className="rounded-lg p-2 text-[#52655b] hover:bg-white/70"><X className="h-6 w-6" /></button>
                 </div>
-                <div className="flex-1 overflow-y-auto bg-[#fbfdfc] p-6">
-                  <div className="space-y-6 rounded-2xl border border-[#d8e4dd] bg-white p-5 shadow-sm">
-                  <section>
+                <div className="flex-1 overflow-y-auto bg-[#f7faf8] px-5 py-6">
+                  <div className="space-y-6 rounded-2xl border border-[#d8e4dd] bg-white p-6 shadow-sm">
+                  <section className="border-b border-[#e3ebe6] pb-6">
                     <label htmlFor={`config-${editingConfig.key}`} className="text-sm font-semibold text-[#274b3b]">Giá trị</label>
                     <div className="mt-2 flex items-center gap-2">
                       <input id={`config-${editingConfig.key}`} type="number" min={editingConfig.min} max={editingConfig.max} step={editingConfig.step ?? 'any'} value={value} onChange={(event) => updateDraft(editingConfig.key, event.target.value)} className="h-11 w-36 rounded-lg border border-[#cfded6] px-3 text-right text-sm font-semibold text-[#274b3b] outline-none focus:border-[#1D6750]" />
@@ -736,7 +740,7 @@ const AdminSettings = () => {
                     <p className="mt-2 text-xs text-[#718078]">Giá trị hợp lệ: {formatNumberVi(editingConfig.min ?? '—')}–{formatNumberVi(editingConfig.max ?? '—')}{presentation.unit ? ` ${presentation.unit}` : ''}</p>
                     {validationError && <p className="mt-2 text-xs font-semibold text-red-700">{validationError}</p>}
                   </section>
-                  <section className="rounded-xl border border-[#d8e4dd] bg-[#fafcfb] p-4">
+                  <section className="rounded-xl border border-[#d8e4dd] bg-[#f7faf8] p-5">
                     <h4 className="text-sm font-semibold text-[#274b3b]">Thông tin kỹ thuật</h4>
                     <dl className="mt-4 space-y-3 text-sm">
                       <div><dt className="text-xs font-semibold text-[#718078]">Key</dt><dd className="mt-1 break-all rounded-lg bg-white px-3 py-2 font-mono text-xs text-[#365647]">{editingConfig.key}</dd></div>
@@ -748,7 +752,7 @@ const AdminSettings = () => {
                 </div>
                 <div className="grid grid-cols-2 gap-4 border-t border-[#d8e4dd] bg-white px-7 py-5">
                   <button type="button" onClick={() => closeConfigEditor(editingConfig)} className="inline-flex h-14 items-center justify-center gap-2 rounded-xl border border-[#d8d5d0] bg-[#e5e2de] text-base font-bold text-[#274b3b] shadow-sm hover:bg-[#dcd8d2]"><X className="h-5 w-5" /> Hủy bỏ</button>
-                  <button type="button" disabled={!hasValidVersion || !changed || Boolean(validationError) || isSaving || (savingKey !== null && !isSaving)} onClick={() => void saveConfig(editingConfig)} className="inline-flex h-14 items-center justify-center gap-2 rounded-xl bg-[#719486] text-base font-bold text-white shadow-md transition hover:bg-[#5e8171] disabled:cursor-not-allowed disabled:bg-[#a9b9b1]"><Check className="h-5 w-5" />{isSaving ? 'Đang lưu' : 'Xác nhận'}</button>
+                  <button type="button" disabled={!hasValidVersion || !changed || Boolean(validationError) || isSaving || (savingKey !== null && !isSaving)} onClick={() => void saveConfig(editingConfig)} className="inline-flex h-14 items-center justify-center gap-2 rounded-xl bg-[#1D6750] text-base font-bold text-white shadow-md transition hover:bg-[#174f3e] disabled:cursor-not-allowed disabled:bg-[#c4cec9] disabled:text-[#718078] disabled:shadow-none"><Check className="h-5 w-5" />{isSaving ? 'Đang lưu' : 'Xác nhận'}</button>
                 </div>
               </motion.aside>
             </>
