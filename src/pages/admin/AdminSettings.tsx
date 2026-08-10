@@ -234,7 +234,7 @@ const formatDateTime = (value?: string) => {
 
 const getDraftValue = (config: AppConfig) => String(config.value ?? '');
 
-const PAGE_SIZE = 5;
+const PAGE_SIZE = 6;
 
 const AdminSettings = () => {
   const [configs, setConfigs] = useState<AppConfig[]>([]);
@@ -363,12 +363,13 @@ const AdminSettings = () => {
   const SelectedIcon = selectedGroupInfo.icon;
 
   return (
-    <div className="mx-auto w-full max-w-[1400px] space-y-6 pb-6">
-      <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+    <div className="mx-auto w-full max-w-[1320px] space-y-5 pb-8">
+      <header className="rounded-2xl border border-[#dfe9e3] bg-white px-6 py-5 shadow-sm">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-[#163d2d] md:text-4xl">Cấu hình hệ thống</h1>
-          <p className="mt-2 max-w-3xl text-sm text-[#68736d] md:text-base">
-            Quản trị thông số tính điểm, độ chính xác, độ khó và trạng thái các tính năng từ dữ liệu Backend.
+          <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#1D6750]">Quản trị ứng dụng</p>
+          <h1 className="mt-1 text-2xl font-bold tracking-tight text-[#163d2d] md:text-3xl">Cấu hình hệ thống</h1>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-[#68736d]">
+            Quản lý các tham số ảnh hưởng trực tiếp đến cách chấm điểm, độ khó và tính năng của toàn hệ thống.
           </p>
         </div>
       </header>
@@ -403,7 +404,7 @@ const AdminSettings = () => {
         </div>
       )}
 
-      <section className="flex flex-wrap gap-2 rounded-2xl border border-[#dfe9e3] bg-white p-2 shadow-sm" aria-label="Nhóm cấu hình">
+      <section className="grid gap-2 rounded-2xl border border-[#dfe9e3] bg-white p-2 shadow-sm md:grid-cols-3" aria-label="Nhóm cấu hình">
         {GROUPS.map((group) => {
           const Icon = group.icon;
           const groupConfigs = configs.filter((config) => getConfigGroup(config) === group.id);
@@ -418,7 +419,7 @@ const AdminSettings = () => {
                 setCurrentPage(1);
                 setNotice(null);
               }}
-              className={`flex min-h-11 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-xl border px-4 py-2.5 text-sm font-semibold transition ${
+              className={`flex min-h-12 items-center justify-center gap-2 whitespace-nowrap rounded-xl border px-4 py-3 text-sm font-semibold transition ${
                 active
                   ? 'border-[#1D6750] bg-[#edf5f1] text-[#173f2f]'
                   : 'border-transparent bg-white text-[#64736b] hover:bg-[#f5f8f6]'
@@ -434,14 +435,19 @@ const AdminSettings = () => {
       </section>
 
       <section className="overflow-hidden rounded-2xl border border-[#dfe9e3] bg-white shadow-[0_4px_18px_rgba(20,61,44,0.04)]">
-        <div className="flex items-start gap-3 border-b border-[#e8eeea] px-5 py-5 md:px-6">
+        <div className="flex items-start gap-3 border-b border-[#e8eeea] px-5 py-4 md:px-6">
           <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#edf5f1] text-[#1D4532]">
             <SelectedIcon className="h-5 w-5" />
           </span>
-          <div>
+          <div className="min-w-0 flex-1">
             <h2 className="text-lg font-bold text-[#173f2f]">{selectedGroupInfo.label}</h2>
             <p className="mt-1 text-sm text-[#718078]">{selectedGroupInfo.description}</p>
           </div>
+          {!loading && (
+            <span className="shrink-0 rounded-full bg-[#edf5f1] px-3 py-1 text-xs font-bold text-[#1D6750]">
+              {groupedConfigs.length} cấu hình
+            </span>
+          )}
         </div>
 
         {loading ? (
@@ -457,7 +463,7 @@ const AdminSettings = () => {
             </div>
           </div>
         ) : (
-          <div className="divide-y divide-[#edf1ef]">
+          <div className="space-y-3 bg-[#f7faf8] p-4 md:p-5">
             {paginatedConfigs.map((config) => {
               const presentation = getPresentation(config);
               const value = drafts[config.key] ?? '';
@@ -472,7 +478,7 @@ const AdminSettings = () => {
               const hasRange = valueType === 'number' && config.min !== undefined && config.max !== undefined;
 
               return (
-                <article key={config.key} className="grid gap-5 px-5 py-5 lg:grid-cols-[minmax(260px,1fr)_minmax(320px,0.9fr)] lg:items-center md:px-6">
+                <article key={config.key} className={`grid gap-5 rounded-xl border bg-white p-5 transition lg:grid-cols-[minmax(280px,1fr)_minmax(360px,0.9fr)] lg:items-center ${changed ? 'border-amber-300 shadow-[0_0_0_1px_rgba(217,119,6,0.08)]' : 'border-[#e0e9e4]'}`}>
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <h3 className="font-semibold text-[#274b3b]">{presentation.label}</h3>
@@ -490,10 +496,13 @@ const AdminSettings = () => {
                     )}
 
                     <details className="mt-3 text-xs text-[#7a8780]">
-                      <summary className="w-fit cursor-pointer font-semibold text-[#52655b] hover:text-[#1D6750]">Chi tiết kỹ thuật</summary>
+                      <summary className="w-fit cursor-pointer font-semibold text-[#52655b] hover:text-[#1D6750]">Thông tin kỹ thuật</summary>
                       <div className="mt-2 space-y-1 rounded-lg bg-[#f6f8f7] px-3 py-2">
                         <p className="break-all font-mono">Key: {config.key}</p>
                         {config.version !== undefined && <p>Phiên bản: {config.version}</p>}
+                        {valueType === 'boolean' && config.defaultValue !== undefined && (
+                          <p>Mặc định: {String(config.defaultValue).toLowerCase() === 'true' ? 'Bật' : 'Tắt'}</p>
+                        )}
                         {(config.updated_at || config.updated_by) && (
                           <p>
                             Cập nhật gần nhất{config.updated_at ? ` lúc ${formatDateTime(config.updated_at)}` : ''}
@@ -514,17 +523,14 @@ const AdminSettings = () => {
                         type="button"
                         role="switch"
                         aria-checked={value.toLowerCase() === 'true'}
-                        onClick={() => {
-                          const nextValue = String(value.toLowerCase() !== 'true');
-                          if (window.confirm(`Xác nhận ${nextValue === 'true' ? 'bật' : 'tắt'} tính năng này?`)) {
-                            updateDraft(config.key, nextValue);
-                          }
-                        }}
-                        className="flex w-full items-center justify-between rounded-xl border border-[#d8e4dd] bg-[#fafcfb] px-4 py-3 text-left"
+                        onClick={() => updateDraft(config.key, String(value.toLowerCase() !== 'true'))}
+                        className={`flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1D6750]/30 ${changed ? 'border-amber-300 bg-amber-50/50' : 'border-[#d8e4dd] bg-[#fafcfb]'}`}
                       >
                         <span>
                           <span className="block text-sm font-semibold text-[#365647]">Trạng thái tính năng</span>
-                          <span className="mt-0.5 block text-xs text-[#7a8780]">{value.toLowerCase() === 'true' ? 'Đang bật' : 'Đang tắt'}</span>
+                          <span className="mt-0.5 block text-xs text-[#7a8780]">
+                            {changed ? (value.toLowerCase() === 'true' ? 'Sẽ bật sau khi lưu' : 'Sẽ tắt sau khi lưu') : (value.toLowerCase() === 'true' ? 'Đang bật' : 'Đang tắt')}
+                          </span>
                         </span>
                         <span className={`relative h-7 w-12 rounded-full transition ${value.toLowerCase() === 'true' ? 'bg-[#1D6750]' : 'bg-[#c9d3ce]'}`}>
                           <span className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow-sm transition ${value.toLowerCase() === 'true' ? 'left-6' : 'left-1'}`} />
@@ -599,7 +605,7 @@ const AdminSettings = () => {
                         type="button"
                         disabled={!hasValidVersion || !changed || Boolean(validationError) || isSaving || (savingKey !== null && !isSaving)}
                         onClick={() => void saveConfig(config)}
-                        className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-[#1D4532] px-4 text-xs font-semibold text-white transition hover:bg-[#163a2a] disabled:cursor-not-allowed disabled:opacity-40"
+                        className="inline-flex h-10 items-center gap-1.5 rounded-lg bg-[#1D6750] px-4 text-xs font-semibold text-white shadow-sm transition hover:bg-[#174f3e] disabled:cursor-not-allowed disabled:bg-[#a9b9b1] disabled:shadow-none"
                       >
                         {isSaving ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
                         {isSaving ? 'Đang lưu' : 'Lưu thay đổi'}
@@ -612,7 +618,7 @@ const AdminSettings = () => {
           </div>
         )}
 
-        {!loading && groupedConfigs.length > 0 && (
+        {!loading && groupedConfigs.length > PAGE_SIZE && (
           <div className="flex flex-col gap-3 border-t border-[#e8eeea] px-5 py-4 text-sm text-[#66756d] sm:flex-row sm:items-center sm:justify-between md:px-6">
             <span>
               Hiển thị {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, groupedConfigs.length)} trong {groupedConfigs.length} cấu hình
