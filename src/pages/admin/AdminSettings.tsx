@@ -40,7 +40,7 @@ const GROUPS: Array<{
   {
     id: 'feature',
     label: 'Bật/tắt tính năng',
-    description: 'Bật hoặc tắt các tính năng được Backend cung cấp cho toàn hệ thống.',
+    description: 'Quản lý trạng thái các tính năng áp dụng cho toàn hệ thống. Thay đổi chỉ có hiệu lực sau khi được lưu.',
     icon: ToggleLeft,
   },
 ];
@@ -98,9 +98,19 @@ const CONFIG_PRESENTATION: Record<string, ConfigPresentation> = {
     accuracyTolerance: true,
   },
   'feature.minigame_enabled': {
-    label: 'Mini game',
-    helpText: 'Cho phép hoặc tạm dừng tính năng mini game trên toàn hệ thống.',
+    label: 'Trò chơi nhỏ',
+    helpText: 'Cho phép hoặc tạm dừng các trò chơi nhỏ đối với toàn bộ người dùng trong hệ thống.',
     order: 10,
+  },
+  'feature.minigames_enabled': {
+    label: 'Trò chơi nhỏ',
+    helpText: 'Cho phép hoặc tạm dừng các trò chơi nhỏ đối với toàn bộ người dùng trong hệ thống.',
+    order: 10,
+  },
+  'feature.leaderboard_enabled': {
+    label: 'Bảng xếp hạng',
+    helpText: 'Cho phép hoặc tạm dừng bảng xếp hạng đối với toàn bộ người dùng trong hệ thống.',
+    order: 20,
   },
   'feature.adaptive_difficulty': {
     label: 'Điều chỉnh độ khó thích ứng',
@@ -114,12 +124,18 @@ const TOLERANCE_PRESENTATIONS: Record<string, ConfigPresentation> = {
   'Rhythm timing tolerance in seconds': CONFIG_PRESENTATION['difficulty.rhythm_timing_tolerance_seconds'],
 };
 
+const FEATURE_PRESENTATIONS: Record<string, ConfigPresentation> = {
+  'Enable or disable leaderboard globally': CONFIG_PRESENTATION['feature.leaderboard_enabled'],
+  'Enable or disable minigames': CONFIG_PRESENTATION['feature.minigames_enabled'],
+};
+
 CONFIG_PRESENTATION['difficulty.pitch_tolerance_cents'] = CONFIG_PRESENTATION['difficulty.pitch_matching_tolerance_cents'];
 CONFIG_PRESENTATION['difficulty.rhythm_tolerance_seconds'] = CONFIG_PRESENTATION['difficulty.rhythm_timing_tolerance_seconds'];
 
 const getPresentation = (config: AppConfig): ConfigPresentation =>
   CONFIG_PRESENTATION[config.key]
   ?? TOLERANCE_PRESENTATIONS[config.description ?? '']
+  ?? FEATURE_PRESENTATIONS[config.description ?? '']
   ?? {
   label: config.description || config.key,
   helpText: config.description || 'Cấu hình do Backend cung cấp.',
@@ -464,12 +480,14 @@ const AdminSettings = () => {
                     </div>
                     <p className="mt-1 text-sm leading-5 text-[#718078]">{presentation.helpText}</p>
 
-                    <div className="mt-3 flex flex-wrap gap-2 text-xs text-[#64736b]">
-                      {config.min !== undefined && <span className="rounded-md bg-[#f3f6f4] px-2 py-1">Tối thiểu: {formatNumberVi(config.min)}{presentation.unit ? ` ${presentation.unit}` : ''}</span>}
-                      {config.max !== undefined && <span className="rounded-md bg-[#f3f6f4] px-2 py-1">Tối đa: {formatNumberVi(config.max)}{presentation.unit ? ` ${presentation.unit}` : ''}</span>}
-                      {config.step !== undefined && <span className="rounded-md bg-[#f3f6f4] px-2 py-1">Bước: {formatNumberVi(config.step)}{presentation.unit ? ` ${presentation.unit}` : ''}</span>}
-                      {config.defaultValue !== undefined && <span className="rounded-md bg-[#f3f6f4] px-2 py-1">Mặc định: {formatNumberVi(config.defaultValue)}{presentation.unit ? ` ${presentation.unit}` : ''}</span>}
-                    </div>
+                    {valueType !== 'boolean' && (
+                      <div className="mt-3 flex flex-wrap gap-2 text-xs text-[#64736b]">
+                        {config.min !== undefined && <span className="rounded-md bg-[#f3f6f4] px-2 py-1">Tối thiểu: {formatNumberVi(config.min)}{presentation.unit ? ` ${presentation.unit}` : ''}</span>}
+                        {config.max !== undefined && <span className="rounded-md bg-[#f3f6f4] px-2 py-1">Tối đa: {formatNumberVi(config.max)}{presentation.unit ? ` ${presentation.unit}` : ''}</span>}
+                        {config.step !== undefined && <span className="rounded-md bg-[#f3f6f4] px-2 py-1">Bước: {formatNumberVi(config.step)}{presentation.unit ? ` ${presentation.unit}` : ''}</span>}
+                        {config.defaultValue !== undefined && <span className="rounded-md bg-[#f3f6f4] px-2 py-1">Mặc định: {formatNumberVi(config.defaultValue)}{presentation.unit ? ` ${presentation.unit}` : ''}</span>}
+                      </div>
+                    )}
 
                     <details className="mt-3 text-xs text-[#7a8780]">
                       <summary className="w-fit cursor-pointer font-semibold text-[#52655b] hover:text-[#1D6750]">Chi tiết kỹ thuật</summary>
