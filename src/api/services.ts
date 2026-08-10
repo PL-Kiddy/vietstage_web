@@ -302,6 +302,39 @@ export const lessonAssetsApi = {
     }),
 };
 
+export interface LessonContent {
+  id: number;
+  content_text: string;
+  order_index: number;
+}
+
+export interface LessonContentInput {
+  content_text: string;
+  order_index: number;
+}
+
+export const lessonContentsApi = {
+  list: (lessonId: number, options?: RequestOptions) =>
+    apiRequest<LessonContent[]>(`/api/lessons/${lessonId}/contents`, options),
+  create: (lessonId: number, body: LessonContentInput, options?: RequestOptions) =>
+    apiRequest<LessonContent>(`/api/lessons/${lessonId}/contents`, {
+      ...options,
+      method: 'POST',
+      body,
+    }),
+  update: (lessonId: number, contentId: number, body: LessonContentInput, options?: RequestOptions) =>
+    apiRequest<LessonContent>(`/api/lessons/${lessonId}/contents/${contentId}`, {
+      ...options,
+      method: 'PUT',
+      body,
+    }),
+  remove: (lessonId: number, contentId: number, options?: RequestOptions) =>
+    apiRequest<void>(`/api/lessons/${lessonId}/contents/${contentId}`, {
+      ...options,
+      method: 'DELETE',
+    }),
+};
+
 export const adminDashboardApi = {
   get: (
     params: { fromDate: string; toDate: string; granularity: DashboardGranularity },

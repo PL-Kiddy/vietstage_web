@@ -506,7 +506,6 @@ const AdminSettings = () => {
                 : '';
               const isSaving = savingKey === config.key;
               const hasValidVersion = Number.isInteger(config.version) && Number(config.version) >= 0;
-              const hasRange = valueType === 'number' && config.min !== undefined && config.max !== undefined;
 
               return (
                 <article key={config.key} className={`grid gap-5 rounded-xl border bg-white p-5 transition lg:grid-cols-[minmax(280px,1fr)_minmax(360px,0.9fr)] lg:items-center ${changed ? 'border-amber-300 shadow-[0_0_0_1px_rgba(217,119,6,0.08)]' : 'border-[#e0e9e4]'}`}>
@@ -586,32 +585,9 @@ const AdminSettings = () => {
                         className="w-full rounded-xl border border-[#cfded6] bg-white px-3 py-2 font-mono text-sm text-[#274b3b] outline-none focus:border-[#1D6750]"
                       />
                     ) : (
-                      <div className={hasRange ? 'space-y-3' : ''}>
-                        {hasRange && (
-                          <div>
-                            <input
-                              type="range"
-                              min={config.min}
-                              max={config.max}
-                              step={config.step ?? 'any'}
-                              value={value}
-                              onChange={(event) => updateDraft(config.key, event.target.value)}
-                              className="w-full accent-[#1D6750]"
-                            />
-                            {presentation.accuracyTolerance ? (
-                              <div className="mt-1 flex justify-between gap-4 text-xs font-medium text-[#64736b]">
-                                <span>Chính xác cao ← {formatNumberVi(config.min!)} {presentation.unit}</span>
-                                <span className="text-right">{formatNumberVi(config.max!)} {presentation.unit} → Dễ đạt hơn</span>
-                              </div>
-                            ) : (
-                              <div className="mt-1 flex justify-between text-xs text-[#7a8780]">
-                                <span>{formatNumberVi(config.min!)}</span>
-                                <span>{formatNumberVi(config.max!)}</span>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                        <div className="flex items-center justify-end gap-2">
+                      <div className="rounded-xl border border-[#d8e4dd] bg-[#fafcfb] p-3">
+                        <p className="text-xs font-semibold text-[#52655b]">Giá trị hiện tại</p>
+                        <div className="mt-1.5 flex items-center justify-end gap-2">
                           <input
                             type={valueType === 'number' ? 'number' : 'text'}
                             min={config.min}
@@ -620,10 +596,19 @@ const AdminSettings = () => {
                             value={value}
                             onChange={(event) => updateDraft(config.key, event.target.value)}
                             aria-label={`Giá trị ${presentation.label}`}
-                            className="h-11 w-32 rounded-xl border border-[#cfded6] bg-white px-3 text-right text-sm font-semibold text-[#274b3b] outline-none focus:border-[#1D6750]"
+                            className="h-11 w-36 rounded-lg border border-[#cfded6] bg-white px-3 text-right text-sm font-semibold text-[#274b3b] outline-none focus:border-[#1D6750]"
                           />
                           {presentation.unit && <span className="min-w-12 text-sm font-semibold text-[#52655b]">{presentation.unit}</span>}
                         </div>
+                        {config.min !== undefined && config.max !== undefined && (
+                          <p className="mt-2 text-right text-xs text-[#718078]">
+                            Giá trị hợp lệ: {formatNumberVi(config.min)}–{formatNumberVi(config.max)}{presentation.unit ? ` ${presentation.unit}` : ''}
+                            {config.step !== undefined ? ` · Bước ${formatNumberVi(config.step)}` : ''}
+                          </p>
+                        )}
+                        {presentation.accuracyTolerance && (
+                          <p className="mt-1 text-right text-xs font-medium text-[#1D6750]">Giá trị nhỏ nghiêm ngặt hơn · Giá trị lớn dễ đạt hơn</p>
+                        )}
                       </div>
                     )}
 
