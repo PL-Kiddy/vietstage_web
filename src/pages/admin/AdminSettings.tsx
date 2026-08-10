@@ -296,6 +296,19 @@ const AdminSettings = () => {
     [configs, drafts],
   );
 
+  const starThresholds = useMemo(
+    () => configs
+      .filter((config) => /^scoring\.star[123]\.threshold$/.test(config.key))
+      .sort((a, b) => a.key.localeCompare(b.key)),
+    [configs],
+  );
+
+  const starThresholdsValid = useMemo(() => {
+    if (starThresholds.length !== 3) return true;
+    const values = starThresholds.map((config) => Number(drafts[config.key] ?? config.value));
+    return values.every(Number.isFinite) && values[0] < values[1] && values[1] < values[2];
+  }, [drafts, starThresholds]);
+
   const updateDraft = (key: string, value: string) => {
     setDrafts((current) => ({ ...current, [key]: value }));
     setNotice(null);
@@ -366,8 +379,7 @@ const AdminSettings = () => {
     <div className="mx-auto w-full max-w-[1320px] space-y-5 pb-8">
       <header className="rounded-2xl border border-[#dfe9e3] bg-white px-6 py-5 shadow-sm">
         <div>
-          <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#1D6750]">Quản trị ứng dụng</p>
-          <h1 className="mt-1 text-2xl font-bold tracking-tight text-[#163d2d] md:text-3xl">Cấu hình hệ thống</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-[#163d2d] md:text-3xl">Cấu hình hệ thống</h1>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-[#68736d]">
             Quản lý các tham số ảnh hưởng trực tiếp đến cách chấm điểm, độ khó và tính năng của toàn hệ thống.
           </p>
@@ -464,6 +476,25 @@ const AdminSettings = () => {
           </div>
         ) : (
           <div className="space-y-3 bg-[#f7faf8] p-4 md:p-5">
+            {selectedGroup === 'scoring' && starThresholds.length === 3 && (
+              <section className={`rounded-xl border px-4 py-3 ${starThresholdsValid ? 'border-[#d8e4dd] bg-[#fbfdfc]' : 'border-red-200 bg-red-50'}`} aria-label="Tổng quan ngưỡng xếp hạng">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <h3 className="font-semibold text-[#274b3b]">Ngưỡng xếp hạng</h3>
+                    <p className="mt-0.5 text-sm text-[#718078]">Cần duy trì thứ tự: 1 sao &lt; 2 sao &lt; 3 sao.</p>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm font-semibold text-[#274b3b]">
+                    {starThresholds.map((config, index) => (
+                      <span key={config.key} className="inline-flex items-center gap-2">
+                        {index > 0 && <span className="text-[#9aaba2]">&lt;</span>}
+                        <span className="rounded-lg bg-[#edf5f1] px-2.5 py-1.5">{index + 1} sao: {formatNumberVi(drafts[config.key] ?? config.value)} điểm</span>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+                {!starThresholdsValid && <p className="mt-2 text-xs font-semibold text-red-700">Thứ tự ngưỡng chưa hợp lệ. Hãy điều chỉnh trước khi lưu.</p>}
+              </section>
+            )}
             {paginatedConfigs.map((config) => {
               const presentation = getPresentation(config);
               const value = drafts[config.key] ?? '';
@@ -486,20 +517,18 @@ const AdminSettings = () => {
                     </div>
                     <p className="mt-1 text-sm leading-5 text-[#718078]">{presentation.helpText}</p>
 
-                    {valueType !== 'boolean' && (
-                      <div className="mt-3 flex flex-wrap gap-2 text-xs text-[#64736b]">
-                        {config.min !== undefined && <span className="rounded-md bg-[#f3f6f4] px-2 py-1">Tối thiểu: {formatNumberVi(config.min)}{presentation.unit ? ` ${presentation.unit}` : ''}</span>}
-                        {config.max !== undefined && <span className="rounded-md bg-[#f3f6f4] px-2 py-1">Tối đa: {formatNumberVi(config.max)}{presentation.unit ? ` ${presentation.unit}` : ''}</span>}
-                        {config.step !== undefined && <span className="rounded-md bg-[#f3f6f4] px-2 py-1">Bước: {formatNumberVi(config.step)}{presentation.unit ? ` ${presentation.unit}` : ''}</span>}
-                        {config.defaultValue !== undefined && <span className="rounded-md bg-[#f3f6f4] px-2 py-1">Mặc định: {formatNumberVi(config.defaultValue)}{presentation.unit ? ` ${presentation.unit}` : ''}</span>}
-                      </div>
-                    )}
-
                     <details className="mt-3 text-xs text-[#7a8780]">
                       <summary className="w-fit cursor-pointer font-semibold text-[#52655b] hover:text-[#1D6750]">Thông tin kỹ thuật</summary>
                       <div className="mt-2 space-y-1 rounded-lg bg-[#f6f8f7] px-3 py-2">
                         <p className="break-all font-mono">Key: {config.key}</p>
                         {config.version !== undefined && <p>Phiên bản: {config.version}</p>}
+                        {valueType !== 'boolean' && (
+                          <p>
+                            Phạm vi: {config.min !== undefined ? formatNumberVi(config.min) : '—'}–{config.max !== undefined ? formatNumberVi(config.max) : '—'}{presentation.unit ? ` ${presentation.unit}` : ''}
+                            {config.step !== undefined ? ` · Bước: ${formatNumberVi(config.step)}` : ''}
+                            {config.defaultValue !== undefined ? ` · Mặc định: ${formatNumberVi(config.defaultValue)}` : ''}
+                          </p>
+                        )}
                         {valueType === 'boolean' && config.defaultValue !== undefined && (
                           <p>Mặc định: {String(config.defaultValue).toLowerCase() === 'true' ? 'Bật' : 'Tắt'}</p>
                         )}
