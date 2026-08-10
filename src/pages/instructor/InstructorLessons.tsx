@@ -190,9 +190,10 @@ const InstructorLessons = () => {
 
   const uploadMaterial = async (file: File, type: 'REFERENCE_AUDIO' | 'SHEET_MUSIC') => {
     if (!editingLesson) return;
+    const extension = file.name.split('.').pop()?.toLowerCase();
     const valid = type === 'REFERENCE_AUDIO'
-      ? ['audio/mpeg', 'audio/wav', 'audio/x-wav'].includes(file.type)
-      : file.type.startsWith('image/');
+      ? ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-wav'].includes(file.type) || ['mp3', 'wav'].includes(extension ?? '')
+      : ['image/png', 'image/jpeg', 'image/webp'].includes(file.type) || ['png', 'jpg', 'jpeg', 'webp'].includes(extension ?? '');
     if (!valid) {
       setMaterialsError(type === 'REFERENCE_AUDIO' ? 'Chỉ hỗ trợ file MP3 hoặc WAV.' : 'Chỉ hỗ trợ file ảnh cho bản ký âm.');
       return;
@@ -645,7 +646,7 @@ const InstructorLessons = () => {
                       <label className="border border-dashed border-outline-variant/40 rounded-xl p-md flex flex-col items-center justify-center bg-[#fbf9f4] hover:bg-[#ffe088]/10 transition-all cursor-pointer relative">
                         <input
                           type="file"
-                          accept="audio/mpeg,audio/wav,audio/x-wav"
+                          accept="audio/mpeg,audio/mp3,audio/wav,audio/x-wav,.mp3,.wav"
                           className="hidden"
                           disabled={uploadingType !== null}
                           onChange={async (e) => {
@@ -672,7 +673,7 @@ const InstructorLessons = () => {
                       <label className="border border-dashed border-outline-variant/40 rounded-xl p-md flex flex-col items-center justify-center bg-[#fbf9f4] hover:bg-[#ffe088]/10 transition-all cursor-pointer relative">
                         <input
                           type="file"
-                          accept="image/png,image/jpeg,image/webp"
+                          accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp"
                           className="hidden"
                           disabled={uploadingType !== null}
                           onChange={async (e) => {

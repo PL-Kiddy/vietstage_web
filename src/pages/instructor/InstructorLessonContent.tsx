@@ -66,17 +66,9 @@ const InstructorLessonContent = () => {
     setLoading(true);
     setError('');
     try {
-      const [lessonData, quizData, minigameData] = await Promise.all([
-        lessonDetailApi.get(lessonId), quizzesApi.list(lessonId), minigamesApi.list(lessonId),
+      const [lessonData, exerciseData, quizData, minigameData] = await Promise.all([
+        lessonDetailApi.get(lessonId), exercisesApi.list(lessonId), quizzesApi.list(lessonId), minigamesApi.list(lessonId),
       ]);
-      const exerciseData: Exercise[] = (lessonData.exercises ?? []).map((item) => ({
-        id: item.id,
-        lessonId,
-        title: item.title,
-        description: item.description,
-        passThreshold: item.passThreshold,
-        orderIndex: item.orderIndex ?? 0,
-      }));
       setLesson(lessonData);
       setExercises(exerciseData.sort((a, b) => a.orderIndex - b.orderIndex));
       setQuizzes(quizData.sort((a, b) => a.orderIndex - b.orderIndex));
@@ -96,8 +88,7 @@ const InstructorLessonContent = () => {
   const openCreate = () => {
     setEditingId(null);
     if (tab === 'exercises') {
-      const beatMapAsset = lesson?.mediaAssets?.find((asset) => asset.assetType === 'BEAT_MAP');
-      setExerciseForm({ ...emptyExercise, beatMapAssetId: beatMapAsset?.id, orderIndex: exercises.length + 1 });
+      setExerciseForm({ ...emptyExercise, orderIndex: exercises.length + 1 });
     }
     if (tab === 'quizzes') setQuizForm({ ...emptyQuiz, orderIndex: quizzes.length + 1 });
     if (tab === 'minigames') setMinigameForm({ ...emptyMinigame, orderIndex: minigames.length + 1 });
@@ -142,9 +133,6 @@ const InstructorLessonContent = () => {
           title: exerciseForm.title.trim(),
           description: exerciseForm.description?.trim(),
         };
-        if (!editingId && !body.beatMapAssetId) {
-          throw new Error('Vui lòng chọn tài nguyên bản đồ nhịp điệu trước khi tạo bài tập.');
-        }
         if (editingId) await exercisesApi.update(editingId, body);
         else await exercisesApi.create(lessonId, body);
       } else if (tab === 'quizzes') {
@@ -266,11 +254,7 @@ const InstructorLessonContent = () => {
               {tab === 'exercises' && <>
                 <Field label="Tên bài tập"><input required value={exerciseForm.title} onChange={(e) => setExerciseForm({ ...exerciseForm, title: e.target.value })} className="input" /></Field>
                 <Field label="Mô tả"><textarea value={exerciseForm.description} onChange={(e) => setExerciseForm({ ...exerciseForm, description: e.target.value })} className="input min-h-28" /></Field>
-                <div className="grid grid-cols-2 gap-4"><Field label="Ngưỡng đạt (%)"><input type="number" min="0" max="100" required value={exerciseForm.passThreshold} onChange={(e) => setExerciseForm({ ...exerciseForm, passThreshold: Number(e.target.value) })} className="input" /></Field><Field label="Thứ tự"><input type="number" min="0" required value={exerciseForm.orderIndex} onChange={(e) => setExerciseForm({ ...exerciseForm, orderIndex: Number(e.target.value) })} className="input" /></Field></div>
-                <Field label={`Mã tài nguyên bản đồ nhịp điệu (Beat Map Asset ID)${editingId ? ' (không bắt buộc khi cập nhật)' : ''}`}>
-                  <input type="number" min="1" required={!editingId} value={exerciseForm.beatMapAssetId ?? ''} onChange={(e) => setExerciseForm({ ...exerciseForm, beatMapAssetId: e.target.value ? Number(e.target.value) : undefined })} placeholder="Nhập ID tài nguyên BEAT_MAP" className="input" />
-                  <span className="mt-2 block text-xs text-on-surface-variant">Hệ thống cần một tài nguyên đa phương tiện hợp lệ để liên kết với bài tập mới.</span>
-                </Field>
+                <div className="grid grid-cols-2 gap-4"><Field label="Ngưỡng đạt (%)"><input type="number" min="0" max="100" step="0.01" required value={exerciseForm.passThreshold} onChange={(e) => setExerciseForm({ ...exerciseForm, passThreshold: Number(e.target.value) })} className="input" /></Field><Field label="Thứ tự"><input type="number" min="1" required value={exerciseForm.orderIndex} onChange={(e) => setExerciseForm({ ...exerciseForm, orderIndex: Number(e.target.value) })} className="input" /></Field></div>
               </>}
               {tab === 'quizzes' && <>
                 <Field label="Câu hỏi"><textarea required value={quizForm.question} onChange={(e) => setQuizForm({ ...quizForm, question: e.target.value })} className="input min-h-24" /></Field>

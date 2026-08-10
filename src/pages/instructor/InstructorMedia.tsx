@@ -8,9 +8,7 @@ import {
   ChevronRight,
   Check,
   X,
-  Target,
   BookOpen,
-  AlertCircle,
   Loader2,
   Search,
   MoreVertical,
@@ -18,7 +16,7 @@ import {
   Layers,
 } from 'lucide-react';
 import { useAxiosRequest } from '../../hooks/useAxiosRequest';
-import { lessonsApi, exercisesApi, masterDataApi, type ExerciseInput } from '../../api/services';
+import { lessonsApi, masterDataApi } from '../../api/services';
 import type { Lesson, SkillLevel } from '../../api/types';
 
 
@@ -40,15 +38,6 @@ const InstructorMedia = () => {
   const [openActionMenuId, setOpenActionMenuId] = useState<number | null>(null);
 
   // ── Exercise & Pass Threshold Modal State ─────────────────────────────
-  const [configuringLesson, setConfiguringLesson] = useState<Lesson | null>(null);
-  const [exTitle, setExTitle] = useState('');
-  const [exDesc, setExDesc] = useState('');
-  const [exPassThreshold, setExPassThreshold] = useState<number>(80);
-  const [exOrderIndex, setExOrderIndex] = useState<number>(1);
-  const [isSavingEx, setIsSavingEx] = useState(false);
-  const [exError, setExError] = useState<string | null>(null);
-  const [exSuccess, setExSuccess] = useState<string | null>(null);
-
   // ── Fetch lessons ─────────────────────────────────────────────────────
   const fetchLessons = useCallback((signal?: AbortSignal) =>
     lessonsApi.list(new URLSearchParams({ size: '100', sort: 'orderIndex,asc' }), { signal })
@@ -146,43 +135,7 @@ const InstructorMedia = () => {
 
 
   // ── Handler: Open Config Modal ───────────────────────────────────────
-  const handleOpenConfigModal = (lesson: Lesson) => {
-    setConfiguringLesson(lesson);
-    setExTitle('');
-    setExDesc('');
-    setExPassThreshold(80);
-    setExOrderIndex(1);
-    setExError(null);
-    setExSuccess(null);
-    setOpenActionMenuId(null);
-  };
-
   // ── Handler: Create exercise ──────────────────────────────────────────
-  const handleCreateExercise = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!configuringLesson || !exTitle.trim()) return;
-    setIsSavingEx(true);
-    setExError(null);
-    setExSuccess(null);
-    const body: ExerciseInput = {
-      title: exTitle.trim(),
-      description: exDesc.trim() || undefined,
-      passThreshold: exPassThreshold,
-      orderIndex: exOrderIndex,
-    };
-    try {
-      await exercisesApi.create(configuringLesson.id, body);
-      setExSuccess(`Đã cấu hình bài tập "${exTitle}" (Ngưỡng điểm: ${exPassThreshold}) thành công!`);
-      setExTitle('');
-      setExDesc('');
-      setExOrderIndex((prev) => prev + 1);
-    } catch (err) {
-      setExError(err instanceof Error ? err.message : 'Không thể lưu cấu hình bài tập.');
-    } finally {
-      setIsSavingEx(false);
-    }
-  };
-
   const filteredLessons = lessons.filter((lesson) => {
     // 1. Instrument filter
     if (selectedInstrumentId !== 'ALL') {
@@ -391,20 +344,13 @@ const InstructorMedia = () => {
                                   <Pencil className="w-4 h-4 text-[#1D4532] flex-shrink-0" />
                                   Sửa thông tin bài học
                                 </button>
-                                <button
-                                  onClick={() => handleOpenConfigModal(lesson)}
-                                  className="w-full flex items-center gap-2.5 px-4 py-2.5 hover:bg-[#EDF7F2] text-[13px] font-medium text-[#1D4532] transition-colors border-t border-[#d1e4fb]/30 whitespace-nowrap"
-                                >
-                                  <Target className="w-4 h-4 text-[#1D4532] flex-shrink-0" />
-                                  Cấu hình Bài tập & Ngưỡng đạt
-                                </button>
                                 <Link
                                   to={`/instructor/lessons/${lesson.id}/content`}
                                   onClick={() => setOpenActionMenuId(null)}
                                   className="w-full flex items-center gap-2.5 px-4 py-2.5 hover:bg-[#EDF7F2] text-[13px] font-medium text-on-surface transition-colors border-t border-[#d1e4fb]/30 whitespace-nowrap"
                                 >
                                   <Layers className="w-4 h-4 text-[#1D4532] flex-shrink-0" />
-                                  Biên soạn Quiz & Minigame
+                                  Cấu hình bài tập, ngưỡng đạt và nội dung
                                 </Link>
                               </div>
                             </>
@@ -480,160 +426,6 @@ const InstructorMedia = () => {
         </div>
 
       {/* ── Modal Cấu hình Bài tập & Điểm chuẩn ────────────────────────────── */}
-      {createPortal(
-        <AnimatePresence>
-          {configuringLesson && (
-            <>
-              {/* Backdrop */}
-              <motion.div
-                className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9998]"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                onClick={() => setConfiguringLesson(null)}
-              />
-
-              {/* Drawer Modal */}
-              <motion.div
-                className="fixed top-0 right-0 h-full w-[100%] sm:w-[75%] md:w-[60%] lg:w-[45%] bg-[#fbf9f4] border-l border-outline-variant/15 shadow-2xl overflow-hidden flex flex-col z-[9999]"
-                initial={{ x: '100%' }}
-                animate={{ x: 0 }}
-                exit={{ x: '100%' }}
-                transition={{ type: 'spring', damping: 25, stiffness: 220 }}
-              >
-                {/* Header */}
-                <div className="px-xl py-lg border-b border-outline-variant/10 flex justify-between items-center bg-[#EDF7F2]">
-                  <div>
-                    <h4 className="text-headline-sm font-bold text-[#1D4532]">
-                      Cấu hình Bài tập & Ngưỡng điểm
-                    </h4>
-                    <p className="text-xs text-on-surface-variant mt-0.5 font-medium">
-                      Bài học: <span className="text-[#1D4532] font-bold">{configuringLesson.title}</span>
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setConfiguringLesson(null)}
-                    className="p-md hover:bg-[#1D4532]/10 rounded-full text-on-surface-variant hover:text-on-surface transition-colors"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
-                </div>
-
-                {/* Form Body */}
-                <form onSubmit={handleCreateExercise} className="flex-1 overflow-y-auto p-xl space-y-lg custom-scrollbar">
-                  <div className="bg-white border border-outline-variant/10 rounded-2xl p-lg shadow-sm space-y-md">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-md">
-                      <div className="flex flex-col gap-xs">
-                        <label className="text-xs font-semibold text-[#6B7280] uppercase tracking-wider">
-                          Tên bài tập (title) *
-                        </label>
-                        <input
-                          type="text"
-                          required
-                          value={exTitle}
-                          onChange={(e) => setExTitle(e.target.value)}
-                          placeholder="Ví dụ: Luyện tập âm cơ bản..."
-                          className="bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl p-md text-sm focus:ring-1 focus:ring-[#1D4532] focus:border-[#1D4532] outline-none"
-                        />
-                      </div>
-                      <div className="flex flex-col gap-xs">
-                        <label className="text-xs font-semibold text-[#6B7280] uppercase tracking-wider">
-                          Thứ tự chặng (orderIndex)
-                        </label>
-                        <input
-                          type="number"
-                          min={1}
-                          value={exOrderIndex}
-                          onChange={(e) => setExOrderIndex(Math.max(1, parseInt(e.target.value) || 1))}
-                          className="bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl p-md text-sm focus:ring-1 focus:ring-[#1D4532] focus:border-[#1D4532] outline-none"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="flex flex-col gap-xs">
-                      <label className="text-xs font-semibold text-[#6B7280] uppercase tracking-wider">
-                        Mô tả bài tập thực hành
-                      </label>
-                      <textarea
-                        rows={2}
-                        value={exDesc}
-                        onChange={(e) => setExDesc(e.target.value)}
-                        placeholder="Hướng dẫn học viên luyện tập..."
-                        className="bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl p-md text-sm focus:ring-1 focus:ring-[#1D4532] focus:border-[#1D4532] outline-none resize-none"
-                      />
-                    </div>
-
-                    {/* Pass Threshold Range */}
-                    <div className="flex flex-col gap-xs border-t border-outline-variant/10 pt-md">
-                      <label className="text-xs font-semibold text-[#6B7280] uppercase tracking-wider flex justify-between items-center">
-                        <span>Điểm chuẩn tối thiểu để qua bài (passThreshold)</span>
-                        <span className="bg-[#1D4532] text-white px-md py-xs rounded-full font-bold text-xs">
-                          {exPassThreshold} / 100 điểm
-                        </span>
-                      </label>
-                      <input
-                        type="range"
-                        min={0}
-                        max={100}
-                        step={5}
-                        value={exPassThreshold}
-                        onChange={(e) => setExPassThreshold(parseInt(e.target.value))}
-                        className="accent-[#1D4532] w-full cursor-pointer mt-2"
-                      />
-                      <div className="flex justify-between text-xs text-[#9CA3AF] mt-1">
-                        <span>0 (Tối thiểu)</span>
-                        <span>50 (Trung bình)</span>
-                        <span>100 (Hoàn hảo)</span>
-                      </div>
-                      <p className="text-xs text-[#5e5e5b] italic mt-1">
-                        * Học viên cần đạt từ {exPassThreshold} điểm trở lên khi chấm mic/âm thanh để mở khóa bài học tiếp theo.
-                      </p>
-                    </div>
-
-                    {/* Feedback Messages */}
-                    {exError && (
-                      <div className="flex items-center gap-xs bg-red-50 border border-red-200 rounded-xl p-md text-red-700 text-xs">
-                        <AlertCircle className="w-4 h-4 flex-shrink-0" /> {exError}
-                      </div>
-                    )}
-                    {exSuccess && (
-                      <div className="flex items-center gap-xs bg-emerald-50 border border-emerald-200 rounded-xl p-md text-emerald-700 text-xs">
-                        <Check className="w-4 h-4 flex-shrink-0" /> {exSuccess}
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="flex items-center justify-end gap-md pt-md">
-                    <button
-                      type="button"
-                      onClick={() => setConfiguringLesson(null)}
-                      className="px-xl py-md rounded-xl border border-outline-variant/30 text-on-surface-variant text-sm font-bold hover:bg-black/5 transition-all"
-                    >
-                      Đóng
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={isSavingEx || !exTitle.trim()}
-                      className="px-xl py-md rounded-xl bg-[#1D4532] text-white text-sm font-bold hover:bg-[#1D4532]/90 transition-all disabled:opacity-50 flex items-center gap-xs shadow-md"
-                    >
-                      {isSavingEx ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <Plus className="w-4 h-4" />
-                      )}
-                      Lưu bài tập & Điểm chuẩn
-                    </button>
-                  </div>
-                </form>
-              </motion.div>
-            </>
-          )}
-        </AnimatePresence>,
-        document.body
-      )}
-
-      {/* ── Modal Tạo / Sửa Bài học ────────────────────────────────────────── */}
       {createPortal(
         <AnimatePresence>
           {lessonModalOpen && (
@@ -752,7 +544,7 @@ const InstructorMedia = () => {
                         >
                           <option value="DRAFT">Bản nháp</option>
                           <option value="PENDING">Chờ duyệt</option>
-                          <option value="APPROVED">Đã duyệt</option>
+                          <option value="APPROVED" disabled>Đã duyệt</option>
                         </select>
                       </div>
                     </div>
