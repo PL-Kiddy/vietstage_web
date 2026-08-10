@@ -709,7 +709,8 @@ const InstructorLessons = () => {
                         <div key={asset.id} className="rounded-xl border border-outline-variant/15 bg-[#fbf9f4] p-3">
                           <div className="flex items-center justify-between gap-3">
                             <div className="min-w-0">
-                              <p className="text-sm font-semibold text-[#1D4532]">{asset.type === 'REFERENCE_AUDIO' ? 'Âm thanh tham chiếu' : 'Bản ký âm'}</p>
+                              <p className="truncate text-sm font-semibold text-[#1D4532]">{asset.title?.trim() || (asset.type === 'REFERENCE_AUDIO' ? 'Âm thanh tham chiếu' : 'Bản ký âm')}</p>
+                              {asset.mime_type && <p className="mt-0.5 text-xs text-on-surface-variant">{asset.mime_type}</p>}
                               <a href={asset.url} target="_blank" rel="noreferrer" className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline">
                                 Mở học liệu <ExternalLink className="h-3.5 w-3.5" />
                               </a>

@@ -9,6 +9,7 @@ import {
   ToggleLeft,
   MoreVertical,
 } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { appConfigsApi, type AppConfig } from '../../api/services';
 import { ApiError } from '../../api/client';
 
@@ -257,8 +258,6 @@ const AdminSettings = () => {
   const [loadError, setLoadError] = useState('');
   const [savingKey, setSavingKey] = useState<string | null>(null);
   const [editingConfigKey, setEditingConfigKey] = useState<string | null>(null);
-  const [openActionMenuKey, setOpenActionMenuKey] = useState<string | null>(null);
-  const [technicalConfigKey, setTechnicalConfigKey] = useState<string | null>(null);
   const [notice, setNotice] = useState<Notice | null>(null);
   const [hasVersionConflict, setHasVersionConflict] = useState(false);
 
@@ -399,7 +398,7 @@ const AdminSettings = () => {
 
   const selectedGroupInfo = GROUPS.find((group) => group.id === selectedGroup) ?? GROUPS[0];
   const SelectedIcon = selectedGroupInfo.icon;
-  const technicalConfig = configs.find((config) => config.key === technicalConfigKey) ?? null;
+  const editingConfig = configs.find((config) => config.key === editingConfigKey) ?? null;
 
   return (
     <div className="mx-auto w-full max-w-[1320px] space-y-5 pb-8">
@@ -575,39 +574,17 @@ const AdminSettings = () => {
                   </div>
 
                   <div>
-                    {selectedGroup === 'scoring' && editingConfigKey !== config.key ? (
+                    {selectedGroup === 'scoring' ? (
                       <div className="relative flex flex-wrap items-center justify-end gap-2">
                         <span className="text-sm font-semibold text-[#274b3b]">{formatNumberVi(value)}{presentation.unit ? ` ${presentation.unit}` : ''}</span>
                         <button
                           type="button"
                           aria-label={`Thao tác ${presentation.label}`}
-                          aria-expanded={openActionMenuKey === config.key}
-                          onClick={() => setOpenActionMenuKey((current) => current === config.key ? null : config.key)}
+                          onClick={() => setEditingConfigKey(config.key)}
                           className="grid h-9 w-9 place-items-center rounded-lg border border-[#cfded6] bg-white text-[#52655b] transition hover:bg-[#edf5f1] hover:text-[#1D6750]"
                         >
                           <MoreVertical className="h-4 w-4" />
                         </button>
-                        {openActionMenuKey === config.key && (
-                          <>
-                            <button type="button" aria-label="Đóng menu thao tác" onClick={() => setOpenActionMenuKey(null)} className="fixed inset-0 z-10 cursor-default" />
-                            <div className="absolute right-0 top-11 z-20 w-52 overflow-hidden rounded-lg border border-[#d8e4dd] bg-white py-1 text-left shadow-lg">
-                              <button
-                                type="button"
-                                onClick={() => { setEditingConfigKey(config.key); setOpenActionMenuKey(null); }}
-                                className="w-full px-3 py-2 text-sm font-medium text-[#274b3b] hover:bg-[#edf5f1]"
-                              >
-                                Thay đổi thông số
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => { setTechnicalConfigKey(config.key); setOpenActionMenuKey(null); }}
-                                className="w-full px-3 py-2 text-sm font-medium text-[#274b3b] hover:bg-[#edf5f1]"
-                              >
-                                Xem thông tin kỹ thuật
-                              </button>
-                            </div>
-                          </>
-                        )}
                       </div>
                     ) : <>
                     {!hasValidVersion ? (
@@ -707,15 +684,6 @@ const AdminSettings = () => {
                         {isSaving ? 'Đang lưu' : 'Lưu thay đổi'}
                       </button>
                     </div>}
-                    {selectedGroup === 'scoring' && (
-                      <button
-                        type="button"
-                        onClick={() => closeConfigEditor(config)}
-                        className="mt-2 ml-auto block text-xs font-semibold text-[#52655b] hover:text-[#1D6750]"
-                      >
-                        Hủy và đóng chi tiết
-                      </button>
-                    )}
                     </>}
                   </div>
                 </article>
@@ -739,31 +707,56 @@ const AdminSettings = () => {
         )}
       </section>
 
-      {technicalConfig && (() => {
-        const presentation = getPresentation(technicalConfig);
-        return (
-          <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/35 p-4" role="dialog" aria-modal="true" aria-label={`Thông tin kỹ thuật ${presentation.label}`}>
-            <div className="w-full max-w-lg rounded-2xl bg-white p-5 shadow-2xl">
-              <div className="flex items-start justify-between gap-4 border-b border-[#e8eeea] pb-4">
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-wide text-[#1D6750]">Thông tin kỹ thuật</p>
-                  <h3 className="mt-1 text-lg font-bold text-[#173f2f]">{presentation.label}</h3>
+      <AnimatePresence>
+        {editingConfig && (() => {
+          const presentation = getPresentation(editingConfig);
+          const value = drafts[editingConfig.key] ?? '';
+          const changed = changedKeys.has(editingConfig.key);
+          const validationError = changed ? validateValue(editingConfig, value) || validateScoringRelationship(editingConfig, value) : '';
+          const isSaving = savingKey === editingConfig.key;
+          const hasValidVersion = Number.isInteger(editingConfig.version) && Number(editingConfig.version) >= 0;
+          return (
+            <>
+              <motion.div className="fixed inset-0 z-40 bg-slate-950/35 backdrop-blur-sm" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => closeConfigEditor(editingConfig)} />
+              <motion.aside className="fixed right-0 top-0 z-50 flex h-full w-full max-w-xl flex-col bg-white shadow-2xl" initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }} transition={{ type: 'spring', damping: 28, stiffness: 260 }} role="dialog" aria-modal="true" aria-label={`Chỉnh sửa ${presentation.label}`}>
+                <div className="flex items-start justify-between gap-4 border-b border-[#e8eeea] bg-[#edf5f1] px-6 py-5">
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-wide text-[#1D6750]">Thông số tính điểm</p>
+                    <h3 className="mt-1 text-xl font-bold text-[#173f2f]">{presentation.label}</h3>
+                    <p className="mt-2 text-sm leading-5 text-[#52655b]">{presentation.helpText}</p>
+                  </div>
+                  <button type="button" onClick={() => closeConfigEditor(editingConfig)} className="rounded-lg px-2 py-1 text-sm font-semibold text-[#52655b] hover:bg-white/70">Đóng</button>
                 </div>
-                <button type="button" onClick={() => setTechnicalConfigKey(null)} className="rounded-lg px-2 py-1 text-sm font-semibold text-[#52655b] hover:bg-[#f3f6f4]">Đóng</button>
-              </div>
-              <dl className="mt-4 space-y-3 text-sm">
-                <div><dt className="text-xs font-semibold text-[#718078]">Key</dt><dd className="mt-1 break-all rounded-lg bg-[#f6f8f7] px-3 py-2 font-mono text-xs text-[#365647]">{technicalConfig.key}</dd></div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div><dt className="text-xs font-semibold text-[#718078]">Phiên bản</dt><dd className="mt-1 font-semibold text-[#274b3b]">{technicalConfig.version ?? '—'}</dd></div>
-                  <div><dt className="text-xs font-semibold text-[#718078]">Mặc định</dt><dd className="mt-1 font-semibold text-[#274b3b]">{technicalConfig.defaultValue ?? '—'}</dd></div>
+                <div className="flex-1 space-y-6 overflow-y-auto px-6 py-6">
+                  <section>
+                    <label htmlFor={`config-${editingConfig.key}`} className="text-sm font-semibold text-[#274b3b]">Giá trị</label>
+                    <div className="mt-2 flex items-center gap-2">
+                      <input id={`config-${editingConfig.key}`} type="number" min={editingConfig.min} max={editingConfig.max} step={editingConfig.step ?? 'any'} value={value} onChange={(event) => updateDraft(editingConfig.key, event.target.value)} className="h-11 w-36 rounded-lg border border-[#cfded6] px-3 text-right text-sm font-semibold text-[#274b3b] outline-none focus:border-[#1D6750]" />
+                      {presentation.unit && <span className="text-sm font-semibold text-[#52655b]">{presentation.unit}</span>}
+                    </div>
+                    <p className="mt-2 text-xs text-[#718078]">Giá trị hợp lệ: {formatNumberVi(editingConfig.min ?? '—')}–{formatNumberVi(editingConfig.max ?? '—')}{presentation.unit ? ` ${presentation.unit}` : ''}{editingConfig.step !== undefined ? ` · Bước ${formatNumberVi(editingConfig.step)}` : ''}</p>
+                    {validationError && <p className="mt-2 text-xs font-semibold text-red-700">{validationError}</p>}
+                  </section>
+                  <details className="rounded-xl border border-[#d8e4dd] bg-[#fafcfb] p-4">
+                    <summary className="cursor-pointer text-sm font-semibold text-[#274b3b]">Thông tin kỹ thuật</summary>
+                    <dl className="mt-4 space-y-3 text-sm">
+                      <div><dt className="text-xs font-semibold text-[#718078]">Key</dt><dd className="mt-1 break-all rounded-lg bg-white px-3 py-2 font-mono text-xs text-[#365647]">{editingConfig.key}</dd></div>
+                      <div className="grid grid-cols-2 gap-3"><div><dt className="text-xs font-semibold text-[#718078]">Phiên bản</dt><dd className="mt-1 font-semibold text-[#274b3b]">{editingConfig.version ?? '—'}</dd></div><div><dt className="text-xs font-semibold text-[#718078]">Mặc định</dt><dd className="mt-1 font-semibold text-[#274b3b]">{editingConfig.defaultValue ?? '—'}</dd></div></div>
+                      {(editingConfig.updated_at || editingConfig.updated_by) && <div><dt className="text-xs font-semibold text-[#718078]">Cập nhật gần nhất</dt><dd className="mt-1 text-[#274b3b]">{editingConfig.updated_at ? formatDateTime(editingConfig.updated_at) : '—'}{editingConfig.updated_by ? ` · ${editingConfig.updated_by}` : ''}</dd></div>}
+                    </dl>
+                  </details>
                 </div>
-                <div><dt className="text-xs font-semibold text-[#718078]">Phạm vi</dt><dd className="mt-1 text-[#274b3b]">{technicalConfig.min ?? '—'}–{technicalConfig.max ?? '—'}{presentation.unit ? ` ${presentation.unit}` : ''}{technicalConfig.step !== undefined ? ` · Bước ${technicalConfig.step}` : ''}</dd></div>
-                {(technicalConfig.updated_at || technicalConfig.updated_by) && <div><dt className="text-xs font-semibold text-[#718078]">Cập nhật gần nhất</dt><dd className="mt-1 text-[#274b3b]">{technicalConfig.updated_at ? formatDateTime(technicalConfig.updated_at) : '—'}{technicalConfig.updated_by ? ` · ${technicalConfig.updated_by}` : ''}</dd></div>}
-              </dl>
-            </div>
-          </div>
-        );
-      })()}
+                <div className="flex justify-end gap-3 border-t border-[#e8eeea] px-6 py-4">
+                  <button type="button" onClick={() => closeConfigEditor(editingConfig)} className="h-10 rounded-lg border border-[#cfded6] px-4 text-sm font-semibold text-[#52655b] hover:bg-[#f6f8f7]">Hủy</button>
+                  <button type="button" disabled={!hasValidVersion || !changed || Boolean(validationError) || isSaving || (savingKey !== null && !isSaving)} onClick={() => void saveConfig(editingConfig)} className="inline-flex h-10 items-center gap-1.5 rounded-lg bg-[#1D6750] px-4 text-sm font-semibold text-white transition hover:bg-[#174f3e] disabled:cursor-not-allowed disabled:bg-[#a9b9b1]">
+                    {isSaving ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}{isSaving ? 'Đang lưu' : 'Lưu thay đổi'}
+                  </button>
+                </div>
+              </motion.aside>
+            </>
+          );
+        })()}
+      </AnimatePresence>
 
     </div>
   );
