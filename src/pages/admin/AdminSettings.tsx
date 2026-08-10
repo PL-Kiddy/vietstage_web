@@ -486,13 +486,13 @@ const AdminSettings = () => {
             </div>
           </div>
         ) : (
-          <div className="space-y-3 bg-[#f7faf8] p-4 md:p-5">
+          <div className="bg-[#f7faf8] p-4 md:p-5">
             {selectedGroup === 'scoring' && starThresholds.length === 3 && (
-              <section className={`rounded-xl border px-4 py-3 ${starThresholdsValid ? 'border-[#d8e4dd] bg-[#fbfdfc]' : 'border-red-200 bg-red-50'}`} aria-label="Tổng quan ngưỡng xếp hạng">
+              <section className={`rounded-t-xl border border-b-0 px-5 py-4 ${starThresholdsValid ? 'border-[#d8e4dd] bg-[#f3f8f5]' : 'border-red-200 bg-red-50'}`} aria-label="Tổng quan ngưỡng xếp hạng">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <h3 className="font-semibold text-[#274b3b]">Ngưỡng xếp hạng</h3>
-                    <p className="mt-0.5 text-sm text-[#718078]">Cần duy trì thứ tự: 1 sao &lt; 2 sao &lt; 3 sao.</p>
+                    <p className="mt-0.5 text-sm text-[#718078]">Điểm đạt phải tăng dần theo số sao: 1 sao &lt; 2 sao &lt; 3 sao.</p>
                   </div>
                   <div className="flex items-center gap-2 text-sm font-semibold text-[#274b3b]">
                     {starThresholds.map((config, index) => (
@@ -506,12 +506,14 @@ const AdminSettings = () => {
                 {!starThresholdsValid && <p className="mt-2 text-xs font-semibold text-red-700">Thứ tự ngưỡng chưa hợp lệ. Hãy điều chỉnh trước khi lưu.</p>}
               </section>
             )}
+            <div className={`overflow-hidden border border-[#d8e4dd] bg-white ${selectedGroup === 'scoring' && starThresholds.length === 3 ? 'rounded-b-xl' : 'rounded-xl'}`}>
             {paginatedConfigs.map((config) => {
               const presentation = getPresentation(config);
               const value = drafts[config.key] ?? '';
               const valueType = getValueType(config);
               const options = parseOptions(config.options);
               const changed = changedKeys.has(config.key);
+              const isStarThreshold = /^scoring\.star[123]\.threshold$/.test(config.key);
               const validationError = changed
                 ? validateValue(config, value) || validateScoringRelationship(config, value)
                 : '';
@@ -519,7 +521,7 @@ const AdminSettings = () => {
               const hasValidVersion = Number.isInteger(config.version) && Number(config.version) >= 0;
 
               return (
-                <article key={config.key} className={`grid gap-5 rounded-xl border bg-white p-5 transition lg:grid-cols-[minmax(280px,1fr)_minmax(360px,0.9fr)] lg:items-center ${changed ? 'border-amber-300 shadow-[0_0_0_1px_rgba(217,119,6,0.08)]' : 'border-[#e0e9e4]'}`}>
+                <article key={config.key} className={`grid gap-4 border-b border-[#e8eeea] px-5 py-4 last:border-b-0 lg:grid-cols-[minmax(300px,1fr)_minmax(320px,0.75fr)] lg:items-center ${isStarThreshold ? 'bg-[#fbfdfc]' : 'bg-white'} ${changed ? 'bg-amber-50/60' : ''}`}>
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <h3 className="font-semibold text-[#274b3b]">{presentation.label}</h3>
@@ -596,9 +598,8 @@ const AdminSettings = () => {
                         className="w-full rounded-xl border border-[#cfded6] bg-white px-3 py-2 font-mono text-sm text-[#274b3b] outline-none focus:border-[#1D6750]"
                       />
                     ) : (
-                      <div className="rounded-xl border border-[#d8e4dd] bg-[#fafcfb] p-3">
-                        <p className="text-xs font-semibold text-[#52655b]">Giá trị hiện tại</p>
-                        <div className="mt-1.5 flex items-center justify-end gap-2">
+                      <div>
+                        <div className="flex items-center justify-end gap-2">
                           <input
                             type={valueType === 'number' ? 'number' : 'text'}
                             min={config.min}
@@ -607,12 +608,12 @@ const AdminSettings = () => {
                             value={value}
                             onChange={(event) => updateDraft(config.key, event.target.value)}
                             aria-label={`Giá trị ${presentation.label}`}
-                            className="h-11 w-36 rounded-lg border border-[#cfded6] bg-white px-3 text-right text-sm font-semibold text-[#274b3b] outline-none focus:border-[#1D6750]"
+                            className="h-10 w-32 rounded-lg border border-[#cfded6] bg-white px-3 text-right text-sm font-semibold text-[#274b3b] outline-none focus:border-[#1D6750]"
                           />
                           {presentation.unit && <span className="min-w-12 text-sm font-semibold text-[#52655b]">{presentation.unit}</span>}
                         </div>
                         {config.min !== undefined && config.max !== undefined && (
-                          <p className="mt-2 text-right text-xs text-[#718078]">
+                          <p className="mt-1.5 text-right text-xs text-[#718078]">
                             Giá trị hợp lệ: {formatNumberVi(config.min)}–{formatNumberVi(config.max)}{presentation.unit ? ` ${presentation.unit}` : ''}
                             {config.step !== undefined ? ` · Bước ${formatNumberVi(config.step)}` : ''}
                           </p>
@@ -640,6 +641,7 @@ const AdminSettings = () => {
                 </article>
               );
             })}
+            </div>
           </div>
         )}
 
