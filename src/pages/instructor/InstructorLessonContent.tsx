@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from 'react';
-import { ArrowLeft, GraduationCap, ClipboardList, HelpCircle, Gamepad2, Pencil, Plus, Trash2, X } from 'lucide-react';
+import { ArrowLeft, Check, ClipboardList, Gamepad2, GraduationCap, HelpCircle, Music4, Pencil, Plus, Trash2, X } from 'lucide-react';
 import { Link, useParams } from 'react-router-dom';
 import { lessonDetailApi } from '../../api/management';
 import {
@@ -14,6 +14,19 @@ import {
   type QuizInput,
 } from '../../api/lessonContent';
 import type { Lesson } from '../../api/types';
+import QuizEditor from '../../components/instructor/QuizEditor';
+
+const parseQuizOptions = (value: string): string[] => {
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed.map(String) : [];
+  } catch {
+    return [];
+  }
+};
+
+const getQuestionTypeLabel = (type?: string) =>
+  type === 'NOTE_IDENTIFICATION' ? 'Nhận diện nốt nhạc' : 'Kiến thức chung';
 
 type Tab = 'exercises' | 'quizzes' | 'minigames';
 
@@ -31,18 +44,8 @@ const getChallengeTypeLabel = (type: string) => {
 };
 
 const emptyExercise: ExerciseInput = { title: '', description: '', passThreshold: 80, orderIndex: 1 };
-const emptyQuiz = { question: '', optionsText: '', correctAnswer: '', orderIndex: 1 };
 const emptyMinigame: MinigameInput = {
   title: '', challengeType: 'RHYTHM', difficulty: 'BEGINNER', maxScore: 100, orderIndex: 1, contentJson: '{}',
-};
-
-const parseOptions = (value: string) => {
-  try {
-    const parsed = JSON.parse(value);
-    return Array.isArray(parsed) ? parsed.map(String) : [];
-  } catch {
-    return [];
-  }
 };
 
 const InstructorLessonContent = () => {
@@ -58,7 +61,6 @@ const InstructorLessonContent = () => {
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [exerciseForm, setExerciseForm] = useState<ExerciseInput>(emptyExercise);
-  const [quizForm, setQuizForm] = useState(emptyQuiz);
   const [minigameForm, setMinigameForm] = useState<MinigameInput>(emptyMinigame);
 
   const loadContent = useCallback(async () => {
@@ -99,7 +101,6 @@ const InstructorLessonContent = () => {
       const beatMapAsset = lesson?.mediaAssets?.find((asset) => asset.assetType === 'BEAT_MAP');
       setExerciseForm({ ...emptyExercise, beatMapAssetId: beatMapAsset?.id, orderIndex: exercises.length + 1 });
     }
-    if (tab === 'quizzes') setQuizForm({ ...emptyQuiz, orderIndex: quizzes.length + 1 });
     if (tab === 'minigames') setMinigameForm({ ...emptyMinigame, orderIndex: minigames.length + 1 });
     setEditorOpen(true);
   };
@@ -115,10 +116,6 @@ const InstructorLessonContent = () => {
 
   const openQuiz = (item: Quiz) => {
     setEditingId(item.id);
-    setQuizForm({
-      question: item.question, optionsText: parseOptions(item.options).join('\n'),
-      correctAnswer: item.correctAnswer ?? '', orderIndex: item.orderIndex,
-    });
     setEditorOpen(true);
   };
 
@@ -147,16 +144,6 @@ const InstructorLessonContent = () => {
         }
         if (editingId) await exercisesApi.update(editingId, body);
         else await exercisesApi.create(lessonId, body);
-      } else if (tab === 'quizzes') {
-        const options = quizForm.optionsText.split('\n').map((item) => item.trim()).filter(Boolean);
-        if (options.length < 2) throw new Error('Quiz cần ít nhất hai lựa chọn.');
-        if (!options.includes(quizForm.correctAnswer.trim())) throw new Error('Đáp án đúng phải trùng với một lựa chọn.');
-        const body: QuizInput = {
-          question: quizForm.question.trim(), options: JSON.stringify(options),
-          correctAnswer: quizForm.correctAnswer.trim(), orderIndex: quizForm.orderIndex,
-        };
-        if (editingId) await quizzesApi.update(editingId, body);
-        else await quizzesApi.create(lessonId, body);
       } else {
         if (minigameForm.contentJson) JSON.parse(minigameForm.contentJson);
         if (editingId) await minigamesApi.update(editingId, minigameForm);
@@ -166,6 +153,21 @@ const InstructorLessonContent = () => {
       await loadContent();
     } catch (cause) {
       setError(cause instanceof SyntaxError ? 'Cấu hình JSON của minigame không hợp lệ.' : cause instanceof Error ? cause.message : 'Không thể lưu nội dung.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const submitQuiz = async (body: QuizInput) => {
+    setSaving(true);
+    setError('');
+    try {
+      if (editingId) await quizzesApi.update(editingId, body);
+      else await quizzesApi.create(lessonId, body);
+      setEditorOpen(false);
+      await loadContent();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Không thể lưu câu hỏi.');
     } finally {
       setSaving(false);
     }
@@ -192,8 +194,8 @@ const InstructorLessonContent = () => {
 
   const itemActions = (id: number, onEdit: () => void) => (
     <div className="flex gap-2 shrink-0">
-      <button onClick={onEdit} className="p-2 rounded-lg border border-outline-variant/20 text-[#1D4532] hover:bg-[#1D4532]/5" title="Chỉnh sửa"><Pencil className="w-4 h-4" /></button>
-      <button onClick={() => void remove(id)} className="p-2 rounded-lg border border-red-200 text-red-700 hover:bg-red-50" title="Xóa"><Trash2 className="w-4 h-4" /></button>
+      <button onClick={onEdit} className="p-2 rounded-lg border border-outline-variant/20 text-[#1D4532] hover:bg-[#1D4532]/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1D4532]/30 transition-all duration-200 active:scale-90" title="Chỉnh sửa"><Pencil className="w-4 h-4" /></button>
+      <button onClick={() => void remove(id)} className="p-2 rounded-lg border border-red-200 text-red-700 hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-200 transition-all duration-200 active:scale-90" title="Xóa"><Trash2 className="w-4 h-4" /></button>
     </div>
   );
 
@@ -236,8 +238,28 @@ const InstructorLessonContent = () => {
               </article>
             ))}
             {tab === 'quizzes' && quizzes.map((item) => (
-              <article key={item.id} className="p-5 flex items-start justify-between gap-4 hover:bg-[#fbf9f4]">
-                <div><p className="text-xs text-[#1D4532] font-bold mb-1">CÂU HỎI #{item.orderIndex}</p><h3 className="font-bold text-lg">{item.question}</h3><div className="flex flex-wrap gap-2 mt-2">{parseOptions(item.options).map((option) => <span key={option} className="text-xs bg-[#f0eee9] px-3 py-1 rounded-full">{option}</span>)}</div></div>
+              <article key={item.id} className="p-5 flex items-start justify-between gap-4 hover:bg-[#fbf9f4] transition-colors duration-200">
+                <div className="min-w-0">
+                  <p className="text-[11px] uppercase tracking-[0.18em] font-bold text-[#1D4532]/70 mb-1.5">Câu hỏi <span className="tabular-nums">#{item.orderIndex}</span> · {getQuestionTypeLabel(item.questionType)}</p>
+                  <h3 className="font-bold text-lg leading-snug text-pretty">{item.title || item.question}</h3>
+                  {item.title && <p className="text-sm text-on-surface-variant mt-0.5 text-pretty">{item.question}</p>}
+                  {item.questionType === 'NOTE_IDENTIFICATION' && item.note && (
+                    <p className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-[#1D4532]">
+                      <Music4 className="w-3.5 h-3.5" /> Nốt nhạc: {item.note}
+                    </p>
+                  )}
+                  <div className="flex flex-wrap items-center gap-2 mt-3">
+                    {parseQuizOptions(item.options).map((option, index) => {
+                      const isCorrect = option === item.correctAnswer;
+                      return (
+                        <span key={`${option}-${index}`} className={`inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full transition-colors duration-200 ${isCorrect ? 'bg-[#1D4532] text-white shadow-sm shadow-[#1D4532]/20' : 'bg-[#f0eee9] text-on-surface-variant'}`}>
+                          {isCorrect && <Check className="w-3 h-3" strokeWidth={3} />}
+                          {option}
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
                 {itemActions(item.id, () => openQuiz(item))}
               </article>
             ))}
@@ -255,50 +277,57 @@ const InstructorLessonContent = () => {
       </section>
 
       {editorOpen && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex justify-end" onMouseDown={() => setEditorOpen(false)}>
-          <div className="w-full max-w-xl h-full bg-white p-6 md:p-8 overflow-y-auto shadow-2xl" onMouseDown={(event) => event.stopPropagation()}>
-            <div className="flex justify-between items-start mb-7"><div><p className="text-xs tracking-widest text-[#1D4532] font-bold uppercase">{editingId ? 'Chỉnh sửa' : 'Tạo mới'}</p><h2 className="text-2xl font-bold mt-1">{tabs.find((item) => item.id === tab)?.label}</h2></div><button onClick={() => setEditorOpen(false)} className="p-2 rounded-full hover:bg-[#f0eee9]"><X className="w-5 h-5" /></button></div>
-            {error && (
-              <div className="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
-                {error}
-              </div>
-            )}            <form onSubmit={(event) => void submit(event)} className="space-y-5">
-              {tab === 'exercises' && <>
-                <Field label="Tên bài tập"><input required value={exerciseForm.title} onChange={(e) => setExerciseForm({ ...exerciseForm, title: e.target.value })} className="input" /></Field>
-                <Field label="Mô tả"><textarea value={exerciseForm.description} onChange={(e) => setExerciseForm({ ...exerciseForm, description: e.target.value })} className="input min-h-28" /></Field>
-                <div className="grid grid-cols-2 gap-4"><Field label="Ngưỡng đạt (%)"><input type="number" min="0" max="100" required value={exerciseForm.passThreshold} onChange={(e) => setExerciseForm({ ...exerciseForm, passThreshold: Number(e.target.value) })} className="input" /></Field><Field label="Thứ tự"><input type="number" min="0" required value={exerciseForm.orderIndex} onChange={(e) => setExerciseForm({ ...exerciseForm, orderIndex: Number(e.target.value) })} className="input" /></Field></div>
-                <Field label={`Mã tài nguyên bản đồ nhịp điệu (Beat Map Asset ID)${editingId ? ' (không bắt buộc khi cập nhật)' : ''}`}>
-                  <input type="number" min="1" required={!editingId} value={exerciseForm.beatMapAssetId ?? ''} onChange={(e) => setExerciseForm({ ...exerciseForm, beatMapAssetId: e.target.value ? Number(e.target.value) : undefined })} placeholder="Nhập ID tài nguyên BEAT_MAP" className="input" />
-                  <span className="mt-2 block text-xs text-on-surface-variant">Hệ thống cần một tài nguyên đa phương tiện hợp lệ để liên kết với bài tập mới.</span>
-                </Field>
-              </>}
-              {tab === 'quizzes' && <>
-                <Field label="Câu hỏi"><textarea required value={quizForm.question} onChange={(e) => setQuizForm({ ...quizForm, question: e.target.value })} className="input min-h-24" /></Field>
-                <Field label="Các lựa chọn (mỗi dòng một đáp án)"><textarea required value={quizForm.optionsText} onChange={(e) => setQuizForm({ ...quizForm, optionsText: e.target.value })} placeholder={'Đáp án A\nĐáp án B\nĐáp án C'} className="input min-h-32" /></Field>
-                <Field label="Đáp án đúng"><input required value={quizForm.correctAnswer} onChange={(e) => setQuizForm({ ...quizForm, correctAnswer: e.target.value })} className="input" /></Field>
-                <Field label="Thứ tự"><input type="number" min="0" value={quizForm.orderIndex} onChange={(e) => setQuizForm({ ...quizForm, orderIndex: Number(e.target.value) })} className="input" /></Field>
-              </>}
-              {tab === 'minigames' && <>
-                <Field label="Tên minigame"><input required value={minigameForm.title} onChange={(e) => setMinigameForm({ ...minigameForm, title: e.target.value })} className="input" /></Field>
-                <div className="grid grid-cols-2 gap-4">
-                  <Field label="Loại thử thách">
-                    <select
-                      value={minigameForm.challengeType}
-                      onChange={(e) => setMinigameForm({ ...minigameForm, challengeType: e.target.value })}
-                      className="input cursor-pointer"
-                    >
-                      <option value="RHYTHM">Gõ theo nhịp (Rhythm)</option>
-                      <option value="PITCH">Đoán cao độ (Pitch)</option>
-                      <option value="LISTENING">Luyện nghe cảm âm (Listening)</option>
-                    </select>
-                  </Field>
-                  <Field label="Độ khó"><select value={minigameForm.difficulty} onChange={(e) => setMinigameForm({ ...minigameForm, difficulty: e.target.value })} className="input cursor-pointer"><option value="BEGINNER">Cơ bản</option><option value="INTERMEDIATE">Trung cấp</option><option value="ADVANCED">Nâng cao</option></select></Field>
-                </div>
-                <div className="grid grid-cols-2 gap-4"><Field label="Điểm tối đa"><input type="number" min="1" required value={minigameForm.maxScore} onChange={(e) => setMinigameForm({ ...minigameForm, maxScore: Number(e.target.value) })} className="input" /></Field><Field label="Thứ tự"><input type="number" min="0" required value={minigameForm.orderIndex} onChange={(e) => setMinigameForm({ ...minigameForm, orderIndex: Number(e.target.value) })} className="input" /></Field></div>
-                <Field label="Cấu hình chi tiết (JSON)"><textarea value={minigameForm.contentJson} onChange={(e) => setMinigameForm({ ...minigameForm, contentJson: e.target.value })} className="input min-h-40 font-mono text-sm" /></Field>
-              </>}
-              <button disabled={saving} className="w-full bg-[#1D4532] text-white rounded-xl py-3.5 font-bold disabled:opacity-60">{saving ? 'Đang lưu...' : editingId ? 'Lưu thay đổi' : 'Tạo nội dung'}</button>
-            </form>
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex justify-end animate-[fadeIn_0.25s_ease-out]" onMouseDown={() => setEditorOpen(false)}>
+          <div className="w-full max-w-xl h-full bg-white p-6 md:p-8 overflow-y-auto shadow-2xl custom-scrollbar animate-[slideIn_0.32s_cubic-bezier(0.22,1,0.36,1)]" onMouseDown={(event) => event.stopPropagation()}>
+            <div className="flex justify-between items-start mb-7"><div><p className="text-xs tracking-widest text-[#1D4532] font-bold uppercase">{editingId ? 'Chỉnh sửa' : 'Tạo mới'}</p><h2 className="text-2xl font-bold mt-1">{tabs.find((item) => item.id === tab)?.label}</h2></div><button onClick={() => setEditorOpen(false)} className="p-2 rounded-full hover:bg-[#f0eee9] transition-colors duration-200 active:scale-90"><X className="w-5 h-5" /></button></div>
+            {tab === 'quizzes' ? (
+              <QuizEditor
+                initial={editingId ? quizzes.find((item) => item.id === editingId) ?? null : null}
+                defaultOrderIndex={quizzes.length + 1}
+                saving={saving}
+                apiError={error}
+                onCancel={() => setEditorOpen(false)}
+                onSubmit={(body) => void submitQuiz(body)}
+              />
+            ) : (
+              <>
+                {error && (
+                  <div className="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+                    {error}
+                  </div>
+                )}            <form onSubmit={(event) => void submit(event)} className="space-y-5">
+                  {tab === 'exercises' && <>
+                    <Field label="Tên bài tập"><input required value={exerciseForm.title} onChange={(e) => setExerciseForm({ ...exerciseForm, title: e.target.value })} className="input" /></Field>
+                    <Field label="Mô tả"><textarea value={exerciseForm.description} onChange={(e) => setExerciseForm({ ...exerciseForm, description: e.target.value })} className="input min-h-28" /></Field>
+                    <div className="grid grid-cols-2 gap-4"><Field label="Ngưỡng đạt (%)"><input type="number" min="0" max="100" required value={exerciseForm.passThreshold} onChange={(e) => setExerciseForm({ ...exerciseForm, passThreshold: Number(e.target.value) })} className="input" /></Field><Field label="Thứ tự"><input type="number" min="0" required value={exerciseForm.orderIndex} onChange={(e) => setExerciseForm({ ...exerciseForm, orderIndex: Number(e.target.value) })} className="input" /></Field></div>
+                    <Field label={`Mã tài nguyên bản đồ nhịp điệu (Beat Map Asset ID)${editingId ? ' (không bắt buộc khi cập nhật)' : ''}`}>
+                      <input type="number" min="1" required={!editingId} value={exerciseForm.beatMapAssetId ?? ''} onChange={(e) => setExerciseForm({ ...exerciseForm, beatMapAssetId: e.target.value ? Number(e.target.value) : undefined })} placeholder="Nhập ID tài nguyên BEAT_MAP" className="input" />
+                      <span className="mt-2 block text-xs text-on-surface-variant">Hệ thống cần một tài nguyên đa phương tiện hợp lệ để liên kết với bài tập mới.</span>
+                    </Field>
+                  </>}
+                  {tab === 'minigames' && <>
+                    <Field label="Tên minigame"><input required value={minigameForm.title} onChange={(e) => setMinigameForm({ ...minigameForm, title: e.target.value })} className="input" /></Field>
+                    <div className="grid grid-cols-2 gap-4">
+                      <Field label="Loại thử thách">
+                        <select
+                          value={minigameForm.challengeType}
+                          onChange={(e) => setMinigameForm({ ...minigameForm, challengeType: e.target.value })}
+                          className="input cursor-pointer"
+                        >
+                          <option value="RHYTHM">Gõ theo nhịp (Rhythm)</option>
+                          <option value="PITCH">Đoán cao độ (Pitch)</option>
+                          <option value="LISTENING">Luyện nghe cảm âm (Listening)</option>
+                        </select>
+                      </Field>
+                      <Field label="Độ khó"><select value={minigameForm.difficulty} onChange={(e) => setMinigameForm({ ...minigameForm, difficulty: e.target.value })} className="input cursor-pointer"><option value="BEGINNER">Cơ bản</option><option value="INTERMEDIATE">Trung cấp</option><option value="ADVANCED">Nâng cao</option></select></Field>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4"><Field label="Điểm tối đa"><input type="number" min="1" required value={minigameForm.maxScore} onChange={(e) => setMinigameForm({ ...minigameForm, maxScore: Number(e.target.value) })} className="input" /></Field><Field label="Thứ tự"><input type="number" min="0" required value={minigameForm.orderIndex} onChange={(e) => setMinigameForm({ ...minigameForm, orderIndex: Number(e.target.value) })} className="input" /></Field></div>
+                    <Field label="Cấu hình chi tiết (JSON)"><textarea value={minigameForm.contentJson} onChange={(e) => setMinigameForm({ ...minigameForm, contentJson: e.target.value })} className="input min-h-40 font-mono text-sm" /></Field>
+                  </>}
+                  <button disabled={saving} className="w-full bg-[#1D4532] text-white rounded-xl py-3.5 font-bold transition-all duration-200 hover:bg-[#1D4532]/90 active:scale-[0.99] disabled:opacity-60">{saving ? 'Đang lưu...' : editingId ? 'Lưu thay đổi' : 'Tạo nội dung'}</button>
+                </form>
+              </>
+            )}
           </div>
         </div>
       )}

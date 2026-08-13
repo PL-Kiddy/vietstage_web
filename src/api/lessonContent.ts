@@ -18,8 +18,14 @@ export interface ExerciseInput {
   orderIndex: number;
 }
 
+export type QuizQuestionType = 'NOTE_IDENTIFICATION' | 'GENERAL';
+
 export interface Quiz {
   id: number;
+  title: string;
+  questionType: QuizQuestionType;
+  note?: string;
+  audioUrl?: string;
   question: string;
   options: string;
   correctAnswer?: string;
@@ -27,6 +33,10 @@ export interface Quiz {
 }
 
 export interface QuizInput {
+  title: string;
+  questionType: QuizQuestionType;
+  note?: string;
+  audioUrl?: string;
   question: string;
   options: string;
   correctAnswer: string;
