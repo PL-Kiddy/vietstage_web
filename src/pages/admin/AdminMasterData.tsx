@@ -35,6 +35,7 @@ const emptyTechnique: TechniqueInput = {
   instrument_id: 0,
 };
 
+// Trang dữ liệu nền: quản lý nhạc cụ, trình độ, kỹ thuật (3 tab, CRUD qua slide-in drawer)
 const AdminMasterData = () => {
   const [tab, setTab] = useState<Tab>('instruments');
   const [instruments, setInstruments] = useState<Instrument[]>([]);
@@ -65,6 +66,7 @@ const AdminMasterData = () => {
   // Drawer states
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
+  // Tải toàn bộ 3 danh sách (instruments/skill-levels/techniques) song song khi mount
   const loadAll = useCallback(async () => {
     setLoading(true);
     setError('');
@@ -103,6 +105,7 @@ const AdminMasterData = () => {
   }, [tab]);
 
   // Open Drawer helpers
+  // Mở drawer thêm mới theo tab đang chọn
   const handleAddNewClick = () => {
     if (tab === 'instruments') {
       setInstrumentForm(emptyInstrument);
@@ -125,6 +128,7 @@ const AdminMasterData = () => {
   };
 
   // Submit / Edit / Delete Instrument
+  // Tạo hoặc cập nhật nhạc cụ (POST/PUT /api/instruments)
   const submitInstrument = async (event: FormEvent) => {
     event.preventDefault();
     try {
@@ -142,6 +146,7 @@ const AdminMasterData = () => {
     }
   };
 
+  // Tải chi tiết nhạc cụ vào form để chỉnh sửa
   const editInstrument = async (id: number) => {
     try {
       const item = await instrumentManagementApi.get(id);
@@ -157,6 +162,7 @@ const AdminMasterData = () => {
     }
   };
 
+  // Xóa nhạc cụ (có xác nhận confirm)
   const deleteInstrument = async (id: number) => {
     if (!confirm('Xóa nhạc cụ này? Các dữ liệu liên quan có thể khiến thao tác thất bại.')) return;
     try {
@@ -168,6 +174,7 @@ const AdminMasterData = () => {
   };
 
   // Show Technique of Instrument
+  // Hiển thị danh sách kỹ thuật của một nhạc cụ (chuyển sang tab techniques + lọc)
   const showInstrumentTechniques = async (id: number) => {
     try {
       setTechniques(await instrumentManagementApi.techniques(id));
@@ -180,6 +187,7 @@ const AdminMasterData = () => {
   };
 
   // Submit / Edit / Delete Skill Level
+  // Tạo hoặc cập nhật trình độ (POST/PUT /api/skill-levels)
   const submitSkillLevel = async (event: FormEvent) => {
     event.preventDefault();
     try {
@@ -219,6 +227,7 @@ const AdminMasterData = () => {
   };
 
   // Submit / Edit / Delete Technique
+  // Tạo hoặc cập nhật kỹ thuật (POST /api/techniques / PUT /api/techniques/{id})
   const submitTechnique = async (event: FormEvent) => {
     event.preventDefault();
     try {
@@ -266,6 +275,7 @@ const AdminMasterData = () => {
     }
   };
 
+  // Lọc danh sách kỹ thuật theo nhạc cụ (hoặc lấy tất cả khi instrumentId=0)
   const filterTechniques = async (instrumentId: number) => {
     setTechniqueInstrumentFilter(instrumentId);
     try {

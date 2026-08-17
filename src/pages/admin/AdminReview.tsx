@@ -54,6 +54,7 @@ const formatDuration = (seconds?: number) => {
   return `${String(Math.floor(rounded / 60)).padStart(2, '0')}:${String(rounded % 60).padStart(2, '0')}`;
 };
 
+// Chuẩn hóa item review từ API về dạng ReviewItem UI
 const normalizeReview = (item: ApiReviewItem): ReviewItem => {
   const assets = (item.assets ?? []).map((asset) => ({
     id: asset.id,
@@ -98,6 +99,7 @@ const normalizeReviewStatus = (status?: string): ReviewItem['status'] => {
 const isModerationStatus = (status?: string) =>
   ['PENDING', 'APPROVED', 'REJECTED'].includes(String(status ?? '').trim().toUpperCase());
 
+// Trang kiểm duyệt học liệu: danh sách + lọc + phê duyệt/từ chối kèm phản hồi
 const AdminReview = () => {
   const [items, setItems] = useState<ReviewItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -141,6 +143,7 @@ const AdminReview = () => {
     return () => controller.abort();
   }, []);
 
+  // Tải song song danh sách chính + 4 request đếm số lượng theo trạng thái
   const loadReviews = useCallback(async (signal?: AbortSignal) => {
     setIsLoading(true);
     setLoadError('');
@@ -194,6 +197,7 @@ const AdminReview = () => {
   const [isPreviewZoomed, setIsPreviewZoomed] = useState<boolean>(false);
   const [previewAsset, setPreviewAsset] = useState<ReviewAsset | null>(null);
 
+  // Mở drawer xem trước học liệu
   const openDrawer = (item: ReviewItem) => {
     setSelectedItem(item);
     setFeedback(item.feedback || '');
@@ -207,6 +211,7 @@ const AdminReview = () => {
     setPreviewAsset(null);
   };
 
+  // Phê duyệt học liệu (POST approve)
   const handleApprove = async () => {
     if (!selectedItem || selectedItem.status !== 'pending' || isDecisionSubmitting) return;
     setIsDecisionSubmitting(true);
@@ -222,6 +227,7 @@ const AdminReview = () => {
     }
   };
 
+  // Từ chối học liệu: bắt buộc có lý do (<=1000 ký tự) gửi qua POST reject
   const handleReject = async () => {
     if (!selectedItem || selectedItem.status !== 'pending' || isDecisionSubmitting) return;
     if (!feedback.trim()) {
