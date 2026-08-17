@@ -3,6 +3,7 @@ import type { AuthResponse, AuthSession, BackendRole, PortalRole } from './types
 const SESSION_KEY = 'vietstage_auth_session';
 const LEGACY_USER_KEY = 'vietstage_current_user';
 
+// Chuyển role từ backend (ADMIN/INSTRUCTOR/LEARNER) sang role portal (admin/instructor/learner)
 export const toPortalRole = (role?: BackendRole | string): PortalRole => {
   switch (role?.toUpperCase()) {
     case 'ADMIN':
@@ -14,6 +15,7 @@ export const toPortalRole = (role?: BackendRole | string): PortalRole => {
   }
 };
 
+// Đọc session đăng nhập (ưu tiên sessionStorage, fallback localStorage)
 export const getAuthSession = (): AuthSession | null => {
   const raw = sessionStorage.getItem(SESSION_KEY) ?? localStorage.getItem(SESSION_KEY);
   if (!raw) return null;
@@ -25,6 +27,7 @@ export const getAuthSession = (): AuthSession | null => {
   }
 };
 
+// Lưu session sau khi đăng nhập: remember=true -> localStorage, ngược lại sessionStorage
 export const saveAuthSession = (
   response: AuthResponse,
   fallbackEmail: string,
@@ -52,6 +55,7 @@ export const saveAuthSession = (
   return session;
 };
 
+// Cập nhật token/refreshToken/sessionId sau khi refresh phiên (giữ nguyên nơi lưu trữ)
 export const updateAuthTokens = (
   accessToken: string,
   refreshToken: string,
@@ -66,6 +70,7 @@ export const updateAuthTokens = (
   return updated;
 };
 
+// Xóa toàn bộ session (localStorage + sessionStorage) khi đăng xuất
 export const clearAuthSession = () => {
   sessionStorage.removeItem(SESSION_KEY);
   localStorage.removeItem(SESSION_KEY);

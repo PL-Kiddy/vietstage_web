@@ -17,6 +17,7 @@ import type {
   InstructorCreateResponse,
 } from './types';
 
+// ── Auth: đăng nhập, đăng ký, quên mật khẩu, đăng xuất ──
 export const authApi = {
   login: (email: string, password: string) =>
     apiRequest<AuthResponse>('/api/auth/login', {
@@ -51,6 +52,7 @@ export const authApi = {
   logout: () => apiRequest<void>('/api/auth/logout', { method: 'POST' }),
 };
 
+// ── Admin quản lý người dùng (danh sách, sửa, đổi role/status, reset mật khẩu, tạo giảng viên) ──
 export const usersApi = {
   list: (options?: RequestOptions) => apiRequest<PageResponse<AdminUser>>('/api/admin/users', options),
   updateProfile: (id: number, body: { fullName: string; avatarUrl?: string }) =>
@@ -77,6 +79,7 @@ export const usersApi = {
     apiRequest<InstructorCreateResponse>('/api/admin/create-instructor', { method: 'POST', body }),
 };
 
+// ── Master data: danh sách nhạc cụ và trình độ ──
 export const masterDataApi = {
   instruments: (options?: RequestOptions) => apiRequest<Instrument[]>('/api/instruments', options),
   skillLevels: (options?: RequestOptions) => apiRequest<SkillLevel[]>('/api/skill-levels', options),
@@ -98,6 +101,7 @@ export interface AppConfig {
   updated_at?: string;
 }
 
+// ── Cấu hình hệ thống (AdminSettings): đọc theo group, cập nhật theo key kèm version (optimistic lock) ──
 export const appConfigsApi = {
   list: (group?: string, options?: RequestOptions) => {
     const query = group ? `?group=${encodeURIComponent(group)}` : '';
@@ -122,6 +126,7 @@ export interface LessonInput {
   passThreshold?: number;
 }
 
+// ── Bài học (lesson): CRUD + cập nhật trạng thái ──
 export const lessonsApi = {
   list: (params: URLSearchParams, options?: RequestOptions) =>
     apiRequest<PageResponse<Lesson>>(`/api/lessons?${params.toString()}`, options),
@@ -151,6 +156,7 @@ export interface ExerciseInput {
   orderIndex?: number;
 }
 
+// ── Bài tập (exercise): tạo mới theo lesson (chỉ có create ở đây, CRUD đầy đủ ở lessonContent.ts) ──
 export const exercisesApi = {
   // POST /api/lessons/{id}/exercises
   create: (lessonId: number, body: ExerciseInput) =>
@@ -160,6 +166,7 @@ export const exercisesApi = {
     ),
 };
 
+// ── Kiểm duyệt học liệu (AdminReview): danh sách + phê duyệt/từ chối ──
 export const reviewsApi = {
   list: (params?: URLSearchParams, options?: RequestOptions) =>
     apiRequest<PageResponse<ReviewItem>>(`/api/admin/reviews${params && params.size > 0 ? `?${params.toString()}` : ''}`, options),
@@ -172,6 +179,7 @@ export const reviewsApi = {
     }),
 };
 
+// ── Tiến độ học viên (learner) ──
 export const learnerProgressApi = {
   // GET /api/lessons/{id}/learners/{learner_id}/progress
   getLessonLearnerProgress: (lessonId: number, learnerId: number, options?: RequestOptions) =>
@@ -209,6 +217,7 @@ export const learnerProgressApi = {
     }>('/api/users/me/progress/summary', options),
 };
 
+// ── Giảng viên: danh sách học viên, lượt luyện tập, phản hồi theo attempt ──
 export const instructorStudentsApi = {
   // Returns only learners the authenticated instructor is allowed to monitor.
   listStudents: (page = 0, size = 100, search?: string, options?: RequestOptions) => {
@@ -252,6 +261,7 @@ export const instructorStudentsApi = {
     }),
 };
 
+// ── Upload file chung lên Cloudinary ──
 export const uploadApi = {
   uploadFile: async (file: File): Promise<string> => {
     const formData = new FormData();
@@ -263,6 +273,7 @@ export const uploadApi = {
   },
 };
 
+// ── Kỹ thuật gắn với bài học (POST /api/lessons/{id}/techniques) ──
 export const lessonTechniquesApi = {
   list: (lessonId: number, options?: RequestOptions) =>
     apiRequest<{ id: number; name: string; description?: string }[]>(`/api/lessons/${lessonId}/techniques`, options),
@@ -278,6 +289,7 @@ export const lessonTechniquesApi = {
     }),
 };
 
+// ── Media assets của bài học: danh sách, upload (REFERENCE_AUDIO/SHEET_MUSIC), xóa ──
 export const lessonAssetsApi = {
   getAssets: (lessonId: number, options?: RequestOptions) =>
     apiRequest<LessonAsset[]>(`/api/lessons/${lessonId}/assets`, options),
@@ -302,6 +314,7 @@ export const lessonAssetsApi = {
     }),
 };
 
+// ── Dashboard Admin: thống kê theo khoảng ngày và mức granularity (DAY/WEEK/MONTH) ──
 export const adminDashboardApi = {
   get: (
     params: { fromDate: string; toDate: string; granularity: DashboardGranularity },

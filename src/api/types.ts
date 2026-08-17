@@ -1,9 +1,11 @@
+// Envelope chuẩn của backend: { success, message, data }
 export interface ApiResponse<T> {
   success: boolean;
   message: string;
   data: T;
 }
 
+// Phân trang chuẩn backend (PageResponse)
 export interface PageResponse<T> {
   content: T[];
   page: number;
@@ -16,6 +18,7 @@ export interface PageResponse<T> {
 export type BackendRole = 'ADMIN' | 'INSTRUCTOR' | 'LEARNER';
 export type PortalRole = 'admin' | 'instructor' | 'learner';
 
+// Response đăng nhập/refresh từ /api/auth/*
 export interface AuthResponse {
   token?: string;
   refreshToken?: string;
@@ -27,6 +30,7 @@ export interface AuthResponse {
   message: string;
 }
 
+// Người dùng hiện tại (lưu trong session)
 export interface CurrentUser {
   email: string;
   name: string;
@@ -44,12 +48,14 @@ export interface Notification {
   read: boolean;
 }
 
+// Session đăng nhập đầy đủ (token + thông tin người dùng)
 export interface AuthSession extends CurrentUser {
   accessToken: string;
   refreshToken: string;
   sessionId: string;
 }
 
+// Người dùng trong danh sách quản lý (AdminUsers)
 export interface AdminUser {
   id: number;
   name: string;
@@ -74,6 +80,7 @@ export interface InstructorLearner {
   instrumentName: string;
 }
 
+// Nhạc cụ
 export interface Instrument {
   id: number;
   instrumentCode?: string;
@@ -83,6 +90,7 @@ export interface Instrument {
   active?: boolean;
 }
 
+// Trình độ kỹ năng
 export interface SkillLevel {
   id: number;
   levelCode: string;
@@ -90,6 +98,7 @@ export interface SkillLevel {
   orderIndex: number;
 }
 
+// Bài học (lesson) — đầy đủ thông tin từ GET /api/lessons/{id}
 export interface Lesson {
   id: number;
   lessonCode?: string;
@@ -119,6 +128,7 @@ export interface Lesson {
   }[];
 }
 
+// Học liệu chờ kiểm duyệt (AdminReview)
 export interface ReviewItem {
   id: number;
   lessonId?: number;
@@ -144,6 +154,7 @@ export interface ReviewItem {
   approvedAt?: string;
 }
 
+// Lượt luyện tập của học viên (attempt)
 export interface PracticeAttempt {
   id: number;
   session_id?: number;
@@ -161,7 +172,7 @@ export interface PracticeAttempt {
   duration?: string;
 }
 
-/** Attempt projection returned by GET /api/instructor/practice-attempts. */
+// Attempt projection returned by GET /api/instructor/practice-attempts.
 export interface PracticeAttemptDetailResponse {
   attemptId: number;
   learnerId: number;
@@ -182,25 +193,30 @@ export interface PracticeAttemptDetailResponse {
   createdAt: string;
 }
 
+// Granularity của Dashboard (ngày/tuần/tháng)
 export type DashboardGranularity = 'DAY' | 'WEEK' | 'MONTH';
 
+// Thống kê nhạc cụ phổ biến (Dashboard)
 export interface PopularInstrumentStat {
   instrumentId: number;
   instrumentName: string;
   practiceCount: number;
 }
 
+// Thống kê thời lượng phiên theo kỳ (Dashboard)
 export interface SessionDurationStat {
   period: string;
   averageDurationMinutes: number;
   totalDurationMinutes: number;
 }
 
+// Thống kê tỷ lệ duy trì theo kỳ (Dashboard)
 export interface RetentionStat {
   period: string;
   retentionRate: number;
 }
 
+// Toàn bộ số liệu Dashboard Admin
 export interface AdminDashboardStats {
   activeUsers: number;
   popularInstruments: PopularInstrumentStat[];
@@ -208,6 +224,7 @@ export interface AdminDashboardStats {
   retention: RetentionStat[];
 }
 
+// Request tạo giảng viên mới (Admin)
 export interface InstructorCreateRequest {
   email: string;
   password: string;
@@ -217,6 +234,7 @@ export interface InstructorCreateRequest {
   instrumentIds?: number[];
 }
 
+// Response tạo giảng viên thành công
 export interface InstructorCreateResponse {
   id: number;
   userCode?: string;
@@ -229,6 +247,7 @@ export interface InstructorCreateResponse {
   yearsExperience?: number;
 }
 
+// Phản hồi của giảng viên cho một lượt tập (hỗ trợ cả 2 naming snake_case/camelCase từ API)
 export interface FeedbackResponse {
   id: number;
   comment: string;
@@ -238,6 +257,7 @@ export interface FeedbackResponse {
   created_at?: string;
 }
 
+// Media asset của bài học (dạng snake_case từ GET /api/lessons/{id}/assets)
 export interface LessonAsset {
   id: number;
   type: string;
@@ -246,6 +266,7 @@ export interface LessonAsset {
   duration_sec?: number;
 }
 
+// Số liệu tổng quan cho Dashboard giảng viên
 export interface DashboardStats {
   courses?: number;
   students?: number;

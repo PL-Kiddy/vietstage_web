@@ -83,6 +83,7 @@ export const MELODY_COMPLETE_CONFIG: MelodyCompleteConfig = {
   correct_answers: {},
 };
 
+// ── Bài tập (exercise): CRUD theo lesson ──
 export const exercisesApi = {
   list: (lessonId: number) =>
     apiRequest<Exercise[]>(`/api/lessons/${lessonId}/exercises`),
@@ -93,6 +94,7 @@ export const exercisesApi = {
   remove: (id: number) => apiRequest<void>(`/api/exercises/${id}`, { method: 'DELETE' }),
 };
 
+// ── Quiz: CRUD theo lesson (options lưu dạng JSON string) ──
 export const quizzesApi = {
   list: (lessonId: number) => apiRequest<Quiz[]>(`/api/lessons/${lessonId}/quizzes`),
   create: (lessonId: number, body: QuizInput) =>
@@ -102,6 +104,7 @@ export const quizzesApi = {
   remove: (id: number) => apiRequest<void>(`/api/quizzes/${id}`, { method: 'DELETE' }),
 };
 
+// ── Minigame (thử thách tương tác): CRUD theo lesson, cấu hình giai điệu lưu trong contentJson ──
 export const minigamesApi = {
   list: (lessonId: number) =>
     apiRequest<Minigame[]>(`/api/lessons/${lessonId}/minigames`),
