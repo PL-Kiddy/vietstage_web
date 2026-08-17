@@ -24,9 +24,11 @@ import { getAuthSession } from './api/authStorage';
 
 function App() {
   // Show loading screen for 2.5s on initial app load
+  // Hiển thị màn hình khởi tạo tối thiểu 2.5s khi mở app
   const { isLoading } = useLoading({ autoStart: true, minDuration: 2500 });
 
   // Silent background wake-up ping for Render backend cold-start
+  // Ping nền để đánh thức backend Render (tránh cold-start chậm khi mở lại)
   useEffect(() => {
     const session = getAuthSession();
     const headers: Record<string, string> = {};
@@ -41,11 +43,13 @@ function App() {
       <LoadingScreen isLoading={isLoading} />
       <BrowserRouter>
         <Routes>
+          {/* Trang công khai: đăng nhập + quên mật khẩu */}
           <Route path="/" element={<LoginPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
 
           {/* Admin Routes - with layout */}
+          {/* Routes Admin (bảo vệ bởi role=admin), dùng chung AdminLayout */}
           <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
             <Route path="/admin" element={<AdminLayout />}>
               <Route index element={<AdminDashboard />} />
@@ -60,6 +64,7 @@ function App() {
           </Route>
 
           {/* Instructor Routes - with layout */}
+          {/* Routes Instructor (bảo vệ bởi role=instructor), dùng chung InstructorLayout */}
           <Route element={<ProtectedRoute allowedRoles={['instructor']} />}>
             <Route path="/instructor" element={<InstructorLayout />}>
               <Route index element={<InstructorDashboard />} />

@@ -1,3 +1,4 @@
+// Entry point: mount React app với StrictMode
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './styles/index.css'

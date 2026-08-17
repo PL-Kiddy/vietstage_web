@@ -7,6 +7,7 @@ import logoNgang from '../../assets/logongangtachnen.png';
 
 const navLinks: { label: string; href: string; active?: boolean }[] = [];
 
+// Thanh điều hướng trang chủ (dùng cho HomePage — chưa được route)
 const Navbar = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 

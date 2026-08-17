@@ -14,6 +14,7 @@ const socialLinks = [
   { icon: Share2, href: '#', label: 'Share' },
 ];
 
+// Footer trang chủ (dùng cho HomePage — chưa được route)
 const Footer = () => {
   return (
     <footer className="bg-tertiary dark:bg-on-tertiary-fixed text-tertiary-fixed dark:text-tertiary-fixed-dim border-t border-outline/10">

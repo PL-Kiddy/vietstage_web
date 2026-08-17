@@ -33,6 +33,7 @@ const cardVariants = {
   visible: { opacity: 1, y: 0, transition: { duration: 0.5 } },
 };
 
+// Section giới thiệu các nhạc cụ của trang chủ (chưa được route)
 const InstrumentsSection = () => {
   return (
     <section id="instruments" className="py-24 px-margin-mobile md:px-margin-desktop bg-surface-container-highest">
