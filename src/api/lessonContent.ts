@@ -43,25 +43,45 @@ export interface QuizInput {
   orderIndex: number;
 }
 
+export type MinigameChallengeType = 'RHYTHM_MATCH' | 'MELODY_COMPLETE';
+
 export interface Minigame {
   id: number;
   title: string;
-  challengeType: string;
+  challengeType: MinigameChallengeType;
   difficulty?: string;
   maxScore: number;
   orderIndex: number;
   contentJson?: string;
+  referenceAssetId?: number;
 }
 
 export interface MinigameInput {
   title: string;
-  challengeType: string;
+  challengeType: MinigameChallengeType;
   contentJson?: string;
   referenceAssetId?: number;
   difficulty?: string;
   maxScore: number;
   orderIndex: number;
 }
+
+export interface MelodyCompleteConfig {
+  audio_asset_id?: number;
+  melody: string[];
+  missing_positions: number[];
+  note_options: Record<string, string[]>;
+  correct_answers: Record<string, string>;
+  bpm?: number;
+  time_limit_sec?: number;
+}
+
+export const MELODY_COMPLETE_CONFIG: MelodyCompleteConfig = {
+  melody: [],
+  missing_positions: [],
+  note_options: {},
+  correct_answers: {},
+};
 
 export const exercisesApi = {
   list: (lessonId: number) =>

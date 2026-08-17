@@ -1,13 +1,17 @@
 import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from 'react';
-import { ArrowLeft, Check, ClipboardList, Gamepad2, GraduationCap, HelpCircle, Music4, Pencil, Plus, Trash2, X } from 'lucide-react';
+import { ArrowLeft, AudioLines, Check, ClipboardList, Gamepad2, GraduationCap, HelpCircle, Music4, Pencil, Plus, Sparkles, Timer, Trash2, X } from 'lucide-react';
 import { Link, useParams } from 'react-router-dom';
 import { lessonDetailApi } from '../../api/management';
+import { lessonAssetsApi } from '../../api/services';
+import type { LessonAsset } from '../../api/types';
 import {
   exercisesApi,
   minigamesApi,
   quizzesApi,
+  MELODY_COMPLETE_CONFIG,
   type Exercise,
   type ExerciseInput,
+  type MelodyCompleteConfig,
   type Minigame,
   type MinigameInput,
   type Quiz,
@@ -32,20 +36,84 @@ type Tab = 'exercises' | 'quizzes' | 'minigames';
 
 const getChallengeTypeLabel = (type: string) => {
   switch (type.toUpperCase()) {
-    case 'RHYTHM':
+    case 'RHYTHM_MATCH':
       return 'Gõ theo nhịp';
-    case 'PITCH':
-      return 'Đoán cao độ';
-    case 'LISTENING':
-      return 'Luyện nghe';
+    case 'MELODY_COMPLETE':
+      return 'Hoàn thiện giai điệu';
     default:
       return type;
   }
 };
 
+const getDifficultyLabel = (difficulty?: string) => {
+  switch (difficulty?.toUpperCase()) {
+    case 'BEGINNER':
+      return 'Cơ bản';
+    case 'INTERMEDIATE':
+      return 'Trung cấp';
+    case 'ADVANCED':
+      return 'Nâng cao';
+    default:
+      return 'CHƯA PHÂN LOẠI';
+  }
+};
+
+const parseMelodyConfig = (contentJson?: string): MelodyCompleteConfig => {
+  const fallback: MelodyCompleteConfig = {
+    melody: [],
+    missing_positions: [],
+    note_options: {},
+    correct_answers: {},
+  };
+  if (!contentJson) return fallback;
+  try {
+    const raw = JSON.parse(contentJson) as Partial<MelodyCompleteConfig>;
+    return {
+      audio_asset_id: typeof raw.audio_asset_id === 'number' ? raw.audio_asset_id : undefined,
+      melody: Array.isArray(raw.melody) ? raw.melody.map(String).filter(Boolean) : [],
+      missing_positions: Array.isArray(raw.missing_positions)
+        ? raw.missing_positions.map(Number).filter((n) => Number.isFinite(n))
+        : [],
+      note_options: raw.note_options ?? {},
+      correct_answers: raw.correct_answers ?? {},
+      bpm: typeof raw.bpm === 'number' ? raw.bpm : undefined,
+      time_limit_sec: typeof raw.time_limit_sec === 'number' ? raw.time_limit_sec : undefined,
+    };
+  } catch {
+    return fallback;
+  }
+};
+
+const buildMelodyConfigJson = (config: MelodyCompleteConfig): string =>
+  JSON.stringify({
+    audio_asset_id: config.audio_asset_id,
+    melody: config.melody,
+    missing_positions: config.missing_positions,
+    note_options: config.note_options,
+    correct_answers: config.correct_answers,
+    bpm: config.bpm,
+    time_limit_sec: config.time_limit_sec,
+  });
+
+const validateMelodyDraft = (config: MelodyCompleteConfig): string | null => {
+  const notes = config.melody.map((n) => n.trim()).filter(Boolean);
+  if (notes.length < 2) return 'Giai điệu cần tối thiểu 2 nốt.';
+  if (config.missing_positions.length === 0) return 'Vui lòng chọn ít nhất 1 vị trí nốt khuyết.';
+  for (const position of config.missing_positions) {
+    const options = (config.note_options[String(position)] ?? []).map((o) => o.trim()).filter(Boolean);
+    if (options.length < 4) return `Vị trí ${position}: cần đủ 4 lựa chọn nốt.`;
+    if (new Set(options).size !== options.length) return `Vị trí ${position}: các lựa chọn không được trùng nhau.`;
+    const correct = (config.correct_answers[String(position)] ?? '').trim();
+    if (!correct || !options.includes(correct)) return `Vị trí ${position}: vui lòng đánh dấu một đáp án đúng.`;
+  }
+  if (!config.bpm || config.bpm <= 0) return 'Tempo (bpm) phải lớn hơn 0.';
+  if (!config.time_limit_sec || config.time_limit_sec <= 0) return 'Thời gian giới hạn phải lớn hơn 0.';
+  return null;
+};
+
 const emptyExercise: ExerciseInput = { title: '', description: '', passThreshold: 80, orderIndex: 1 };
 const emptyMinigame: MinigameInput = {
-  title: '', challengeType: 'RHYTHM', difficulty: 'BEGINNER', maxScore: 100, orderIndex: 1, contentJson: '{}',
+  title: '', challengeType: 'MELODY_COMPLETE', difficulty: 'BEGINNER', maxScore: 100, orderIndex: 1, contentJson: '{}',
 };
 
 const InstructorLessonContent = () => {
@@ -62,6 +130,25 @@ const InstructorLessonContent = () => {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [exerciseForm, setExerciseForm] = useState<ExerciseInput>(emptyExercise);
   const [minigameForm, setMinigameForm] = useState<MinigameInput>(emptyMinigame);
+  const [melodyDraft, setMelodyDraft] = useState<MelodyCompleteConfig>(MELODY_COMPLETE_CONFIG);
+  const [melodyInput, setMelodyInput] = useState('');
+  const [audioAssets, setAudioAssets] = useState<LessonAsset[]>([]);
+
+  useEffect(() => {
+    if (tab !== 'minigames' || !editorOpen) return;
+    let cancelled = false;
+    lessonAssetsApi
+      .getAssets(lessonId)
+      .then((assets) => {
+        if (!cancelled) setAudioAssets(assets.filter((asset) => asset.type === 'REFERENCE_AUDIO'));
+      })
+      .catch(() => {
+        if (!cancelled) setAudioAssets([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [tab, editorOpen, lessonId]);
 
   const loadContent = useCallback(async () => {
     if (!Number.isFinite(lessonId)) return;
@@ -101,7 +188,11 @@ const InstructorLessonContent = () => {
       const beatMapAsset = lesson?.mediaAssets?.find((asset) => asset.assetType === 'BEAT_MAP');
       setExerciseForm({ ...emptyExercise, beatMapAssetId: beatMapAsset?.id, orderIndex: exercises.length + 1 });
     }
-    if (tab === 'minigames') setMinigameForm({ ...emptyMinigame, orderIndex: minigames.length + 1 });
+    if (tab === 'minigames') {
+      setMinigameForm({ ...emptyMinigame, orderIndex: minigames.length + 1 });
+      setMelodyDraft(MELODY_COMPLETE_CONFIG);
+      setMelodyInput('');
+    }
     setEditorOpen(true);
   };
 
@@ -121,6 +212,9 @@ const InstructorLessonContent = () => {
 
   const openMinigame = (item: Minigame) => {
     setEditingId(item.id);
+    const config = parseMelodyConfig(item.contentJson);
+    setMelodyDraft(config);
+    setMelodyInput(config.melody.join(' '));
     setMinigameForm({
       title: item.title, challengeType: item.challengeType, difficulty: item.difficulty ?? 'BEGINNER',
       maxScore: item.maxScore, orderIndex: item.orderIndex, contentJson: item.contentJson ?? '{}',
@@ -145,9 +239,21 @@ const InstructorLessonContent = () => {
         if (editingId) await exercisesApi.update(editingId, body);
         else await exercisesApi.create(lessonId, body);
       } else {
-        if (minigameForm.contentJson) JSON.parse(minigameForm.contentJson);
-        if (editingId) await minigamesApi.update(editingId, minigameForm);
-        else await minigamesApi.create(lessonId, minigameForm);
+        const validationError = validateMelodyDraft(melodyDraft);
+        if (validationError) {
+          setError(validationError);
+          return;
+        }
+        const body: MinigameInput = {
+          ...minigameForm,
+          title: minigameForm.title.trim(),
+          challengeType: 'MELODY_COMPLETE',
+          difficulty: 'BEGINNER',
+          maxScore: 100,
+          contentJson: buildMelodyConfigJson(melodyDraft),
+        };
+        if (editingId) await minigamesApi.update(editingId, body);
+        else await minigamesApi.create(lessonId, body);
       }
       setEditorOpen(false);
       await loadContent();
@@ -263,12 +369,37 @@ const InstructorLessonContent = () => {
                 {itemActions(item.id, () => openQuiz(item))}
               </article>
             ))}
-            {tab === 'minigames' && minigames.map((item) => (
-              <article key={item.id} className="p-5 flex items-start justify-between gap-4 hover:bg-[#fbf9f4]">
-                <div><p className="text-xs text-[#1D4532] font-bold mb-1">{getChallengeTypeLabel(item.challengeType)} · {item.difficulty || 'CHƯA PHÂN LOẠI'}</p><h3 className="font-bold text-lg">{item.title}</h3><p className="text-sm text-on-surface-variant mt-1">Điểm tối đa {item.maxScore} · Thứ tự {item.orderIndex}</p></div>
-                {itemActions(item.id, () => openMinigame(item))}
-              </article>
-            ))}
+            {tab === 'minigames' && minigames.map((item) => {
+              const config = item.challengeType === 'MELODY_COMPLETE' ? parseMelodyConfig(item.contentJson) : null;
+              const difficultyClass =
+                item.difficulty === 'BEGINNER' ? 'bg-emerald-50 text-emerald-700'
+                  : item.difficulty === 'INTERMEDIATE' ? 'bg-amber-50 text-amber-700'
+                  : item.difficulty === 'ADVANCED' ? 'bg-red-50 text-red-700'
+                  : 'bg-[#f0eee9] text-on-surface-variant';
+              return (
+                <article key={item.id} className="p-5 flex items-start justify-between gap-4 hover:bg-[#fbf9f4]">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2 mb-1">
+                      {item.challengeType === 'MELODY_COMPLETE'
+                        ? <Music4 className="w-4 h-4 text-[#1D4532]" />
+                        : <Gamepad2 className="w-4 h-4 text-[#1D4532]" />}
+                      <p className="text-xs font-bold text-[#1D4532]">{getChallengeTypeLabel(item.challengeType)}</p>
+                      <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${difficultyClass}`}>{getDifficultyLabel(item.difficulty)}</span>
+                    </div>
+                    <h3 className="font-bold text-lg">{item.title}</h3>
+                    <p className="text-sm text-on-surface-variant mt-1">Điểm tối đa {item.maxScore} · Thứ tự {item.orderIndex}</p>
+                    {config && (
+                      <p className="mt-1 inline-flex flex-wrap items-center gap-3 text-xs text-on-surface-variant">
+                        <span className="inline-flex items-center gap-1"><Music4 className="w-3.5 h-3.5" /> {config.melody.length} nốt · {config.missing_positions.length} vị trí khuyết</span>
+                        {config.audio_asset_id && <span className="inline-flex items-center gap-1"><AudioLines className="w-3.5 h-3.5" /> Audio #{config.audio_asset_id}</span>}
+                        {config.time_limit_sec && <span className="inline-flex items-center gap-1"><Timer className="w-3.5 h-3.5" /> {config.time_limit_sec}s</span>}
+                      </p>
+                    )}
+                  </div>
+                  {itemActions(item.id, () => openMinigame(item))}
+                </article>
+              );
+            })}
             {((tab === 'exercises' && exercises.length === 0) || (tab === 'quizzes' && quizzes.length === 0) || (tab === 'minigames' && minigames.length === 0)) && (
               <div className="p-14 text-center"><p className="font-bold text-lg">Chưa có nội dung</p><p className="text-on-surface-variant mt-1">Bắt đầu bằng nút thêm nội dung phía trên.</p></div>
             )}
@@ -306,24 +437,191 @@ const InstructorLessonContent = () => {
                     </Field>
                   </>}
                   {tab === 'minigames' && <>
-                    <Field label="Tên minigame"><input required value={minigameForm.title} onChange={(e) => setMinigameForm({ ...minigameForm, title: e.target.value })} className="input" /></Field>
-                    <div className="grid grid-cols-2 gap-4">
-                      <Field label="Loại thử thách">
+                    <Field label="Tên minigame"><input required value={minigameForm.title} onChange={(e) => setMinigameForm({ ...minigameForm, title: e.target.value })} className="input" placeholder="Ví dụ: Hoàn thiện giai điệu — Chợt quê" /></Field>
+
+                    <section className="rounded-2xl border border-[#1D4532]/15 bg-[#fbf9f4] p-4 space-y-5">
+                      <p className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-[0.18em] text-[#1D4532]">
+                        <Sparkles className="w-3.5 h-3.5" /> Cấu hình giai điệu
+                      </p>
+
+                      <Field label="File audio giai điệu (tùy chọn)">
                         <select
-                          value={minigameForm.challengeType}
-                          onChange={(e) => setMinigameForm({ ...minigameForm, challengeType: e.target.value })}
+                          value={melodyDraft.audio_asset_id ?? ''}
+                          onChange={(e) => {
+                            const assetId = e.target.value ? Number(e.target.value) : undefined;
+                            const asset = audioAssets.find((item) => item.id === assetId);
+                            setMelodyDraft((prev) => ({
+                              ...prev,
+                              audio_asset_id: assetId,
+                              bpm: asset?.tempo_bpm ?? prev.bpm,
+                            }));
+                          }}
                           className="input cursor-pointer"
                         >
-                          <option value="RHYTHM">Gõ theo nhịp (Rhythm)</option>
-                          <option value="PITCH">Đoán cao độ (Pitch)</option>
-                          <option value="LISTENING">Luyện nghe cảm âm (Listening)</option>
+                          <option value="">-- Không dùng file audio --</option>
+                          {audioAssets.map((asset) => (
+                            <option key={asset.id} value={asset.id}>
+                              Asset #{asset.id}{asset.tempo_bpm ? ` · ${asset.tempo_bpm} bpm` : ''}{asset.duration_sec ? ` · ${asset.duration_sec}s` : ''}
+                            </option>
+                          ))}
                         </select>
+                        {audioAssets.length === 0 && (
+                          <span className="mt-2 block text-xs text-on-surface-variant">Chưa có file audio nào cho bài học này. Không bắt buộc — học viên vẫn chơi được theo nốt trên khuông nhạc. Nếu muốn phát giai điệu thật, hãy tải audio lên trong mục đa phương tiện của bài giảng.</span>
+                        )}
                       </Field>
-                      <Field label="Độ khó"><select value={minigameForm.difficulty} onChange={(e) => setMinigameForm({ ...minigameForm, difficulty: e.target.value })} className="input cursor-pointer"><option value="BEGINNER">Cơ bản</option><option value="INTERMEDIATE">Trung cấp</option><option value="ADVANCED">Nâng cao</option></select></Field>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4"><Field label="Điểm tối đa"><input type="number" min="1" required value={minigameForm.maxScore} onChange={(e) => setMinigameForm({ ...minigameForm, maxScore: Number(e.target.value) })} className="input" /></Field><Field label="Thứ tự"><input type="number" min="0" required value={minigameForm.orderIndex} onChange={(e) => setMinigameForm({ ...minigameForm, orderIndex: Number(e.target.value) })} className="input" /></Field></div>
-                    <Field label="Cấu hình chi tiết (JSON)"><textarea value={minigameForm.contentJson} onChange={(e) => setMinigameForm({ ...minigameForm, contentJson: e.target.value })} className="input min-h-40 font-mono text-sm" /></Field>
+
+                      <Field label="Dãy giai điệu (các nốt, phân cách bằng khoảng trắng)">
+                        <input
+                          value={melodyInput}
+                          list="minigame-note-suggestions"
+                          onChange={(e) => {
+                            const rawVal = e.target.value;
+                            setMelodyInput(rawVal);
+                            const nextMelody = rawVal.split(/\s+/).filter(Boolean);
+                            setMelodyDraft((prev) => ({
+                              ...prev,
+                              melody: nextMelody,
+                              missing_positions: prev.missing_positions.filter((p) => p <= nextMelody.length),
+                            }));
+                          }}
+                          placeholder="Ví dụ: C4 E4 G4 C5 G4 E4"
+                          className="input font-mono"
+                        />
+                        <span className="mt-2 block text-xs text-on-surface-variant">Nhấn vào từng nốt bên dưới để chọn vị trí khuyết (sẽ hiển thị dấu ? cho học viên).</span>
+                      </Field>
+
+                      {melodyDraft.melody.length > 0 && (
+                        <div className="flex flex-wrap items-center gap-2">
+                          {melodyDraft.melody.map((note, index) => {
+                            const position = index + 1;
+                            const missing = melodyDraft.missing_positions.includes(position);
+                            return (
+                              <button
+                                key={position}
+                                type="button"
+                                onClick={() => {
+                                  setMelodyDraft((prev) => ({
+                                    ...prev,
+                                    missing_positions: missing
+                                      ? prev.missing_positions.filter((p) => p !== position)
+                                      : [...prev.missing_positions, position].sort((a, b) => a - b),
+                                  }));
+                                }}
+                                title={missing ? 'Bỏ đánh dấu khuyết' : 'Đánh dấu nốt này bị khuyết'}
+                                className={`h-10 min-w-10 px-2 rounded-lg border text-sm font-bold transition-all duration-200 active:scale-95 ${
+                                  missing
+                                    ? 'border-dashed border-[#b45309] bg-amber-50 text-amber-800'
+                                    : 'border-[#1D4532]/25 bg-[#1D4532]/5 text-[#1D4532] hover:bg-[#1D4532]/10'
+                                }`}
+                              >
+                                {missing ? '?' : note}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {melodyDraft.missing_positions.length > 0 && (
+                        <div className="space-y-4">
+                          {melodyDraft.missing_positions.map((position) => {
+                            const options = melodyDraft.note_options[String(position)] ?? ['', '', '', ''];
+                            const correct = melodyDraft.correct_answers[String(position)] ?? '';
+                            return (
+                              <div key={position} className="rounded-xl border border-amber-200 bg-amber-50/60 p-3.5">
+                                <p className="mb-2.5 text-xs font-bold uppercase tracking-wider text-amber-900">
+                                  Nốt khuyết tại vị trí <span className="tabular-nums">{position}</span>
+                                </p>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                  {options.map((option, optionIndex) => {
+                                    const isCorrect = correct === option.trim();
+                                    return (
+                                      <div key={optionIndex} className={`flex items-center gap-2 rounded-lg border bg-white px-2.5 py-2 transition-colors ${isCorrect ? 'border-[#1D4532]/50 ring-1 ring-[#1D4532]/20' : 'border-outline-variant/30'}`}>
+                                        <label
+                                          className={`flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center rounded-full border-2 transition-all duration-200 ${
+                                            isCorrect
+                                              ? 'border-[#1D4532] bg-[#1D4532] text-white'
+                                              : 'border-outline-variant/60 text-transparent hover:border-[#1D4532]/50'
+                                          }`}
+                                          title="Đánh dấu là đáp án đúng"
+                                        >
+                                          <input
+                                            type="radio"
+                                            name={`correct-${position}`}
+                                            className="sr-only"
+                                            checked={isCorrect}
+                                            onChange={() => {
+                                              setMelodyDraft((prev) => ({
+                                                ...prev,
+                                                correct_answers: { ...prev.correct_answers, [String(position)]: option.trim() },
+                                              }));
+                                            }}
+                                          />
+                                          <Check className="h-3 w-3" strokeWidth={3} aria-hidden />
+                                        </label>
+                                        <input
+                                          value={option}
+                                          list="minigame-note-suggestions"
+                                          onChange={(e) => {
+                                            const newValue = e.target.value;
+                                            setMelodyDraft((prev) => {
+                                              const nextOptions = [...(prev.note_options[String(position)] ?? ['', '', '', ''])];
+                                              const oldValue = nextOptions[optionIndex];
+                                              nextOptions[optionIndex] = newValue;
+
+                                              const nextCorrectAnswers = { ...prev.correct_answers };
+                                              if (prev.correct_answers[String(position)]?.trim() === oldValue?.trim()) {
+                                                nextCorrectAnswers[String(position)] = newValue.trim();
+                                              }
+
+                                              return {
+                                                ...prev,
+                                                note_options: { ...prev.note_options, [String(position)]: nextOptions },
+                                                correct_answers: nextCorrectAnswers,
+                                              };
+                                            });
+                                          }}
+                                          placeholder={`Lựa chọn ${optionIndex + 1} (vd: C5)`}
+                                          className="min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-1 py-1 text-sm outline-none focus:border-[#1D4532]/30 focus:bg-[#fbf9f4]/80"
+                                        />
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <Field label="Tempo (bpm)"><input type="number" min="1" required value={melodyDraft.bpm ?? ''} onChange={(e) => setMelodyDraft((prev) => ({ ...prev, bpm: e.target.value ? Number(e.target.value) : undefined }))} className="input" /></Field>
+                        <Field label="Thời gian giới hạn (giây)"><input type="number" min="1" required value={melodyDraft.time_limit_sec ?? ''} onChange={(e) => setMelodyDraft((prev) => ({ ...prev, time_limit_sec: e.target.value ? Number(e.target.value) : undefined }))} className="input" /></Field>
+                      </div>
+
+                            <div>
+                              <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-[#1D4532]">Xem trước</p>
+                              <div className="flex items-center gap-1.5 overflow-x-auto rounded-xl border border-[#1D4532]/10 bg-white px-3 py-3">
+                                <AudioLines className="mr-1 h-4 w-4 shrink-0 text-[#1D4532]/60" />
+                                {melodyDraft.melody.map((note, index) => {
+                                  const position = index + 1;
+                                  return melodyDraft.missing_positions.includes(position) ? (
+                                    <span key={position} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border-2 border-dashed border-amber-400 bg-amber-50 text-xs font-bold text-amber-700">?</span>
+                                  ) : (
+                                    <span key={position} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-[#1D4532] text-[11px] font-bold text-white">{note}</span>
+                                  );
+                                })}
+                                {melodyDraft.melody.length === 0 && <span className="text-xs text-on-surface-variant">Chưa có nốt — nhập dãy giai điệu ở trên.</span>}
+                              </div>
+                            </div>
+                          </section>
                   </>}
+                  {tab === 'minigames' && (
+                    <datalist id="minigame-note-suggestions">
+                      {['C1','D1','E1','F1','G1','A1','B1','C2','D2','E2','F2','G2','A2','B2','C3','D3','E3','F3','G3','A3','B3','C4','D4','E4','F4','G4','A4','B4','C5','D5','E5','F5','G5','A5','B5','C6'].map((note) => (
+                        <option key={note} value={note} />
+                      ))}
+                    </datalist>
+                  )}
                   <button disabled={saving} className="w-full bg-[#1D4532] text-white rounded-xl py-3.5 font-bold transition-all duration-200 hover:bg-[#1D4532]/90 active:scale-[0.99] disabled:opacity-60">{saving ? 'Đang lưu...' : editingId ? 'Lưu thay đổi' : 'Tạo nội dung'}</button>
                 </form>
               </>
