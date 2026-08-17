@@ -10,6 +10,7 @@ const SUN_RAYS = Array.from({ length: 12 }, (_, i) => i * 30);
 /** Lac Bird positions – 4 birds at 45°, 135°, 225°, 315° */
 const BIRD_ANGLES = [45, 135, 225, 315];
 
+// Màn hình khởi tạo (splash) với hoa văn trống đồng Đông Sơn, hiển thị khi isLoading
 const LoadingScreen = ({ isLoading }: LoadingScreenProps) => {
   return (
     <AnimatePresence>
