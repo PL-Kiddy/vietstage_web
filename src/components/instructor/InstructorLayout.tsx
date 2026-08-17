@@ -2,6 +2,7 @@ import { Outlet } from 'react-router-dom';
 import InstructorSidebar from './InstructorSidebar';
 import InstructorTopbar from './InstructorTopbar';
 
+// Bố cục trang Instructor: sidebar + topbar + vùng nội dung
 const InstructorLayout = () => {
   return (
     <div className="min-h-screen" style={{ backgroundColor: '#F5F5F5' }}>

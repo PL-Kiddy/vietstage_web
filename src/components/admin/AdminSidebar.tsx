@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import logo from '../../assets/logongangtachnen.png';
 
+// Sidebar Admin: Dashboard, Quản lý người dùng (thành viên/học viên), Kiểm duyệt, Cấu hình hệ thống
 const AdminSidebar = () => {
   const location = useLocation();
   const isUsersRoute = location.pathname.startsWith('/admin/users');

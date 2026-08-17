@@ -35,6 +35,7 @@ interface AdminTopbarProps {
   userRole?: string;
 }
 
+// Topbar Admin: thông báo (chuông), hồ sơ người dùng, đăng xuất
 const AdminTopbar = ({ userName, userRole }: AdminTopbarProps) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
@@ -62,6 +63,7 @@ const AdminTopbar = ({ userName, userRole }: AdminTopbarProps) => {
   }, { new: [] as Notification[], earlier: [] as Notification[] });
 
   // Fetch profile and notifications
+  // Tải hồ sơ (GET /api/users/me) và thông báo (GET /api/notifications) khi mount
   useEffect(() => {
     const fetchProfile = async () => {
       try {
@@ -110,6 +112,7 @@ const AdminTopbar = ({ userName, userRole }: AdminTopbarProps) => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isNotifOpen]);
 
+  // Đánh dấu 1 thông báo đã đọc (PUT /api/notifications/{id})
   const handleMarkAsRead = async (id: number) => {
     try {
       await notificationApi.markAsRead(id);
@@ -121,6 +124,7 @@ const AdminTopbar = ({ userName, userRole }: AdminTopbarProps) => {
     }
   };
 
+  // Đánh dấu tất cả đã đọc (PUT /api/notifications)
   const handleMarkAllAsRead = async () => {
     try {
       await notificationApi.markAllAsRead();

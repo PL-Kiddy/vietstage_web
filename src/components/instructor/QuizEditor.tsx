@@ -24,6 +24,7 @@ interface QuizEditorProps {
   onSubmit: (body: QuizInput) => void;
 }
 
+// Editor tạo/sửa câu hỏi Quiz: tiêu đề, loại (GENERAL/NOTE_IDENTIFICATION), câu hỏi, >=4 lựa chọn, đáp án đúng
 const QuizEditor = ({ initial, defaultOrderIndex, saving, apiError, onCancel, onSubmit }: QuizEditorProps) => {
   const isEditing = initial !== null;
 
@@ -59,10 +60,12 @@ const QuizEditor = ({ initial, defaultOrderIndex, saving, apiError, onCancel, on
     clearError(`option-${index}`);
   };
 
+  // Thêm lựa chọn mới vào danh sách
   const addOption = () => {
     setOptions((prev) => [...prev, '']);
   };
 
+  // Xóa lựa chọn (giữ tối thiểu 4), điều chỉnh lại chỉ số đáp án đúng nếu cần
   const removeOption = (index: number) => {
     if (options.length <= MIN_OPTIONS) return;
     setOptions((prev) => prev.filter((_, i) => i !== index));
@@ -83,6 +86,7 @@ const QuizEditor = ({ initial, defaultOrderIndex, saving, apiError, onCancel, on
   const trimmedOptions = options.map((item) => item.trim());
   const filledOptions = trimmedOptions.filter(Boolean);
 
+  // Validate toàn bộ form rồi build QuizInput (options dạng JSON string) để submit
   const handleSubmit = (event: FormEvent) => {
     event.preventDefault();
     const nextErrors: Record<string, string> = {};

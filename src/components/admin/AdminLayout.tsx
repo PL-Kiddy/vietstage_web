@@ -2,6 +2,7 @@ import { Outlet } from 'react-router-dom';
 import AdminSidebar from './AdminSidebar';
 import AdminTopbar from './AdminTopbar';
 
+// Bố cục trang Admin: sidebar cố định bên trái + topbar + vùng nội dung cuộn
 const AdminLayout = () => {
   return (
     <div className="h-screen w-screen overflow-hidden flex bg-[#F5F5F5]">
