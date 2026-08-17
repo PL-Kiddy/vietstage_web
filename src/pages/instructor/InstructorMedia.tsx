@@ -34,6 +34,7 @@ const getInstrumentTranslation = (instName: string) => {
   return instName;
 };
 
+// Trang Cấu hình Giáo trình: tạo/sửa bài học, cập nhật trạng thái, cấu hình bài tập & ngưỡng điểm
 const InstructorMedia = () => {
   // ── Curriculum List State ─────────────────────────────────────────────
   const [searchQuery, setSearchQuery] = useState('');
@@ -50,6 +51,7 @@ const InstructorMedia = () => {
   const [exSuccess, setExSuccess] = useState<string | null>(null);
 
   // ── Fetch lessons ─────────────────────────────────────────────────────
+  // Tải danh sách bài học (size 100, sort theo orderIndex)
   const fetchLessons = useCallback((signal?: AbortSignal) =>
     lessonsApi.list(new URLSearchParams({ size: '100', sort: 'orderIndex,asc' }), { signal })
     , []);
@@ -87,6 +89,7 @@ const InstructorMedia = () => {
   const [lessonStatus, setLessonStatus] = useState<string>('DRAFT');
   const [isSavingLesson, setIsSavingLesson] = useState(false);
 
+  // Mở drawer tạo bài học mới với giá trị mặc định (nhạc cụ/trình độ đầu tiên, orderIndex tiếp theo)
   const handleOpenCreateLesson = () => {
     setEditingLessonInfo(null);
     setLessonTitle('');
@@ -98,6 +101,7 @@ const InstructorMedia = () => {
     setLessonModalOpen(true);
   };
 
+  // Mở drawer sửa bài học: nạp thông tin hiện tại vào form
   const handleOpenEditLesson = (lesson: Lesson) => {
     setEditingLessonInfo(lesson);
     setLessonTitle(lesson.title);
@@ -110,6 +114,7 @@ const InstructorMedia = () => {
     setLessonModalOpen(true);
   };
 
+  // Lưu bài học: tạo mới (POST /api/lessons) hoặc cập nhật (PUT + PUT status nếu đổi trạng thái)
   const handleSaveLesson = async (e: FormEvent) => {
     e.preventDefault();
     if (!lessonTitle.trim() || !lessonInstrumentId) return;
@@ -146,6 +151,7 @@ const InstructorMedia = () => {
 
 
   // ── Handler: Open Config Modal ───────────────────────────────────────
+  // Mở modal cấu hình bài tập & ngưỡng điểm cho một bài học
   const handleOpenConfigModal = (lesson: Lesson) => {
     setConfiguringLesson(lesson);
     setExTitle('');
@@ -158,6 +164,7 @@ const InstructorMedia = () => {
   };
 
   // ── Handler: Create exercise ──────────────────────────────────────────
+  // Tạo bài tập mới cho bài học (POST /api/lessons/{id}/exercises)
   const handleCreateExercise = async (e: FormEvent) => {
     e.preventDefault();
     if (!configuringLesson || !exTitle.trim()) return;

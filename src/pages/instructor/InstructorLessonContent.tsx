@@ -116,6 +116,7 @@ const emptyMinigame: MinigameInput = {
   title: '', challengeType: 'MELODY_COMPLETE', difficulty: 'BEGINNER', maxScore: 100, orderIndex: 1, contentJson: '{}',
 };
 
+// Trang biên soạn nội dung bài giảng: 3 tab Bài tập / Quiz / Minigame với CRUD qua slide-over editor
 const InstructorLessonContent = () => {
   const lessonId = Number(useParams().lessonId);
   const [lesson, setLesson] = useState<Lesson | null>(null);
@@ -134,6 +135,7 @@ const InstructorLessonContent = () => {
   const [melodyInput, setMelodyInput] = useState('');
   const [audioAssets, setAudioAssets] = useState<LessonAsset[]>([]);
 
+  // Tải danh sách audio của bài học khi mở editor minigame (dùng cho chọn file giai điệu)
   useEffect(() => {
     if (tab !== 'minigames' || !editorOpen) return;
     let cancelled = false;
@@ -150,6 +152,7 @@ const InstructorLessonContent = () => {
     };
   }, [tab, editorOpen, lessonId]);
 
+  // Tải dữ liệu nội dung: lesson detail + quizzes + minigames + exercises (từ lessonData)
   const loadContent = useCallback(async () => {
     if (!Number.isFinite(lessonId)) return;
     setLoading(true);
@@ -182,6 +185,7 @@ const InstructorLessonContent = () => {
     return () => window.clearTimeout(timer);
   }, [loadContent]);
 
+  // Mở editor tạo mới theo tab (tự điền beatMapAssetId từ lesson cho bài tập)
   const openCreate = () => {
     setEditingId(null);
     if (tab === 'exercises') {
@@ -222,6 +226,7 @@ const InstructorLessonContent = () => {
     setEditorOpen(true);
   };
 
+  // Submit chung: exercises -> POST/PUT /api/exercises, minigames -> validate giai điệu rồi POST/PUT /api/minigames
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     setSaving(true);
@@ -264,6 +269,7 @@ const InstructorLessonContent = () => {
     }
   };
 
+  // Submit quiz qua QuizEditor (POST/PUT /api/quizzes)
   const submitQuiz = async (body: QuizInput) => {
     setSaving(true);
     setError('');
@@ -279,6 +285,7 @@ const InstructorLessonContent = () => {
     }
   };
 
+  // Xóa nội dung theo tab hiện tại (có confirm)
   const remove = async (id: number) => {
     if (!window.confirm('Bạn có chắc muốn xóa nội dung này?')) return;
     setError('');
