@@ -20,16 +20,19 @@ interface UseLoadingReturn {
  * - Route transitions: `useLoading({ minDuration: 2000, autoStart: true })`
  * - API calls: `const { startLoading, stopLoading } = useLoading()`
  */
+// Hook quản lý trạng thái loading screen: bắt đầu/dừng với thời gian tối thiểu hiển thị (chống nhấp nháy)
 const useLoading = (options: UseLoadingOptions = {}): UseLoadingReturn => {
   const { minDuration = 2000, autoStart = false } = options;
   const [isLoading, setIsLoading] = useState(autoStart);
   const loadingStartTime = useRef<number | null>(null);
 
+  // Bắt đầu hiển thị loading, ghi nhận thời điểm bắt đầu
   const startLoading = useCallback(() => {
     setIsLoading(true);
     loadingStartTime.current = Date.now();
   }, []);
 
+  // Dừng loading, đảm bảo hiển thị ít nhất minDuration kể từ khi bắt đầu
   const stopLoading = useCallback(() => {
     if (loadingStartTime.current === null) {
       setIsLoading(false);
@@ -50,7 +53,7 @@ const useLoading = (options: UseLoadingOptions = {}): UseLoadingReturn => {
     }
   }, [minDuration]);
 
-  // Auto-stop after minDuration if autoStart is used
+  // Tự dừng sau minDuration nếu dùng autoStart (không cần gọi stopLoading thủ công)
   useEffect(() => {
     if (autoStart) {
       const timer = setTimeout(() => {

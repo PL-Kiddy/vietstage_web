@@ -3,6 +3,7 @@ import type { AxiosRequestConfig, Method } from 'axios';
 import { clearAuthSession, getAuthSession, updateAuthTokens } from './authStorage';
 import type { ApiResponse, AuthResponse } from './types';
 
+// API URL: dev dùng proxy Vite (''), production dùng VITE_API_URL
 const configuredApiUrl = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '');
 const API_URL = import.meta.env.DEV ? '' : configuredApiUrl;
 
@@ -13,6 +14,7 @@ const axiosClient = axios.create({
   },
 });
 
+// Lỗi API chuẩn hóa: kèm status code và details (payload lỗi từ backend)
 export class ApiError extends Error {
   readonly status: number;
   readonly details?: unknown;
@@ -30,8 +32,10 @@ interface ApiEnvelope<T> {
   data?: T;
 }
 
+// Nhận diện chuỗi lỗi kỹ thuật (SQL/Hibernate...) để che giấu khỏi người dùng
 const TECHNICAL_ERROR_PATTERN = /\b(jdbc|sql|exception|stack trace|syntax error|relation|column|constraint|hibernate|select |insert |update |delete from)\b/i;
 
+// Chuyển HTTP status/message thành thông báo an toàn cho người dùng (tiếng Việt)
 const getSafeErrorMessage = (status: number, message?: string): string => {
   if (status >= 500) return 'Hệ thống đang gặp sự cố. Vui lòng thử lại sau.';
   if (status === 401) return 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.';
@@ -44,6 +48,7 @@ const getSafeErrorMessage = (status: number, message?: string): string => {
 
 let refreshPromise: Promise<boolean> | null = null;
 
+// Chuyển mọi loại lỗi (axios/network/ApiError...) về ApiError chuẩn
 const toApiError = (error: unknown): ApiError => {
   if (axios.isAxiosError(error)) {
     const status = error.response?.status ?? 0;
@@ -69,6 +74,7 @@ const toApiError = (error: unknown): ApiError => {
   return new ApiError(error instanceof Error ? error.message : 'Unknown API error', 0, error);
 };
 
+// Bóc tách payload { success, message, data } -> trả data, throw ApiError nếu success=false
 const unwrapResponse = <T>(payload: ApiEnvelope<T> | null | undefined, status: number): T => {
   if (!payload) {
     throw new ApiError(`HTTP ${status}`, status);
@@ -81,6 +87,7 @@ const unwrapResponse = <T>(payload: ApiEnvelope<T> | null | undefined, status: n
   return payload.data as T;
 };
 
+// Refresh phiên: gọi POST /api/auth/refresh, cập nhật token mới; thất bại thì xóa session
 const refreshSession = async (): Promise<boolean> => {
   const session = getAuthSession();
   if (!session?.refreshToken || !session.sessionId) return false;
@@ -108,6 +115,7 @@ export interface RequestOptions extends Omit<AxiosRequestConfig, 'url' | 'data' 
   retryAuth?: boolean;
 }
 
+// Hàm gọi API trung tâm: tự đính token, retry 1 lần nếu 401 (sau khi refresh), redirect /login nếu refresh thất bại
 export const apiRequest = async <T>(
   path: string,
   options: RequestOptions = {},

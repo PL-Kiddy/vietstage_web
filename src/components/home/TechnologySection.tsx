@@ -1,6 +1,7 @@
 import { BarChart3, Trophy, Award, TrendingUp } from 'lucide-react';
 import { motion } from 'framer-motion';
 
+// Section công nghệ của trang chủ (chưa được route)
 const TechnologySection = () => {
   return (
     <section className="py-24 px-margin-mobile md:px-margin-desktop bg-surface">

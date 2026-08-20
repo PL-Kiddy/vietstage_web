@@ -79,6 +79,7 @@ const getAvatarStyle = (role: string) => {
 
 /* ════════════════════════════════════════════════════════════ */
 
+// Chuẩn hóa vai trò từ backend (roleId/role string) về 'Admin' | 'Giảng viên' | 'Người học'
 const normalizeRole = (user: any): 'Admin' | 'Giảng viên' | 'Người học' => {
   // Handle numeric roleId from database (1=Admin, 2=Instructor/Giảng viên, 3=Learner)
   const roleId = user.roleId ?? user.role_id ?? user.RoleId;
@@ -100,6 +101,7 @@ const normalizeRole = (user: any): 'Admin' | 'Giảng viên' | 'Người học' 
   return 'Người học';
 };
 
+// Chuyển user API sang dạng hiển thị ExtendedAdminUser (thêm name/avatar/role/status chuẩn hóa)
 const mapExtendedUser = (user: ApiAdminUser): ExtendedAdminUser => ({
   ...user,
   name: (user as any).fullName || user.name || 'Chưa cập nhật',
@@ -126,6 +128,7 @@ const isStaffAccount = (user: any): boolean => {
 const normalizeStatus = (status?: string): ExtendedAdminUser['status'] =>
   String(status).toUpperCase() === 'LOCKED' ? 'locked' : 'active';
 
+// Trang quản lý người dùng (thành viên + học viên): danh sách, tìm kiếm, lọc, CRUD, khóa/mở khóa, reset mật khẩu
 const AdminUsers = () => {
   const location = useLocation();
   const isLearnersMode = location.pathname.includes('/learners');
@@ -174,6 +177,7 @@ const AdminUsers = () => {
   const [openActionMenuUserId, setOpenActionMenuUserId] = useState<string | null>(null);
   const [actionMenuPosition, setActionMenuPosition] = useState<{ top: number; left: number } | null>(null);
 
+  // Toggle menu thao tác (xem chi tiết/sửa/reset mật khẩu), tự canh vị trí trong viewport
   const toggleActionMenu = (event: MouseEvent<HTMLButtonElement>, userId: string) => {
     if (openActionMenuUserId === userId) {
       setOpenActionMenuUserId(null);
@@ -212,6 +216,7 @@ const AdminUsers = () => {
     };
   }, [openActionMenuUserId]);
 
+  // Xây dựng request GET /api/admin/users với filter role/status/search + phân trang
   const loadUsersRequest = useCallback(
     async (signal?: AbortSignal) => {
       const params = new URLSearchParams({
@@ -307,6 +312,7 @@ const AdminUsers = () => {
   );
 
   /* ── Handlers ────────────────────────────────────────────── */
+  // Mở modal xác nhận khóa/mở khóa/reset mật khẩu (chặn thao tác trên tài khoản Admin)
   const triggerConfirmModal = (type: 'lock' | 'unlock' | 'reset_password', user: ExtendedAdminUser) => {
     if (user.role === 'Admin') {
       setActionFeedback({ type: 'error', message: 'Không thể thay đổi quyền truy cập của tài khoản Admin từ màn hình này.' });
@@ -319,6 +325,7 @@ const AdminUsers = () => {
     setConfirmModalData({ type, user });
   };
 
+  // Thực thi hành động đã xác nhận: lock/unlock (PUT status) hoặc reset mật khẩu (POST reset-password)
   const handleConfirmAction = async () => {
     if (!confirmModalData) return;
     const { type, user } = confirmModalData;
@@ -357,6 +364,7 @@ const AdminUsers = () => {
     }
   };
 
+  // Reset form thêm người dùng và mở drawer
   const handleAddUserClick = () => {
     setNewUserName('');
     setNewUserEmail('');
@@ -366,6 +374,7 @@ const AdminUsers = () => {
     setIsAddDrawerOpen(true);
   };
 
+  // Tự sinh email dạng <tên không dấu>@vietstage.com từ tên người dùng
   const handleNameChange = (val: string) => {
     setNewUserName(val);
     const noAccents = val
@@ -376,6 +385,7 @@ const AdminUsers = () => {
     setNewUserEmail(emailPrefix ? `${emailPrefix}@vietstage.com` : '');
   };
 
+  // Tạo giảng viên mới qua POST /api/admin/create-instructor, tải lại danh sách
   const submitAddUser = async (e: FormEvent) => {
     e.preventDefault();
     if (!isAddFormValid) return;
@@ -396,6 +406,7 @@ const AdminUsers = () => {
     }
   };
 
+  // Mở drawer sửa người dùng (tên + role)
   const handleEditUserClick = (user: ExtendedAdminUser) => {
     setEditingUser(user);
     setEditName(user.name);
@@ -403,6 +414,7 @@ const AdminUsers = () => {
     setIsEditDrawerOpen(true);
   };
 
+  // Lưu sửa: PUT tên (nếu đổi) và PUT role (nếu đổi) rồi tải lại danh sách
   const submitEditUser = async (e: FormEvent) => {
     e.preventDefault();
     if (!isEditFormValid || !editingUser) return;

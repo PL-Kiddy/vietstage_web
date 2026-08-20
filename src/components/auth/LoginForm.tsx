@@ -11,6 +11,7 @@ interface ToastState {
   message: string;
 }
 
+// Form đăng nhập: validate, gọi POST /api/auth/login, lưu session và điều hướng theo role
 const LoginForm = () => {
   const navigate = useNavigate();
   const [username, setUsername] = useState('');
@@ -23,6 +24,7 @@ const LoginForm = () => {
     message: '',
   });
 
+  // Hiển thị toast thông báo, tự ẩn sau 3.5s
   const showToast = (type: 'success' | 'error', message: string) => {
     setToast({ visible: true, type, message });
     setTimeout(() => {
@@ -30,6 +32,7 @@ const LoginForm = () => {
     }, 3500);
   };
 
+  // Xử lý đăng nhập: learner bị chặn (dùng app di động), admin -> /admin, instructor -> /instructor
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 

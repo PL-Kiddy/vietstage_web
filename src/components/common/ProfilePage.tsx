@@ -66,6 +66,7 @@ const PasswordField = ({
   </div>
 );
 
+// Trang hồ sơ dùng chung (Admin + Instructor): tab thông tin cá nhân và đổi mật khẩu
 const ProfilePage = ({
   accentClass = 'bg-[#edf4ff]',
   roleLabel,
@@ -108,6 +109,7 @@ const ProfilePage = ({
   } = useAxiosRequest<UserProfile>((signal) => profileApi.get({ signal }));
 
   // ─── Avatar handlers ───
+  // Chọn ảnh đại diện từ máy, tạo preview trước khi lưu
   const handleAvatarChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -115,6 +117,7 @@ const ProfilePage = ({
     setAvatarPreview(URL.createObjectURL(file));
   };
 
+  // Upload avatar: POST /api/upload lấy URL rồi PUT /api/users/me với avatarUrl
   const handleUploadAvatar = async () => {
     if (!avatarFile || !profile) return;
     setUploadingAvatar(true);
@@ -131,6 +134,7 @@ const ProfilePage = ({
     }
   };
 
+  // Hủy chọn ảnh mới (không lưu)
   const handleCancelAvatar = () => {
     setAvatarPreview(null);
     setAvatarFile(null);
@@ -138,6 +142,7 @@ const ProfilePage = ({
   };
 
   // ─── Profile save handler ───
+  // Lưu tên hiển thị qua PUT /api/users/me
   const handleProfileSubmit = async (event: FormEvent) => {
     event.preventDefault();
     if (!fullName.trim()) return;
@@ -159,6 +164,7 @@ const ProfilePage = ({
   };
 
   // ─── Password save handler ───
+  // Đổi mật khẩu qua PUT /api/users/me/password, kèm validate phía client
   const handlePasswordSubmit = async (event: FormEvent) => {
     event.preventDefault();
     setPwError('');

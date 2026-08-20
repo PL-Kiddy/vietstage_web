@@ -66,6 +66,7 @@ const StarDisplay = ({ count }: { count: number }) => (
   </div>
 );
 
+// Trang Tiến độ & Phản hồi: danh sách học viên, bảng điểm theo bài, phản hồi theo lượt tập, báo cáo tần suất
 const InstructorStudents = () => {
   const [selectedStudentId, setSelectedStudentId] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -171,6 +172,7 @@ const InstructorStudents = () => {
   }, [lessonsRaw]);
 
   // 3. Fetch per-lesson progress for selected learner
+  // Tải tiến độ của học viên cho từng bài học (gọi 1 request/bài)
   const fetchLessonProgress = useCallback(
     async (learnerId: number, lessonId: number) => {
       setLessonProgressMap((prev) => ({
@@ -203,6 +205,7 @@ const InstructorStudents = () => {
   );
 
   // Filter progress details by the selected student's currently active viewed instrument
+  // Lọc các bài học thuộc nhạc cụ học viên đang chọn (so khớp tên nhạc cụ)
   const studentLessons = useMemo(() => {
     if (!selectedStudent || !selectedStudentInstrument) return [];
     return lessons.filter((lesson: any) => {
@@ -224,6 +227,7 @@ const InstructorStudents = () => {
 
   // Load attempts via the Instructor endpoint. Both feedback and frequency
   // reporting use this same authorized attempt set.
+  // Tải lịch sử lượt tập theo học viên + khoảng ngày (vòng lặp qua từng trang)
   useEffect(() => {
     if (!selectedStudentId) {
       setPracticeAttempts([]);
@@ -286,6 +290,7 @@ const InstructorStudents = () => {
     return () => controller.abort();
   }, [selectedStudentId, practiceDateFrom, practiceDateTo]);
 
+  // Tải danh sách phản hồi của lượt tập được chọn
   useEffect(() => {
     if (!selectedAttemptId) {
       setAttemptFeedbacks([]);
@@ -341,6 +346,7 @@ const InstructorStudents = () => {
     [studentLessons, lessonProgressMap]
   );
 
+  // Báo cáo tần suất: nhóm lượt tập theo ngày trong khoảng đã chọn (tối đa 366 ngày)
   const frequencyReport = useMemo(() => {
     const start = new Date(`${practiceDateFrom}T00:00:00`);
     const end = new Date(`${practiceDateTo}T23:59:59.999`);
@@ -371,6 +377,7 @@ const InstructorStudents = () => {
     [practiceAttempts, selectedAttemptId],
   );
 
+  // Gửi phản hồi mới cho lượt tập (POST /api/practice/attempts/{id}/feedback), sau đó refresh danh sách
   const submitFeedback = async () => {
     if (!selectedAttemptId || !feedbackComment.trim()) return;
     setFeedbackSaving(true);

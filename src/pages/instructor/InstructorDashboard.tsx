@@ -49,8 +49,10 @@ const scoreLabel = (score?: number) =>
 
 const RECENT_PAGE_SIZE = 5;
 
+// Dashboard giảng viên: thống kê học viên/bài giảng/lượt tập, biểu đồ 7 ngày, trạng thái bài giảng, lượt tập mới nhất
 const InstructorDashboard = () => {
   const [recentPage, setRecentPage] = useState(1);
+  // Tải toàn bộ dữ liệu dashboard (profile, students, attempts, lessons của chính giảng viên) — cho phép lỗi từng phần
   const fetchDashboard = useCallback(async (signal?: AbortSignal): Promise<InstructorDashboardData> => {
     const today = new Date();
     const firstDay = new Date(today);
@@ -130,6 +132,7 @@ const InstructorDashboard = () => {
   const { data, loading, execute } = useAxiosRequest(fetchDashboard);
   const teacherName = data?.teacherName?.trim();
 
+  // Số lượt luyện tập mỗi ngày trong 7 ngày gần nhất (cho biểu đồ cột)
   const chartRows = useMemo(() => {
     const counts = new Map<string, number>();
     for (const attempt of data?.weeklyAttempts ?? []) {

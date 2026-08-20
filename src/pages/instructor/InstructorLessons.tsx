@@ -76,6 +76,7 @@ const getInstrumentTranslation = (instName: string) => {
   return instName;
 };
 
+// Trang Nội dung & Học liệu: danh sách bài giảng, quản lý học liệu (upload âm thanh/sheet, lưu ghi chú)
 const InstructorLessons = () => {
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -102,6 +103,7 @@ const InstructorLessons = () => {
     return Array.isArray(response.content) ? response.content.map(mapLesson) : [];
   }, { auto: false });
 
+  // Tải danh sách bài giảng từ GET /api/lessons (page 1, size 100)
   const loadLessons = useCallback(async (signal?: AbortSignal) => {
     setIsLoading(true);
     setLoadError('');
@@ -127,6 +129,7 @@ const InstructorLessons = () => {
     };
   }, [loadLessons]);
 
+  // Mở drawer quản lý học liệu: tải chi tiết bài giảng vào form
   const handleEditClick = async (lesson: Lesson) => {
     try {
       const detail = await lessonDetailApi.get(Number(lesson.id));
@@ -149,6 +152,7 @@ const InstructorLessons = () => {
     }
   };
 
+  // Đóng drawer và reset mô tả
   const handleCloseModal = () => {
     setNewDescription('');
     setEditingContentId(null);

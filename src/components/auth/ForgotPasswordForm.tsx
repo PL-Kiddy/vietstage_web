@@ -9,6 +9,7 @@ interface ToastState {
   message: string;
 }
 
+// Form khôi phục mật khẩu 3 bước: gửi OTP -> nhập OTP -> đặt mật khẩu mới
 const ForgotPasswordForm = () => {
   const navigate = useNavigate();
   const [step, setStep] = useState<1 | 2 | 3>(1);
@@ -25,6 +26,7 @@ const ForgotPasswordForm = () => {
     message: '',
   });
 
+  // Hiển thị toast thông báo, tự ẩn sau duration (mặc định 3.5s)
   const showToast = (type: 'success' | 'error', message: string, duration = 3500) => {
     setToast({ visible: true, type, message });
     setTimeout(() => {
@@ -32,6 +34,7 @@ const ForgotPasswordForm = () => {
     }, duration);
   };
 
+  // Bước 1: gửi OTP tới email qua POST /api/auth/forgot-password
   const handleSendOtp = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
@@ -53,6 +56,7 @@ const ForgotPasswordForm = () => {
     }
   };
 
+  // Bước 2: xác nhận OTP (chỉ kiểm tra không rỗng tại UI, sang bước 3)
   const handleVerifyOtp = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
@@ -65,6 +69,7 @@ const ForgotPasswordForm = () => {
     setStep(3);
   };
 
+  // Bước 3: đặt lại mật khẩu qua POST /api/auth/reset-password, thành công thì quay lại đăng nhập
   const handleResetPassword = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 

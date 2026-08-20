@@ -1,3 +1,4 @@
+// DEAD CODE: dữ liệu admin giả (mock) — không được import/bắt buộc dùng bởi bất kỳ trang nào; toàn bộ luồng dùng API thật
 export interface AdminUser {
   id: string;
   name: string;

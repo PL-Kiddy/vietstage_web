@@ -1,6 +1,7 @@
 import ForgotPasswordForm from '../../components/auth/ForgotPasswordForm';
 import bgImage from '../../assets/logincogiaoMaithoisao.png';
 
+// Trang quên mật khẩu: bọc form 3 bước trong nền ảnh đăng nhập
 const ForgotPasswordPage = () => {
   return (
     <main 

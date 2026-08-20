@@ -14,6 +14,7 @@ const navItems = [
   { icon: Users, label: 'Tiến độ & Phản hồi', href: '/instructor/students' },
 ];
 
+// Sidebar Instructor: Tổng quan, Nội dung & Học liệu, Cấu hình Giáo trình, Tiến độ & Phản hồi
 const InstructorSidebar = () => {
   const location = useLocation();
 

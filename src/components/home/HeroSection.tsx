@@ -3,6 +3,7 @@ import bgImage from '../../assets/logincogiaoMaithoisao.png';
 import { Sparkles } from 'lucide-react';
 import { motion } from 'framer-motion';
 
+// Phần hero trang chủ giới thiệu (dùng cho HomePage — chưa được route)
 const HeroSection = () => {
   return (
     <header className="relative overflow-hidden pt-xl pb-24 px-margin-mobile md:px-margin-desktop">

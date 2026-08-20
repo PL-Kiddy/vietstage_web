@@ -199,10 +199,12 @@ const RetentionChart = ({ data }: { data: RetentionStat[] }) => (
   />
 );
 
+// Dashboard Admin: thống kê hệ thống với bộ lọc ngày + granularity (DAY/WEEK/MONTH)
 const AdminDashboard = () => {
   const [draftFilters, setDraftFilters] = useState<DashboardFilters>(createInitialFilters);
   const [filters, setFilters] = useState<DashboardFilters>(createInitialFilters);
 
+  // Gọi GET /api/admin/dashboard theo bộ lọc đã áp dụng
   const fetchDashboard = useCallback(async (signal?: AbortSignal): Promise<DashboardViewData> => {
     const analytics = await adminDashboardApi.get({
       fromDate: toVietnamDateTime(filters.fromDate),
@@ -270,6 +272,7 @@ const AdminDashboard = () => {
     },
   ], [analytics, latestDuration, latestRetention, topInstrument]);
 
+  // Chỉ áp dụng khi bộ lọc hợp lệ (không lỗi khoảng ngày)
   const applyFilters = () => {
     if (!invalidDateRange) setFilters(draftFilters);
   };

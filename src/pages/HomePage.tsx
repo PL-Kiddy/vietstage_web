@@ -1,3 +1,4 @@
+// Trang chủ giới thiệu (hiện chưa được route trong App.tsx — dead code)
 import Navbar from '../components/layout/Navbar';
 import Footer from '../components/layout/Footer';
 import HeroSection from '../components/home/HeroSection';

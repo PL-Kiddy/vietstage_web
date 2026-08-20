@@ -41,6 +41,7 @@ export interface TechniqueInput {
 
 export type TechniqueUpdateInput = Omit<TechniqueInput, 'instrument_id'>;
 
+// ── Hồ sơ người dùng hiện tại (users/me): xem, sửa tên, đổi avatar (upload rồi PUT profile), đổi mật khẩu ──
 export const profileApi = {
   get: (options?: RequestOptions) => apiRequest<UserProfile>('/api/users/me', options),
   update: (fullName: string) =>
@@ -98,7 +99,7 @@ interface NotificationListResponse {
   unread_count: number;
 }
 
-// Internal helper to normalize API notification object
+// Chuẩn hóa thông báo từ API (hỗ trợ cả is_read/read và created_at/createdAt)
 const normalizeNotification = (n: RawNotification): Notification => ({
   id: n.id,
   title: n.title || '',
@@ -110,7 +111,7 @@ const normalizeNotification = (n: RawNotification): Notification => ({
   created_at: n.created_at,
 });
 
-// Notification API
+// ── Thông báo: danh sách, đánh dấu đã đọc 1 cái / tất cả ──
 export const notificationApi = {
   // Lấy danh sách thông báo — backend trả về { data: [...], page, size, total, unread_count }
   list: async (options?: RequestOptions): Promise<Notification[]> => {
@@ -127,6 +128,7 @@ export const notificationApi = {
     apiRequest<void>('/api/notifications', { method: 'PUT' }),
 };
 
+// ── Quản lý nhạc cụ (master data, AdminMasterData) ──
 export const instrumentManagementApi = {
   list: () => apiRequest<Instrument[]>('/api/instruments'),
   get: (id: number) =>
@@ -141,6 +143,7 @@ export const instrumentManagementApi = {
     apiRequest<void>(`/api/instruments/${id}`, { method: 'DELETE' }),
 };
 
+// ── Quản lý trình độ (skill levels, master data) ──
 export const skillLevelManagementApi = {
   list: () => apiRequest<SkillLevel[]>('/api/skill-levels'),
   get: (id: number) =>
@@ -153,6 +156,7 @@ export const skillLevelManagementApi = {
     apiRequest<void>(`/api/skill-levels/${id}`, { method: 'DELETE' }),
 };
 
+// ── Quản lý kỹ thuật chơi nhạc cụ (master data) ──
 export const techniqueManagementApi = {
   list: (instrumentId?: number) => {
     const query = instrumentId ? `?instrument_id=${instrumentId}` : '';
@@ -168,6 +172,7 @@ export const techniqueManagementApi = {
     apiRequest<void>(`/api/techniques/${id}`, { method: 'DELETE' }),
 };
 
+// ── Chi tiết một bài học ──
 export const lessonDetailApi = {
   get: (id: number) => apiRequest<Lesson>(`/api/lessons/${id}`),
 };

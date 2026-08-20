@@ -20,6 +20,7 @@ interface UseAxiosRequestResult<T> {
   setData: Dispatch<SetStateAction<T | undefined>>;
 }
 
+// Hook gọi API qua apiRequest với state loading/error/data, hỗ trợ abort (chống race condition bằng requestId)
 export const useAxiosRequest = <T>(
   request: (signal?: AbortSignal) => Promise<T>,
   options: UseAxiosRequestOptions<T> = {},
@@ -35,6 +36,7 @@ export const useAxiosRequest = <T>(
     requestRef.current = request;
   }, [request]);
 
+  // Thực thi request thủ công (bỏ qua nếu đã bị abort hoặc có request mới hơn)
   const execute = useCallback(async (signal?: AbortSignal) => {
     const requestId = ++requestIdRef.current;
     setLoading(true);
@@ -60,6 +62,7 @@ export const useAxiosRequest = <T>(
     }
   }, []);
 
+  // Tự động gọi request khi mount (auto=true), hủy khi unmount
   useEffect(() => {
     if (!auto) return;
 

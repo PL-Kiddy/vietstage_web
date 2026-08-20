@@ -186,6 +186,7 @@ const parseOptions = (options?: string): string[] => {
   return options.split(',').map((item) => item.trim()).filter(Boolean);
 };
 
+// Phân loại kiểu dữ liệu config theo valueType khai báo từ backend
 const getValueType = (config: AppConfig): ConfigValueType => {
   const declaredType = (config.valueType ?? '').trim().toLowerCase();
   if (declaredType === 'boolean') return 'boolean';
@@ -202,6 +203,7 @@ const normalizeValueForSave = (config: AppConfig, value: string) => {
   return value;
 };
 
+// Validate giá trị theo kiểu (boolean/number/select/json) trước khi lưu
 const validateValue = (config: AppConfig, value: string): string => {
   const type = getValueType(config);
   if (!value.trim()) return 'Giá trị không được để trống.';
@@ -252,6 +254,7 @@ const getDraftValue = (config: AppConfig) => String(config.value ?? '');
 
 const PAGE_SIZE = 6;
 
+// Trang cấu hình hệ thống: quản lý config theo nhóm (scoring/difficulty/feature) với optimistic-lock version
 const AdminSettings = () => {
   const [configs, setConfigs] = useState<AppConfig[]>([]);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
@@ -264,6 +267,7 @@ const AdminSettings = () => {
   const [notice, setNotice] = useState<Notice | null>(null);
   const [hasVersionConflict, setHasVersionConflict] = useState(false);
 
+  // Tải config của cả 3 nhóm song song từ GET /api/admin/configs?group=...
   const loadConfigs = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
     setLoadError('');
@@ -355,6 +359,7 @@ const AdminSettings = () => {
       : 'Ngưỡng sao phải thỏa mãn: 1 sao < 2 sao < 3 sao.';
   };
 
+  // Lưu config qua PUT /api/admin/configs/{key} với version; bắt lỗi 409 (xung đột version)
   const saveConfig = async (config: AppConfig) => {
     if (!Number.isInteger(config.version) || Number(config.version) < 0) {
       setNotice({ type: 'error', message: 'Backend chưa cung cấp version hợp lệ nên không thể cập nhật cấu hình an toàn.' });

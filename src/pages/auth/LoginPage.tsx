@@ -4,6 +4,7 @@ import LoginForm from '../../components/auth/LoginForm';
 import bgImage from '../../assets/logincogiaoMaithoisao.png';
 import { getAuthSession } from '../../api/authStorage';
 
+// Trang đăng nhập: nếu đã có session hợp lệ thì tự chuyển hướng về portal theo role
 const LoginPage = () => {
   const navigate = useNavigate();
 

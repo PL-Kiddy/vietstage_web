@@ -15,6 +15,7 @@ const cardVariants: Variants = {
   visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: 'easeOut' } },
 };
 
+// Section giới thiệu vai trò người dùng của trang chủ (chưa được route)
 const RolesSection = () => {
   return (
     <section className="py-24 bg-surface-container-low px-margin-mobile md:px-margin-desktop">
