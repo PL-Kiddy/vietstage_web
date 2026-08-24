@@ -374,6 +374,7 @@ export interface CosmeticItem {
   assetUrl?: string;
   unlockType: 'ACHIEVEMENT' | 'STARS' | 'POINTS' | 'DEFAULT' | string;
   unlockValue?: number;
+  status?: 'ACTIVE' | 'INACTIVE' | string;
 }
 
 export interface CosmeticRequest {
@@ -382,6 +383,7 @@ export interface CosmeticRequest {
   assetUrl?: string;
   unlockType: string;
   unlockValue?: number;
+  status?: string;
 }
 
 export const cosmeticsApi = {

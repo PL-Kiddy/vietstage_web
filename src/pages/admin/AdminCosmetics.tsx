@@ -35,6 +35,7 @@ const AdminCosmetics = () => {
   const [error, setError] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [starFilter, setStarFilter] = useState<'ALL' | 'FREE' | 'PAID'>('ALL');
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'ACTIVE' | 'INACTIVE'>('ALL');
   const [currentPage, setCurrentPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
 
@@ -90,9 +91,15 @@ const AdminCosmetics = () => {
       if (starFilter === 'FREE') matchStar = val === 0;
       if (starFilter === 'PAID') matchStar = val > 0;
 
-      return matchSearch && matchStar;
+      const itemStatus = item.status === 'INACTIVE' ? 'INACTIVE' : 'ACTIVE';
+      let matchStatus = true;
+      if (statusFilter !== 'ALL') {
+        matchStatus = itemStatus === statusFilter;
+      }
+
+      return matchSearch && matchStar && matchStatus;
     });
-  }, [items, searchQuery, starFilter]);
+  }, [items, searchQuery, starFilter, statusFilter]);
 
   const totalPages = Math.max(1, Math.ceil(filteredItems.length / perPage));
   const pagedItems = filteredItems.slice((currentPage - 1) * perPage, currentPage * perPage);
@@ -100,7 +107,7 @@ const AdminCosmetics = () => {
   // ── Drawer helpers ──
   const openAddDrawer = () => {
     setEditingId(null);
-    setForm(emptyForm);
+    setForm({ ...emptyForm, status: 'ACTIVE' });
     setPreviewUrl(null);
     setIsDrawerOpen(true);
   };
@@ -113,6 +120,7 @@ const AdminCosmetics = () => {
       assetUrl: item.assetUrl ?? '',
       unlockType: 'STARS',
       unlockValue: item.unlockValue ?? 0,
+      status: item.status === 'INACTIVE' ? 'INACTIVE' : 'ACTIVE',
     });
     setPreviewUrl(item.assetUrl ?? null);
     setIsDrawerOpen(true);
@@ -161,6 +169,7 @@ const AdminCosmetics = () => {
         itemType: 'ROOM_DECOR',
         unlockType: 'STARS',
         unlockValue: Number(form.unlockValue) || 0,
+        status: form.status || 'ACTIVE',
       };
       if (editingId) {
         try {
@@ -184,6 +193,7 @@ const AdminCosmetics = () => {
             assetUrl: payload.assetUrl,
             unlockType: 'STARS',
             unlockValue: payload.unlockValue,
+            status: payload.status,
           };
           setItems((prev) => [newItem, ...prev]);
         }
@@ -239,7 +249,7 @@ const AdminCosmetics = () => {
           {/* ── Toolbar & Filter Bar ──────────────────────────────────── */}
           <div className="flex flex-wrap items-center gap-sm w-full mt-1">
             {/* Search */}
-            <div className="flex items-center gap-xs px-md py-sm bg-white border border-[#d1e4fb] rounded-lg flex-1 min-w-[18rem] shadow-sm focus-within:ring-1 focus-within:ring-[#1D4532] transition-all">
+            <div className="flex items-center gap-xs px-md py-sm bg-white border border-[#d1e4fb] rounded-lg flex-1 min-w-[16rem] shadow-sm focus-within:ring-1 focus-within:ring-[#1D4532] transition-all">
               <Search className="w-5 h-5 text-[#5e5e5b]" />
               <input
                 type="text"
@@ -281,6 +291,23 @@ const AdminCosmetics = () => {
               </select>
             </div>
 
+            {/* Status Filter */}
+            <div className="flex items-center gap-1.5 px-3 py-sm bg-white border border-outline-variant rounded-lg shadow-sm">
+              <span className="font-label-md text-[#5e5e5b]">Trạng thái:</span>
+              <select
+                value={statusFilter}
+                onChange={(e) => {
+                  setStatusFilter(e.target.value as 'ALL' | 'ACTIVE' | 'INACTIVE');
+                  setCurrentPage(1);
+                }}
+                className="bg-transparent border-none py-0 pl-0 pr-4 text-label-md font-semibold text-[#1D4532] focus:ring-0 cursor-pointer outline-none"
+              >
+                <option value="ALL">Tất cả trạng thái</option>
+                <option value="ACTIVE">Đang hoạt động</option>
+                <option value="INACTIVE">Tạm khóa / Ẩn</option>
+              </select>
+            </div>
+
             {/* Add Button */}
             <button
               onClick={openAddDrawer}
@@ -299,20 +326,23 @@ const AdminCosmetics = () => {
         {/* ── Table Container ─────────────────────────────────────────── */}
         <div className="bg-white rounded-xl border border-[#d1e4fb]/50 overflow-hidden shadow-sm">
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse min-w-[700px]">
+            <table className="w-full text-left border-collapse min-w-[780px]">
               <thead className="bg-[#EDF7F2]">
                 <tr className="border-b border-[#d1e4fb]/60">
-                  <th className="px-6 py-4 font-label-md text-[#1D4532] font-semibold uppercase tracking-wider w-32 text-center">
+                  <th className="px-6 py-4 font-label-md text-[#1D4532] font-semibold uppercase tracking-wider w-28 text-center">
                     Ảnh vật phẩm
                   </th>
-                  <th className="px-6 py-4 font-label-md text-[#1D4532] font-semibold uppercase tracking-wider w-40 text-left">
+                  <th className="px-6 py-4 font-label-md text-[#1D4532] font-semibold uppercase tracking-wider w-36 text-left">
                     Mã vật phẩm
                   </th>
                   <th className="px-6 py-4 font-label-md text-[#1D4532] font-semibold uppercase tracking-wider text-left">
                     Tên vật phẩm
                   </th>
-                  <th className="px-6 py-4 font-label-md text-[#1D4532] font-semibold uppercase tracking-wider w-56 text-left">
+                  <th className="px-6 py-4 font-label-md text-[#1D4532] font-semibold uppercase tracking-wider w-48 text-left">
                     Điều kiện mở khóa
+                  </th>
+                  <th className="px-6 py-4 font-label-md text-[#1D4532] font-semibold uppercase tracking-wider w-40 text-left">
+                    Trạng thái
                   </th>
                   <th className="px-6 py-4 font-label-md text-[#1D4532] font-semibold uppercase tracking-wider text-center w-24">
                     Thao tác
@@ -323,7 +353,7 @@ const AdminCosmetics = () => {
               <tbody className="divide-y divide-[#d1e4fb]/50">
                 {loading ? (
                   <tr>
-                    <td colSpan={5} className="text-center py-xl text-body-md text-[#5e5e5b]">
+                    <td colSpan={6} className="text-center py-xl text-body-md text-[#5e5e5b]">
                       <div className="flex items-center justify-center gap-2">
                         <div className="w-5 h-5 border-2 border-[#1D4532] border-t-transparent rounded-full animate-spin" />
                         <span>Đang tải danh mục vật phẩm...</span>
@@ -332,20 +362,21 @@ const AdminCosmetics = () => {
                   </tr>
                 ) : pagedItems.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="text-center py-xl text-body-md text-[#5e5e5b]">
+                    <td colSpan={6} className="text-center py-xl text-body-md text-[#5e5e5b]">
                       Không tìm thấy vật phẩm phù hợp với bộ lọc.
                     </td>
                   </tr>
                 ) : (
                   pagedItems.map((item) => {
                     const stars = item.unlockValue ?? 0;
+                    const isActive = item.status !== 'INACTIVE';
                     return (
                       <tr
                         key={item.id}
                         onClick={() => setSelectedItem(item)}
                         className="hover:bg-[#EDF7F2]/50 transition-colors cursor-pointer"
                       >
-                        {/* 1. Ảnh xem trước thumbnail lớn rõ nét */}
+                        {/* 1. Ảnh xem trước thumbnail */}
                         <td className="px-6 py-3.5 text-center">
                           <div className="w-20 h-20 rounded-2xl bg-[#FAF8F5] border border-outline-variant/30 flex items-center justify-center mx-auto overflow-hidden p-2 shadow-sm transition-transform duration-200 hover:scale-105">
                             {item.assetUrl ? (
@@ -395,7 +426,22 @@ const AdminCosmetics = () => {
                           )}
                         </td>
 
-                        {/* 5. Thao tác */}
+                        {/* 5. Cột Trạng thái */}
+                        <td className="px-6 py-3.5 text-left">
+                          {isActive ? (
+                            <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
+                              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                              Đang hoạt động
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#5e5e5b] bg-gray-100 px-2.5 py-1 rounded-full border border-gray-200">
+                              <span className="w-2 h-2 rounded-full bg-gray-400" />
+                              Tạm khóa / Ẩn
+                            </span>
+                          )}
+                        </td>
+
+                        {/* 6. Thao tác */}
                         <td className="px-6 py-3.5 text-center relative" onClick={(e) => e.stopPropagation()}>
                           <button
                             onClick={() => setOpenActionMenuId(openActionMenuId === item.id ? null : item.id)}
@@ -584,6 +630,22 @@ const AdminCosmetics = () => {
                     <p className="mt-1 font-semibold text-on-surface">{selectedItem.name}</p>
                   </div>
                   <div>
+                    <p className="text-xs text-[#5e5e5b]">Trạng thái</p>
+                    <div className="mt-1">
+                      {selectedItem.status !== 'INACTIVE' ? (
+                        <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
+                          <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                          Đang hoạt động
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#5e5e5b] bg-gray-100 px-2.5 py-1 rounded-full border border-gray-200">
+                          <span className="w-2 h-2 rounded-full bg-gray-400" />
+                          Tạm khóa / Ẩn
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div>
                     <p className="text-xs text-[#5e5e5b]">Điều kiện mở khóa</p>
                     <div className="mt-1">
                       {(selectedItem.unlockValue ?? 0) > 0 ? (
@@ -597,6 +659,10 @@ const AdminCosmetics = () => {
                         </span>
                       )}
                     </div>
+                  </div>
+                  <div>
+                    <p className="text-xs text-[#5e5e5b]">Phân loại</p>
+                    <p className="mt-1 font-medium text-[#1D4532]">Trang trí phòng học ảo</p>
                   </div>
                   <div className="sm:col-span-2">
                     <p className="text-xs text-[#5e5e5b]">Đường dẫn asset (URL)</p>
@@ -793,6 +859,21 @@ const AdminCosmetics = () => {
                       </span>
                     </div>
 
+                    {/* Trạng thái hoạt động */}
+                    <div className="flex flex-col gap-1.5">
+                      <label className={labelClass}>
+                        Trạng thái hoạt động <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        value={form.status || 'ACTIVE'}
+                        onChange={(e) => setForm((prev) => ({ ...prev, status: e.target.value }))}
+                        className={`${fieldClass} cursor-pointer`}
+                      >
+                        <option value="ACTIVE">Đang hoạt động</option>
+                        <option value="INACTIVE">Tạm khóa / Ẩn khỏi cửa hàng</option>
+                      </select>
+                    </div>
+
                     {/* Preview card nhỏ */}
                     {previewUrl && form.name && (
                       <div className="bg-[#EDF7F2]/60 border border-[#1D4532]/15 rounded-xl p-4 flex gap-4 items-center">
@@ -804,9 +885,20 @@ const AdminCosmetics = () => {
                         <div>
                           <p className="font-semibold text-sm text-[#1D4532]">{form.name}</p>
                           <p className="text-xs text-on-surface-variant mt-0.5">Trang trí phòng học ảo</p>
-                          <div className="mt-1 inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-900 border border-amber-200">
-                            <Star className="w-3.5 h-3.5 text-amber-600 fill-amber-500" />
-                            {(form.unlockValue ?? 0) > 0 ? `${form.unlockValue} Sao` : 'Mặc định (Miễn phí)'}
+                          <div className="mt-1 flex items-center gap-2">
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-900 border border-amber-200">
+                              <Star className="w-3.5 h-3.5 text-amber-600 fill-amber-500" />
+                              {(form.unlockValue ?? 0) > 0 ? `${form.unlockValue} Sao` : 'Mặc định (Miễn phí)'}
+                            </span>
+                            <span
+                              className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
+                                form.status !== 'INACTIVE'
+                                  ? 'bg-emerald-100 text-emerald-800'
+                                  : 'bg-gray-200 text-gray-700'
+                              }`}
+                            >
+                              {form.status !== 'INACTIVE' ? 'Đang hoạt động' : 'Tạm khóa'}
+                            </span>
                           </div>
                         </div>
                       </div>
@@ -852,5 +944,6 @@ const AdminCosmetics = () => {
 };
 
 export default AdminCosmetics;
+
 
 

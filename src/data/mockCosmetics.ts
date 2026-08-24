@@ -9,6 +9,7 @@ export const mockCosmetics: CosmeticItem[] = [
     assetUrl: '/decorations/277822b0-ef0c-48e5-b7cf-59fb941dd3e3.png',
     unlockType: 'STARS',
     unlockValue: 50,
+    status: 'ACTIVE',
   },
   {
     id: 2,
@@ -17,6 +18,7 @@ export const mockCosmetics: CosmeticItem[] = [
     assetUrl: '/decorations/53b2828a-00b9-4913-8ef1-ea95f7efe6aa.png',
     unlockType: 'STARS',
     unlockValue: 100,
+    status: 'ACTIVE',
   },
   {
     id: 3,
@@ -25,6 +27,7 @@ export const mockCosmetics: CosmeticItem[] = [
     assetUrl: '/decorations/6a00c552-cc19-47ac-bb4e-4da0900a6473.png',
     unlockType: 'STARS',
     unlockValue: 200,
+    status: 'ACTIVE',
   },
   {
     id: 4,
@@ -33,6 +36,7 @@ export const mockCosmetics: CosmeticItem[] = [
     assetUrl: '/decorations/70833c90-f0c2-4f58-9df3-9d348f1c28fe.png',
     unlockType: 'STARS',
     unlockValue: 150,
+    status: 'ACTIVE',
   },
   {
     id: 5,
@@ -41,6 +45,7 @@ export const mockCosmetics: CosmeticItem[] = [
     assetUrl: '/decorations/7f2fca74-fec1-42a5-ba94-bfde4c80fe21.png',
     unlockType: 'STARS',
     unlockValue: 0,
+    status: 'ACTIVE',
   },
   {
     id: 6,
@@ -49,6 +54,7 @@ export const mockCosmetics: CosmeticItem[] = [
     assetUrl: '/decorations/98fada3c-096e-4105-af8d-c74e249aad04.png',
     unlockType: 'STARS',
     unlockValue: 120,
+    status: 'ACTIVE',
   },
   {
     id: 7,
@@ -57,6 +63,7 @@ export const mockCosmetics: CosmeticItem[] = [
     assetUrl: '/decorations/a39c0e84-7cad-4af1-823e-af840b82328a.png',
     unlockType: 'STARS',
     unlockValue: 80,
+    status: 'INACTIVE',
   },
   {
     id: 8,
@@ -65,6 +72,8 @@ export const mockCosmetics: CosmeticItem[] = [
     assetUrl: '/decorations/a5f93c96-38b6-4692-b001-8e2e7704040f.png',
     unlockType: 'STARS',
     unlockValue: 90,
+    status: 'ACTIVE',
   },
 ];
+
 
