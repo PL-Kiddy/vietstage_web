@@ -341,7 +341,7 @@ const AdminCosmetics = () => {
                   <th className="px-6 py-4 font-label-md text-[#1D4532] font-semibold uppercase tracking-wider w-48 text-left">
                     Điều kiện mở khóa
                   </th>
-                  <th className="px-6 py-4 font-label-md text-[#1D4532] font-semibold uppercase tracking-wider w-40 text-left">
+                  <th className="px-6 py-4 font-label-md text-[#1D4532] font-semibold uppercase tracking-wider w-48 text-left">
                     Trạng thái
                   </th>
                   <th className="px-6 py-4 font-label-md text-[#1D4532] font-semibold uppercase tracking-wider text-center w-24">
@@ -406,20 +406,17 @@ const AdminCosmetics = () => {
                           <div className="font-semibold text-base text-on-surface hover:text-[#1D4532] transition-colors">
                             {item.name}
                           </div>
-                          <div className="text-[12px] text-[#5e5e5b] mt-0.5">
-                            Vật phẩm trang trí phòng học ảo
-                          </div>
                         </td>
 
                         {/* 4. Điều kiện mở khóa (Số Sao ⭐) */}
                         <td className="px-6 py-3.5 text-left">
                           {stars > 0 ? (
-                            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-amber-100 text-amber-900 border border-amber-200">
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-amber-100 text-amber-900 border border-amber-200 whitespace-nowrap">
                               <Star className="w-4 h-4 text-amber-600 fill-amber-500" />
                               {stars} Sao
                             </span>
                           ) : (
-                            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-emerald-100 text-emerald-800 border border-emerald-200">
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-emerald-100 text-emerald-800 border border-emerald-200 whitespace-nowrap">
                               <Star className="w-4 h-4 text-emerald-600" />
                               Mặc định (Miễn phí)
                             </span>
@@ -429,12 +426,12 @@ const AdminCosmetics = () => {
                         {/* 5. Cột Trạng thái */}
                         <td className="px-6 py-3.5 text-left">
                           {isActive ? (
-                            <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
+                            <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200 whitespace-nowrap">
                               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                               Đang hoạt động
                             </span>
                           ) : (
-                            <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#5e5e5b] bg-gray-100 px-2.5 py-1 rounded-full border border-gray-200">
+                            <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#5e5e5b] bg-gray-100 px-2.5 py-1 rounded-full border border-gray-200 whitespace-nowrap">
                               <span className="w-2 h-2 rounded-full bg-gray-400" />
                               Tạm khóa / Ẩn
                             </span>
@@ -469,17 +466,10 @@ const AdminCosmetics = () => {
                                 </button>
                                 <button
                                   onClick={() => openEditDrawer(item)}
-                                  className="w-full flex items-center gap-2 px-3.5 py-2 hover:bg-[#EDF7F2] text-[13px] text-on-surface transition-colors"
+                                  className="w-full flex items-center gap-2 px-3.5 py-2 hover:bg-[#EDF7F2] text-[13px] text-on-surface transition-colors border-t border-[#d1e4fb]/40"
                                 >
                                   <Edit2 className="w-4 h-4 text-[#1D4532]" />
                                   Sửa vật phẩm
-                                </button>
-                                <button
-                                  onClick={() => void handleDelete(item.id)}
-                                  className="w-full flex items-center gap-2 px-3.5 py-2 hover:bg-red-50 text-[13px] text-red-600 transition-colors border-t border-[#d1e4fb]/40"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                  Xóa vật phẩm
                                 </button>
                               </div>
                             </>
