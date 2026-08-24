@@ -667,26 +667,16 @@ const AdminCosmetics = () => {
               </section>
 
               {/* Thao tác nhanh */}
-              <div className="flex gap-2.5 pt-1 flex-shrink-0">
+              <div className="pt-1 flex-shrink-0">
                 <button
                   onClick={() => {
                     const item = selectedItem;
                     setSelectedItem(null);
                     openEditDrawer(item);
                   }}
-                  className="flex-1 flex items-center justify-center gap-2 bg-[#1D4532] text-white py-2.5 rounded-xl font-bold text-xs hover:bg-[#1D4532]/90 transition-all shadow-sm"
+                  className="w-full flex items-center justify-center gap-2 bg-[#1D4532] text-white py-2.5 rounded-xl font-bold text-xs hover:bg-[#1D4532]/90 transition-all shadow-sm"
                 >
                   <Edit2 className="w-3.5 h-3.5" /> Chỉnh sửa thông tin
-                </button>
-                <button
-                  onClick={() => {
-                    const id = selectedItem.id;
-                    setSelectedItem(null);
-                    void handleDelete(id);
-                  }}
-                  className="px-4 flex items-center justify-center gap-1.5 bg-red-50 text-red-600 border border-red-200 py-2.5 rounded-xl font-bold text-xs hover:bg-red-100 transition-all"
-                >
-                  <Trash2 className="w-3.5 h-3.5" /> Xóa
                 </button>
               </div>
             </div>
@@ -899,7 +889,20 @@ const AdminCosmetics = () => {
                   </div>
 
                   {/* Footer actions */}
-                  <div className="px-6 py-4 border-t border-outline-variant/10 bg-[#f5f3ee]/40 flex gap-3 flex-shrink-0">
+                  <div className="px-6 py-4 border-t border-outline-variant/10 bg-[#f5f3ee]/40 flex items-center gap-3 flex-shrink-0">
+                    {editingId && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const idToDelete = editingId;
+                          closeDrawer();
+                          void handleDelete(idToDelete);
+                        }}
+                        className="flex items-center justify-center gap-1.5 px-4 py-3 rounded-xl font-bold text-xs text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 transition-all"
+                      >
+                        <Trash2 className="w-4 h-4" /> Xóa
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={closeDrawer}
