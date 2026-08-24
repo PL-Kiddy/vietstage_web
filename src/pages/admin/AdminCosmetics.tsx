@@ -543,7 +543,7 @@ const AdminCosmetics = () => {
       </div>
 
       {/* ═══════════════════════════════════════════════════════════════
-           ITEM DETAIL SLIDE-IN PANEL
+           ITEM DETAIL SLIDE-IN PANEL (Vừa vặn 1 màn hình, không cần cuộn)
          ═══════════════════════════════════════════════════════════════ */}
       {selectedItem && (
         <div
@@ -551,13 +551,13 @@ const AdminCosmetics = () => {
           onClick={() => setSelectedItem(null)}
         >
           <div
-            className="fixed top-0 right-0 h-full w-[100%] sm:w-[60%] md:w-[50%] lg:w-[40%] bg-white border-l border-[#d1e4fb] shadow-2xl z-[1000] overflow-hidden flex flex-col animate-[slideIn_0.3s_ease-out]"
+            className="fixed top-0 right-0 h-full w-full sm:w-[500px] md:w-[540px] bg-white border-l border-[#d1e4fb] shadow-2xl z-[1000] overflow-hidden flex flex-col animate-[slideIn_0.3s_ease-out]"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="px-xl py-lg border-b border-[#d1e4fb] flex justify-between items-center bg-[#EDF7F2]">
-              <div className="flex items-center gap-md">
-                <div className="w-14 h-14 rounded-2xl bg-white border border-[#d1e4fb] flex items-center justify-center p-2 shadow-sm">
+            <div className="px-5 py-3.5 border-b border-[#d1e4fb] flex justify-between items-center bg-[#EDF7F2] flex-shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-white border border-[#d1e4fb] flex items-center justify-center p-1.5 shadow-sm shrink-0">
                   {selectedItem.assetUrl ? (
                     <img
                       src={selectedItem.assetUrl}
@@ -565,98 +565,101 @@ const AdminCosmetics = () => {
                       className="w-full h-full object-contain"
                     />
                   ) : (
-                    <ImageIcon className="w-6 h-6 text-[#9CA3AF]" />
+                    <ImageIcon className="w-5 h-5 text-[#9CA3AF]" />
                   )}
                 </div>
                 <div>
                   <h3
-                    className="text-headline-md font-bold text-[#1D4532]"
+                    className="text-base font-bold text-[#1D4532] leading-snug"
                     style={{ fontFamily: "'Montserrat', sans-serif" }}
                   >
                     {selectedItem.name}
                   </h3>
-                  <p className="text-[12px] text-[#5e5e5b]">
+                  <p className="text-[11px] text-[#5e5e5b]">
                     Mã hệ thống: DECOR-{selectedItem.id}
                   </p>
                 </div>
               </div>
               <button
                 onClick={() => setSelectedItem(null)}
-                className="p-2 hover:bg-white/70 rounded-full transition-colors text-[#5e5e5b]"
+                className="p-1.5 hover:bg-white/70 rounded-full transition-colors text-[#5e5e5b]"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            {/* Body */}
-            <div className="flex-1 overflow-y-auto p-xl space-y-6 bg-white custom-scrollbar">
-              {/* Preview lớn */}
-              <div className="rounded-2xl border border-[#d1e4fb] bg-[#FAF8F5] p-6 flex flex-col items-center justify-center text-center shadow-inner">
-                <div className="w-48 h-48 flex items-center justify-center">
+            {/* Body: Tự động co giãn theo chiều cao, hiển thị trọn vẹn */}
+            <div className="flex-1 flex flex-col justify-between p-5 space-y-3.5 bg-white overflow-y-auto">
+              {/* Preview ảnh vừa vặn */}
+              <div className="rounded-xl border border-[#d1e4fb] bg-[#FAF8F5] p-3 flex flex-col items-center justify-center text-center shadow-inner shrink-0">
+                <div className="w-28 h-28 flex items-center justify-center">
                   {selectedItem.assetUrl ? (
                     <img
                       src={selectedItem.assetUrl}
                       alt={selectedItem.name}
-                      className="max-w-full max-h-full object-contain drop-shadow-md"
+                      className="max-w-full max-h-full object-contain drop-shadow-sm"
                     />
                   ) : (
-                    <ImageIcon className="w-16 h-16 text-[#9CA3AF]/40" />
+                    <ImageIcon className="w-12 h-12 text-[#9CA3AF]/40" />
                   )}
                 </div>
-                <p className="text-xs text-on-surface-variant mt-2">
-                  Texture PNG hiển thị trực tiếp trong VirtualMusicRoom (Godot)
+                <p className="text-[11px] text-[#5e5e5b] mt-1 font-medium">
+                  Texture PNG hiển thị trong phòng học ảo (Godot)
                 </p>
               </div>
 
               {/* Thông tin chi tiết */}
-              <section className="rounded-xl border border-[#d1e4fb] bg-white p-lg space-y-4">
-                <h4 className="text-label-md font-bold uppercase tracking-wider text-[#1D4532] border-b border-[#d1e4fb]/40 pb-2">
+              <section className="rounded-xl border border-[#d1e4fb] bg-white p-4 space-y-2.5 flex-1">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-[#1D4532] border-b border-[#d1e4fb]/40 pb-1.5">
                   Thông tin chi tiết vật phẩm
                 </h4>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 text-xs">
                   <div>
-                    <p className="text-xs text-[#5e5e5b]">Tên vật phẩm</p>
-                    <p className="mt-1 font-semibold text-on-surface">{selectedItem.name}</p>
+                    <p className="text-[#5e5e5b]">Tên vật phẩm</p>
+                    <p className="mt-0.5 font-semibold text-on-surface text-sm">{selectedItem.name}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-[#5e5e5b]">Trạng thái</p>
-                    <div className="mt-1">
+                    <p className="text-[#5e5e5b]">Trạng thái</p>
+                    <div className="mt-0.5">
                       {selectedItem.status !== 'INACTIVE' ? (
-                        <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
-                          <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 whitespace-nowrap">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                           Đang hoạt động
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#5e5e5b] bg-gray-100 px-2.5 py-1 rounded-full border border-gray-200">
-                          <span className="w-2 h-2 rounded-full bg-gray-400" />
+                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#5e5e5b] bg-gray-100 px-2 py-0.5 rounded-full border border-gray-200 whitespace-nowrap">
+                          <span className="w-1.5 h-1.5 rounded-full bg-gray-400" />
                           Tạm khóa / Ẩn
                         </span>
                       )}
                     </div>
                   </div>
+
                   <div>
-                    <p className="text-xs text-[#5e5e5b]">Điều kiện mở khóa</p>
-                    <div className="mt-1">
+                    <p className="text-[#5e5e5b]">Điều kiện mở khóa</p>
+                    <div className="mt-0.5">
                       {(selectedItem.unlockValue ?? 0) > 0 ? (
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-bold rounded-lg bg-amber-100 text-amber-900 border border-amber-200">
-                          <Star className="w-3.5 h-3.5 text-amber-600 fill-amber-500" />
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-bold rounded-md bg-amber-100 text-amber-900 border border-amber-200">
+                          <Star className="w-3 h-3 text-amber-600 fill-amber-500" />
                           {selectedItem.unlockValue} Sao ⭐
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-bold rounded-lg bg-emerald-100 text-emerald-800 border border-emerald-200">
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-bold rounded-md bg-emerald-100 text-emerald-800 border border-emerald-200">
                           Mặc định (Miễn phí)
                         </span>
                       )}
                     </div>
                   </div>
+
                   <div>
-                    <p className="text-xs text-[#5e5e5b]">Phân loại</p>
-                    <p className="mt-1 font-medium text-[#1D4532]">Trang trí phòng học ảo</p>
+                    <p className="text-[#5e5e5b]">Phân loại</p>
+                    <p className="mt-0.5 font-medium text-[#1D4532]">Trang trí phòng học ảo</p>
                   </div>
-                  <div className="sm:col-span-2">
-                    <p className="text-xs text-[#5e5e5b]">Đường dẫn asset (URL)</p>
-                    <p className="mt-1 font-mono text-xs text-on-surface break-all bg-gray-50 p-2 rounded-lg border border-gray-200">
+
+                  <div className="col-span-2">
+                    <p className="text-[#5e5e5b]">Đường dẫn asset (URL)</p>
+                    <p className="mt-0.5 font-mono text-[11px] text-on-surface break-all bg-gray-50 p-1.5 rounded-lg border border-gray-200">
                       {selectedItem.assetUrl || 'Chưa cập nhật'}
                     </p>
                   </div>
@@ -664,16 +667,16 @@ const AdminCosmetics = () => {
               </section>
 
               {/* Thao tác nhanh */}
-              <div className="flex gap-3 pt-2">
+              <div className="flex gap-2.5 pt-1 flex-shrink-0">
                 <button
                   onClick={() => {
                     const item = selectedItem;
                     setSelectedItem(null);
                     openEditDrawer(item);
                   }}
-                  className="flex-1 flex items-center justify-center gap-2 bg-[#1D4532] text-white py-3 rounded-xl font-bold text-sm hover:bg-[#1D4532]/90 transition-all shadow-sm"
+                  className="flex-1 flex items-center justify-center gap-2 bg-[#1D4532] text-white py-2.5 rounded-xl font-bold text-xs hover:bg-[#1D4532]/90 transition-all shadow-sm"
                 >
-                  <Edit2 className="w-4 h-4" /> Chỉnh sửa thông tin
+                  <Edit2 className="w-3.5 h-3.5" /> Chỉnh sửa thông tin
                 </button>
                 <button
                   onClick={() => {
@@ -681,9 +684,9 @@ const AdminCosmetics = () => {
                     setSelectedItem(null);
                     void handleDelete(id);
                   }}
-                  className="px-5 flex items-center justify-center gap-2 bg-red-50 text-red-600 border border-red-200 py-3 rounded-xl font-bold text-sm hover:bg-red-100 transition-all"
+                  className="px-4 flex items-center justify-center gap-1.5 bg-red-50 text-red-600 border border-red-200 py-2.5 rounded-xl font-bold text-xs hover:bg-red-100 transition-all"
                 >
-                  <Trash2 className="w-4 h-4" /> Xóa
+                  <Trash2 className="w-3.5 h-3.5" /> Xóa
                 </button>
               </div>
             </div>
