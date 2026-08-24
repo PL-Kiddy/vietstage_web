@@ -21,14 +21,7 @@ import { createPortal } from 'react-dom';
 import { cosmeticsApi, uploadApi, type CosmeticItem, type CosmeticRequest } from '../../api/services';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
-type ItemTypeTab = 'ROOM_DECOR' | 'INSTRUMENT_SKIN' | 'AVATAR_SKIN';
 type UnlockType = 'DEFAULT' | 'STARS' | 'POINTS' | 'ACHIEVEMENT';
-
-const TAB_LABELS: Record<ItemTypeTab, string> = {
-  ROOM_DECOR: 'Trang trí phòng',
-  INSTRUMENT_SKIN: 'Skin nhạc cụ',
-  AVATAR_SKIN: 'Skin nhân vật',
-};
 
 const UNLOCK_TYPE_LABELS: Record<UnlockType, string> = {
   DEFAULT: 'Mặc định (miễn phí)',
@@ -60,9 +53,8 @@ const emptyForm: CosmeticRequest = {
 };
 
 // ─── Component ───────────────────────────────────────────────────────────────
-// Trang Admin quản lý vật phẩm trang trí Godot (cosmetics): CRUD + upload ảnh PNG cắt nền lên Cloudinary
+// Trang Admin quản lý vật phẩm trang trí phòng học ảo Godot: CRUD + upload ảnh PNG cắt nền lên Cloudinary
 const AdminCosmetics = () => {
-  const [activeTab, setActiveTab] = useState<ItemTypeTab>('ROOM_DECOR');
   const [items, setItems] = useState<CosmeticItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -83,11 +75,11 @@ const AdminCosmetics = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // ── Load data ──
-  const loadItems = useCallback(async (type: ItemTypeTab) => {
+  const loadItems = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
-      const data = await cosmeticsApi.list(type);
+      const data = await cosmeticsApi.list('ROOM_DECOR');
       setItems(Array.isArray(data) ? data : []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Không thể tải danh sách vật phẩm.');
@@ -97,10 +89,8 @@ const AdminCosmetics = () => {
   }, []);
 
   useEffect(() => {
-    void loadItems(activeTab);
-    setCurrentPage(1);
-    setSearchQuery('');
-  }, [activeTab, loadItems]);
+    void loadItems();
+  }, [loadItems]);
 
   // ── Filter + Pagination ──
   const filteredItems = useMemo(() => {
@@ -119,7 +109,7 @@ const AdminCosmetics = () => {
   // ── Drawer helpers ──
   const openAddDrawer = () => {
     setEditingId(null);
-    setForm({ ...emptyForm, itemType: activeTab });
+    setForm(emptyForm);
     setPreviewUrl(null);
     setIsDrawerOpen(true);
   };
@@ -128,7 +118,7 @@ const AdminCosmetics = () => {
     setEditingId(item.id);
     setForm({
       name: item.name,
-      itemType: item.itemType,
+      itemType: item.itemType || 'ROOM_DECOR',
       assetUrl: item.assetUrl ?? '',
       unlockType: item.unlockType,
       unlockValue: item.unlockValue,
@@ -176,13 +166,17 @@ const AdminCosmetics = () => {
     setSaving(true);
     setError('');
     try {
+      const payload: CosmeticRequest = {
+        ...form,
+        itemType: 'ROOM_DECOR',
+      };
       if (editingId) {
-        await cosmeticsApi.update(editingId, form);
+        await cosmeticsApi.update(editingId, payload);
       } else {
-        await cosmeticsApi.create(form);
+        await cosmeticsApi.create(payload);
       }
       closeDrawer();
-      await loadItems(activeTab);
+      await loadItems();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Không thể lưu vật phẩm.');
     } finally {
@@ -196,7 +190,7 @@ const AdminCosmetics = () => {
     if (!confirm('Xóa vật phẩm này? Thao tác không thể hoàn tác.')) return;
     try {
       await cosmeticsApi.remove(id);
-      await loadItems(activeTab);
+      await loadItems();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Không thể xóa vật phẩm.');
     }
@@ -214,7 +208,7 @@ const AdminCosmetics = () => {
         <div>
           <h2 className="text-headline-lg font-bold text-[#1D4532]">Vật phẩm trang trí</h2>
           <p className="text-on-surface-variant mt-1">
-            Quản lý skin, trang trí phòng và nhân vật hiển thị trong Godot.
+            Quản lý các vật phẩm trang trí trong phòng học ảo hiển thị trong ứng dụng Godot.
           </p>
         </div>
 
@@ -250,28 +244,6 @@ const AdminCosmetics = () => {
         <div className="mb-4 rounded-lg bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm">{error}</div>
       )}
 
-      {/* ── Tabs ────────────────────────────────────────────────────── */}
-      <div className="flex gap-1 border-b border-outline-variant/20 mb-5">
-        {(Object.keys(TAB_LABELS) as ItemTypeTab[]).map((type) => (
-          <button
-            key={type}
-            onClick={() => setActiveTab(type)}
-            className={`px-5 py-3 font-semibold text-sm border-b-2 transition-all ${
-              activeTab === type
-                ? 'border-[#1D4532] text-[#1D4532]'
-                : 'border-transparent text-on-surface-variant hover:text-[#1D4532]'
-            }`}
-          >
-            {TAB_LABELS[type]}
-            {activeTab === type && items.length > 0 && (
-              <span className="ml-2 text-xs bg-[#1D4532]/10 text-[#1D4532] rounded-full px-2 py-0.5">
-                {items.length}
-              </span>
-            )}
-          </button>
-        ))}
-      </div>
-
       {/* ── Grid Content ────────────────────────────────────────────── */}
       {loading ? (
         <div className="flex-1 flex items-center justify-center py-20">
@@ -290,7 +262,7 @@ const AdminCosmetics = () => {
             <p className="text-sm mt-1">
               {searchQuery
                 ? 'Không tìm thấy kết quả phù hợp.'
-                : `Thêm vật phẩm ${TAB_LABELS[activeTab].toLowerCase()} đầu tiên.`}
+                : 'Thêm vật phẩm trang trí phòng đầu tiên.'}
             </p>
           </div>
           {!searchQuery && (
@@ -463,7 +435,7 @@ const AdminCosmetics = () => {
                       {editingId ? 'Chỉnh sửa vật phẩm' : 'Thêm vật phẩm mới'}
                     </h4>
                     <p className="text-xs text-on-surface-variant mt-0.5">
-                      Upload ảnh PNG cắt nền + điền thông tin để Godot nhận vật phẩm.
+                      Upload ảnh PNG cắt nền + điền thông tin để Godot nhận vật phẩm trang trí phòng.
                     </p>
                   </div>
                   <button
@@ -558,28 +530,11 @@ const AdminCosmetics = () => {
                       </label>
                       <input
                         required
-                        placeholder="Ví dụ: Đèn lồng đỏ, Skin Violin Vàng..."
+                        placeholder="Ví dụ: Đèn lồng đỏ, Chậu cây phong cách cổ truyền..."
                         value={form.name}
                         onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
                         className={fieldClass}
                       />
-                    </div>
-
-                    {/* Loại vật phẩm */}
-                    <div className="flex flex-col gap-1.5">
-                      <label className={labelClass}>
-                        Loại vật phẩm <span className="text-red-500">*</span>
-                      </label>
-                      <select
-                        required
-                        value={form.itemType}
-                        onChange={(e) => setForm((prev) => ({ ...prev, itemType: e.target.value }))}
-                        className={`${fieldClass} cursor-pointer`}
-                      >
-                        {(Object.keys(TAB_LABELS) as ItemTypeTab[]).map((type) => (
-                          <option key={type} value={type}>{TAB_LABELS[type]}</option>
-                        ))}
-                      </select>
                     </div>
 
                     {/* Điều kiện mở khóa */}
@@ -634,7 +589,7 @@ const AdminCosmetics = () => {
                         <div>
                           <p className="font-semibold text-sm text-[#1D4532]">{form.name}</p>
                           <p className="text-xs text-on-surface-variant mt-0.5">
-                            {TAB_LABELS[form.itemType as ItemTypeTab] ?? form.itemType}
+                            Trang trí phòng
                           </p>
                           <div
                             className={`mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium ${
@@ -692,3 +647,4 @@ const AdminCosmetics = () => {
 };
 
 export default AdminCosmetics;
+
