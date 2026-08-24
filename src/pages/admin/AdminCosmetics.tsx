@@ -15,6 +15,9 @@ import {
   Star,
   Trophy,
   Zap,
+  Eye,
+  Layers,
+  Award,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createPortal } from 'react-dom';
@@ -31,18 +34,18 @@ const UNLOCK_TYPE_LABELS: Record<UnlockType, string> = {
   ACHIEVEMENT: 'Thành tích đặc biệt 🏆',
 };
 
-const UNLOCK_TYPE_ICONS: Record<UnlockType, React.ReactNode> = {
-  DEFAULT: <Sparkles className="w-3.5 h-3.5" />,
-  STARS: <Star className="w-3.5 h-3.5" />,
-  POINTS: <Zap className="w-3.5 h-3.5" />,
-  ACHIEVEMENT: <Trophy className="w-3.5 h-3.5" />,
+const UNLOCK_TYPE_BADGE_STYLES: Record<UnlockType, string> = {
+  DEFAULT: 'bg-emerald-100 text-emerald-800 border border-emerald-200',
+  STARS: 'bg-amber-100 text-amber-900 border border-amber-200',
+  POINTS: 'bg-blue-100 text-blue-800 border border-blue-200',
+  ACHIEVEMENT: 'bg-purple-100 text-purple-800 border border-purple-200',
 };
 
-const UNLOCK_TYPE_COLORS: Record<UnlockType, string> = {
-  DEFAULT: 'bg-emerald-100 text-emerald-700',
-  STARS: 'bg-amber-100 text-amber-700',
-  POINTS: 'bg-blue-100 text-blue-700',
-  ACHIEVEMENT: 'bg-purple-100 text-purple-700',
+const UNLOCK_TYPE_ICONS: Record<UnlockType, React.ReactNode> = {
+  DEFAULT: <Sparkles className="w-3.5 h-3.5 text-emerald-600" />,
+  STARS: <Star className="w-3.5 h-3.5 text-amber-600 fill-amber-500" />,
+  POINTS: <Zap className="w-3.5 h-3.5 text-blue-600" />,
+  ACHIEVEMENT: <Trophy className="w-3.5 h-3.5 text-purple-600" />,
 };
 
 const emptyForm: CosmeticRequest = {
@@ -54,17 +57,23 @@ const emptyForm: CosmeticRequest = {
 };
 
 // ─── Component ───────────────────────────────────────────────────────────────
-// Trang Admin quản lý vật phẩm trang trí phòng học ảo Godot: CRUD + upload ảnh PNG cắt nền lên Cloudinary
+// Trang Admin quản lý vật phẩm trang trí phòng học ảo: Bảng quản lý chuyên nghiệp chuẩn hệ thống
 const AdminCosmetics = () => {
   const [items, setItems] = useState<CosmeticItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [unlockFilter, setUnlockFilter] = useState<'ALL' | UnlockType>('ALL');
   const [currentPage, setCurrentPage] = useState(1);
-  const [perPage, setPerPage] = useState(12);
-  const [openActionMenu, setOpenActionMenu] = useState<number | null>(null);
+  const [perPage, setPerPage] = useState(10);
 
-  // Drawer
+  // Detail Modal / Slide-in Panel
+  const [selectedItem, setSelectedItem] = useState<CosmeticItem | null>(null);
+
+  // Action Menu state
+  const [openActionMenuId, setOpenActionMenuId] = useState<number | null>(null);
+
+  // Add / Edit Drawer state
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState<CosmeticRequest>(emptyForm);
@@ -84,11 +93,9 @@ const AdminCosmetics = () => {
       if (Array.isArray(data) && data.length > 0) {
         setItems(data);
       } else {
-        // Sử dụng mockData từ VietStageApp nếu backend trả về rỗng
         setItems(mockCosmetics);
       }
     } catch {
-      // Fallback sang mockData nếu backend chưa có endpoint
       setItems(mockCosmetics);
     } finally {
       setLoading(false);
@@ -99,16 +106,26 @@ const AdminCosmetics = () => {
     void loadItems();
   }, [loadItems]);
 
-  // ── Filter + Pagination ──
+  // ── Metrics Statistics ──
+  const stats = useMemo(() => {
+    const total = items.length;
+    const freeCount = items.filter((i) => i.unlockType === 'DEFAULT').length;
+    const starCount = items.filter((i) => i.unlockType === 'STARS').length;
+    const otherCount = items.filter((i) => i.unlockType === 'POINTS' || i.unlockType === 'ACHIEVEMENT').length;
+    return { total, freeCount, starCount, otherCount };
+  }, [items]);
+
+  // ── Filter + Search ──
   const filteredItems = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
-    if (!q) return items;
-    return items.filter(
-      (item) =>
-        item.name.toLowerCase().includes(q) ||
-        item.unlockType.toLowerCase().includes(q),
-    );
-  }, [items, searchQuery]);
+    return items.filter((item) => {
+      const matchSearch =
+        !searchQuery.trim() ||
+        item.name.toLowerCase().includes(searchQuery.trim().toLowerCase()) ||
+        item.id.toString().includes(searchQuery.trim());
+      const matchUnlock = unlockFilter === 'ALL' || item.unlockType === unlockFilter;
+      return matchSearch && matchUnlock;
+    });
+  }, [items, searchQuery, unlockFilter]);
 
   const totalPages = Math.max(1, Math.ceil(filteredItems.length / perPage));
   const pagedItems = filteredItems.slice((currentPage - 1) * perPage, currentPage * perPage);
@@ -132,7 +149,7 @@ const AdminCosmetics = () => {
     });
     setPreviewUrl(item.assetUrl ?? null);
     setIsDrawerOpen(true);
-    setOpenActionMenu(null);
+    setOpenActionMenuId(null);
   };
 
   const closeDrawer = () => {
@@ -148,7 +165,6 @@ const AdminCosmetics = () => {
       setError('Chỉ chấp nhận file ảnh (PNG, JPG, WEBP...)');
       return;
     }
-    // Preview local ngay lập tức
     const objectUrl = URL.createObjectURL(file);
     setPreviewUrl(objectUrl);
     setUploadingImage(true);
@@ -181,7 +197,6 @@ const AdminCosmetics = () => {
         try {
           await cosmeticsApi.update(editingId, payload);
         } catch {
-          // Cập nhật local state nếu backend chưa có API
           setItems((prev) =>
             prev.map((item) => (item.id === editingId ? { ...item, ...payload } : item)),
           );
@@ -193,7 +208,6 @@ const AdminCosmetics = () => {
             await loadItems();
           }
         } catch {
-          // Thêm vào local state nếu backend chưa có API
           const newItem: CosmeticItem = {
             id: Date.now(),
             name: payload.name,
@@ -218,13 +232,12 @@ const AdminCosmetics = () => {
 
   // ── Delete ──
   const handleDelete = async (id: number) => {
-    setOpenActionMenu(null);
-    if (!confirm('Xóa vật phẩm này? Thao tác không thể hoàn tác.')) return;
+    setOpenActionMenuId(null);
+    if (!confirm('Xóa vật phẩm này khỏi hệ thống? Thao tác không thể hoàn tác.')) return;
     try {
       try {
         await cosmeticsApi.remove(id);
       } catch {
-        // Xóa local state nếu backend chưa có API
         setItems((prev) => prev.filter((item) => item.id !== id));
       }
       await loadItems();
@@ -233,185 +246,349 @@ const AdminCosmetics = () => {
     }
   };
 
-  // ── Style classes ──
+  // Helper format unlock text
+  const formatUnlockCondition = (item: CosmeticItem) => {
+    const ut = (item.unlockType as UnlockType) || 'DEFAULT';
+    switch (ut) {
+      case 'DEFAULT':
+        return 'Miễn phí';
+      case 'STARS':
+        return `${item.unlockValue ?? 0} Sao`;
+      case 'POINTS':
+        return `${item.unlockValue ?? 0} Điểm`;
+      case 'ACHIEVEMENT':
+        return 'Thành tích đặc biệt';
+      default:
+        return item.unlockType;
+    }
+  };
+
+  // Helper format location text for decorations
+  const getDecorLocation = (name: string) => {
+    const n = name.toLowerCase();
+    if (n.includes('chậu') || n.includes('sen') || n.includes('bình') || n.includes('bàn') || n.includes('đá')) {
+      return 'Đặt trên sàn / Góc phòng';
+    }
+    if (n.includes('quạt') || n.includes('tranh')) {
+      return 'Treo tường chính diện';
+    }
+    if (n.includes('đèn lồng') || n.includes('chuông gió')) {
+      return 'Treo xà trần nhà';
+    }
+    return 'Phòng học ảo';
+  };
+
   const fieldClass =
     'w-full bg-[#fbf9f4] border border-outline-variant/30 rounded-xl p-md text-body-md focus:border-[#1D4532] focus:ring-1 focus:ring-[#1D4532] transition-all outline-none text-on-surface';
   const labelClass = 'font-label-sm text-on-surface-variant font-semibold uppercase tracking-wider text-xs';
 
   return (
-    <div className="w-full max-w-[1300px] mx-auto flex-1 flex flex-col">
-      {/* ── Page Header ─────────────────────────────────────────────── */}
-      <div className="flex flex-col gap-4 mb-6">
-        <div>
-          <h2 className="text-headline-lg font-bold text-[#1D4532]">Vật phẩm trang trí</h2>
-          <p className="text-on-surface-variant mt-1">
-            Quản lý các vật phẩm trang trí trong phòng học ảo hiển thị trong ứng dụng Godot.
-          </p>
-        </div>
-
-        {/* Toolbar */}
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-2 px-4 py-2 bg-white border border-[#d1e4fb] rounded-lg w-full sm:w-72 shadow-sm focus-within:ring-1 focus-within:ring-[#1D4532] transition-all">
-            <Search className="w-4 h-4 text-[#5e5e5b] flex-shrink-0" />
-            <input
-              type="text"
-              placeholder="Tìm theo tên vật phẩm..."
-              value={searchQuery}
-              onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
-              className="bg-transparent border-none outline-none text-sm w-full text-on-surface focus:ring-0 placeholder:text-[#5e5e5b]/50"
-            />
-            {searchQuery && (
-              <button onClick={() => { setSearchQuery(''); setCurrentPage(1); }} className="text-[#5e5e5b] hover:text-red-500 transition-colors">
-                <X className="w-4 h-4" />
-              </button>
-            )}
-          </div>
-
-          <button
-            onClick={openAddDrawer}
-            className="ml-auto bg-[#1D4532] text-white px-5 py-2 rounded-lg font-medium text-sm hover:bg-[#1D4532]/90 transition-all flex items-center gap-2 shadow-md"
-          >
-            <Plus className="w-4 h-4" />
-            Thêm vật phẩm
-          </button>
-        </div>
-      </div>
-
-      {error && (
-        <div className="mb-4 rounded-lg bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm">{error}</div>
-      )}
-
-      {/* ── Grid Content ────────────────────────────────────────────── */}
-      {loading ? (
-        <div className="flex-1 flex items-center justify-center py-20">
-          <div className="flex flex-col items-center gap-3 text-on-surface-variant">
-            <div className="w-8 h-8 border-2 border-[#1D4532] border-t-transparent rounded-full animate-spin" />
-            <span className="text-sm">Đang tải vật phẩm...</span>
-          </div>
-        </div>
-      ) : pagedItems.length === 0 ? (
-        <div className="flex-1 flex flex-col items-center justify-center py-20 text-on-surface-variant gap-4">
-          <div className="w-16 h-16 bg-[#EDF7F2] rounded-2xl flex items-center justify-center">
-            <ImageIcon className="w-8 h-8 text-[#1D4532]/40" />
-          </div>
-          <div className="text-center">
-            <p className="font-semibold text-base text-on-surface">Chưa có vật phẩm nào</p>
-            <p className="text-sm mt-1">
-              {searchQuery
-                ? 'Không tìm thấy kết quả phù hợp.'
-                : 'Thêm vật phẩm trang trí phòng đầu tiên.'}
+    <div className="w-full max-w-[1300px] mx-auto flex-1 flex flex-col justify-between">
+      <div className="flex-grow">
+        {/* ── Page Header & Info ──────────────────────────────────────── */}
+        <div className="flex flex-col gap-4 mb-6">
+          <div>
+            <h2
+              className="text-headline-lg font-bold text-[#1D4532] mb-xs"
+              style={{ fontFamily: "'Montserrat', sans-serif" }}
+            >
+              Quản lý vật phẩm trang trí
+            </h2>
+            <p className="text-body-md text-[#5e5e5b]">
+              Quản lý danh mục vật phẩm trang trí trong phòng học ảo hiển thị trên ứng dụng VietStage (Godot).
             </p>
           </div>
-          {!searchQuery && (
+
+          {/* ── KPI Summary Cards (Bảng chú thích tóm tắt) ─────────────── */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div className="bg-white rounded-xl p-4 border border-[#d1e4fb]/60 shadow-sm flex items-center gap-3.5">
+              <div className="w-11 h-11 rounded-xl bg-[#EDF7F2] text-[#1D4532] flex items-center justify-center font-bold">
+                <Layers className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-[#5e5e5b] uppercase tracking-wider">Tổng vật phẩm</p>
+                <p className="text-xl font-bold text-[#1D4532] leading-tight mt-0.5">{stats.total}</p>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-xl p-4 border border-[#d1e4fb]/60 shadow-sm flex items-center gap-3.5">
+              <div className="w-11 h-11 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center font-bold">
+                <Star className="w-5 h-5 fill-amber-500" />
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-[#5e5e5b] uppercase tracking-wider">Mở bằng Sao</p>
+                <p className="text-xl font-bold text-amber-800 leading-tight mt-0.5">{stats.starCount}</p>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-xl p-4 border border-[#d1e4fb]/60 shadow-sm flex items-center gap-3.5">
+              <div className="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center font-bold">
+                <Sparkles className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-[#5e5e5b] uppercase tracking-wider">Mặc định / Free</p>
+                <p className="text-xl font-bold text-emerald-800 leading-tight mt-0.5">{stats.freeCount}</p>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-xl p-4 border border-[#d1e4fb]/60 shadow-sm flex items-center gap-3.5">
+              <div className="w-11 h-11 rounded-xl bg-purple-50 text-purple-700 flex items-center justify-center font-bold">
+                <Award className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-[#5e5e5b] uppercase tracking-wider">Điểm & Thành tích</p>
+                <p className="text-xl font-bold text-purple-800 leading-tight mt-0.5">{stats.otherCount}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* ── Toolbar & Filter Bar ──────────────────────────────────── */}
+          <div className="flex flex-wrap items-center gap-sm w-full mt-1">
+            {/* Search */}
+            <div className="flex items-center gap-xs px-md py-sm bg-white border border-[#d1e4fb] rounded-lg flex-1 min-w-[18rem] shadow-sm focus-within:ring-1 focus-within:ring-[#1D4532] transition-all">
+              <Search className="w-5 h-5 text-[#5e5e5b]" />
+              <input
+                type="text"
+                placeholder="Tìm theo tên vật phẩm, mã ID..."
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="bg-transparent border-none outline-none text-body-md w-full text-on-surface focus:ring-0 placeholder:text-[#5e5e5b]/50"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => {
+                    setSearchQuery('');
+                    setCurrentPage(1);
+                  }}
+                  className="text-[#5e5e5b] hover:text-red-500 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+
+            {/* Unlock Type Filter */}
+            <div className="flex items-center gap-1.5 px-3 py-sm bg-white border border-outline-variant rounded-lg shadow-sm">
+              <span className="font-label-md text-[#5e5e5b]">Mở khóa:</span>
+              <select
+                value={unlockFilter}
+                onChange={(e) => {
+                  setUnlockFilter(e.target.value as 'ALL' | UnlockType);
+                  setCurrentPage(1);
+                }}
+                className="bg-transparent border-none py-0 pl-0 pr-4 text-label-md font-semibold text-[#1D4532] focus:ring-0 cursor-pointer outline-none"
+              >
+                <option value="ALL">Tất cả điều kiện</option>
+                <option value="DEFAULT">Mặc định (Miễn phí)</option>
+                <option value="STARS">Đổi bằng Sao ⭐</option>
+                <option value="POINTS">Đổi bằng Điểm 💎</option>
+                <option value="ACHIEVEMENT">Thành tích đặc biệt 🏆</option>
+              </select>
+            </div>
+
+            {/* Add Button */}
             <button
               onClick={openAddDrawer}
-              className="bg-[#1D4532] text-white px-5 py-2.5 rounded-xl font-medium text-sm hover:bg-[#1D4532]/90 transition-all flex items-center gap-2 shadow-md"
+              className="bg-[#1D4532] text-white px-md py-sm rounded-lg font-label-md hover:bg-[#1D4532]/95 transition-all flex items-center gap-xs shadow-md whitespace-nowrap ml-auto"
             >
-              <Plus className="w-4 h-4" /> Thêm ngay
+              <Plus className="w-[18px] h-[18px]" />
+              Thêm vật phẩm
             </button>
-          )}
+          </div>
         </div>
-      ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 mb-6">
-          {pagedItems.map((item) => {
-            const unlockType = item.unlockType as UnlockType;
-            return (
-              <div
-                key={item.id}
-                className="group bg-white border border-outline-variant/20 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all duration-200 hover:-translate-y-0.5 relative"
-              >
-                {/* Image area */}
-                <div className="aspect-square bg-[#f4f6f8] relative overflow-hidden">
-                  {item.assetUrl ? (
-                    <img
-                      src={item.assetUrl}
-                      alt={item.name}
-                      className="w-full h-full object-contain p-3 transition-transform duration-300 group-hover:scale-105"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center">
-                      <ImageIcon className="w-10 h-10 text-[#9CA3AF]/50" />
-                    </div>
-                  )}
 
-                  {/* Action menu trigger */}
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setOpenActionMenu(openActionMenu === item.id ? null : item.id);
-                    }}
-                    className="absolute top-2 right-2 p-1.5 bg-white/90 hover:bg-white rounded-lg opacity-0 group-hover:opacity-100 transition-all shadow-sm"
-                  >
-                    <MoreVertical className="w-4 h-4 text-[#374151]" />
-                  </button>
+        {error && (
+          <div className="mb-4 rounded-lg bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm">{error}</div>
+        )}
 
-                  {/* Dropdown */}
-                  {openActionMenu === item.id && (
-                    <>
-                      <div className="fixed inset-0 z-10" onClick={() => setOpenActionMenu(null)} />
-                      <div className="absolute top-9 right-2 w-40 bg-white border border-[#e5e7eb] rounded-xl shadow-lg py-1 z-20">
-                        <button
-                          onClick={() => openEditDrawer(item)}
-                          className="w-full flex items-center gap-2 px-3 py-2 hover:bg-[#EDF7F2] text-[13px] text-on-surface transition-colors"
-                        >
-                          <Edit2 className="w-3.5 h-3.5 text-[#1D4532]" /> Sửa vật phẩm
-                        </button>
-                        <button
-                          onClick={() => void handleDelete(item.id)}
-                          className="w-full flex items-center gap-2 px-3 py-2 hover:bg-red-50 text-[13px] text-red-600 transition-colors border-t border-[#e5e7eb]/60"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" /> Xóa
-                        </button>
+        {/* ── Table Container ─────────────────────────────────────────── */}
+        <div className="bg-white rounded-xl border border-[#d1e4fb]/50 overflow-hidden shadow-sm">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse min-w-[850px]">
+              <thead className="bg-[#EDF7F2]">
+                <tr>
+                  <th className="px-lg py-md font-label-md text-[#1D4532] font-semibold uppercase tracking-wider w-20 text-center">
+                    Ảnh
+                  </th>
+                  <th className="px-lg py-md font-label-md text-[#1D4532] font-semibold uppercase tracking-wider">
+                    Tên vật phẩm
+                  </th>
+                  <th className="px-lg py-md font-label-md text-[#1D4532] font-semibold uppercase tracking-wider">
+                    Phân loại
+                  </th>
+                  <th className="px-lg py-md font-label-md text-[#1D4532] font-semibold uppercase tracking-wider">
+                    Vị trí phòng học
+                  </th>
+                  <th className="px-lg py-md font-label-md text-[#1D4532] font-semibold uppercase tracking-wider">
+                    Điều kiện mở khóa
+                  </th>
+                  <th className="px-lg py-md font-label-md text-[#1D4532] font-semibold uppercase tracking-wider text-right">
+                    Thao tác
+                  </th>
+                </tr>
+              </thead>
+
+              <tbody className="divide-y divide-[#d1e4fb]/50">
+                {loading ? (
+                  <tr>
+                    <td colSpan={6} className="text-center py-xl text-body-md text-[#5e5e5b]">
+                      <div className="flex items-center justify-center gap-2">
+                        <div className="w-5 h-5 border-2 border-[#1D4532] border-t-transparent rounded-full animate-spin" />
+                        <span>Đang tải danh mục vật phẩm...</span>
                       </div>
-                    </>
-                  )}
-                </div>
+                    </td>
+                  </tr>
+                ) : pagedItems.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="text-center py-xl text-body-md text-[#5e5e5b]">
+                      Không tìm thấy vật phẩm phù hợp với bộ lọc.
+                    </td>
+                  </tr>
+                ) : (
+                  pagedItems.map((item) => {
+                    const unlockType = (item.unlockType as UnlockType) || 'DEFAULT';
+                    return (
+                      <tr
+                        key={item.id}
+                        onClick={() => setSelectedItem(item)}
+                        className="hover:bg-[#EDF7F2]/60 transition-colors cursor-pointer"
+                      >
+                        {/* Ảnh xem trước thumbnail */}
+                        <td className="px-lg py-3 text-center">
+                          <div className="w-12 h-12 rounded-xl bg-[#FAF8F5] border border-outline-variant/30 flex items-center justify-center mx-auto overflow-hidden p-1">
+                            {item.assetUrl ? (
+                              <img
+                                src={item.assetUrl}
+                                alt={item.name}
+                                className="w-full h-full object-contain"
+                                onError={(e) => {
+                                  e.currentTarget.style.display = 'none';
+                                }}
+                              />
+                            ) : (
+                              <ImageIcon className="w-5 h-5 text-[#9CA3AF]" />
+                            )}
+                          </div>
+                        </td>
 
-                {/* Card info */}
-                <div className="p-3">
-                  <p className="text-sm font-semibold text-on-surface truncate leading-tight">{item.name}</p>
-                  <div
-                    className={`mt-1.5 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium ${
-                      UNLOCK_TYPE_COLORS[unlockType] ?? 'bg-gray-100 text-gray-600'
-                    }`}
-                  >
-                    {UNLOCK_TYPE_ICONS[unlockType]}
-                    {unlockType === 'STARS' && item.unlockValue
-                      ? `${item.unlockValue} sao`
-                      : unlockType === 'POINTS' && item.unlockValue
-                      ? `${item.unlockValue} điểm`
-                      : unlockType === 'DEFAULT'
-                      ? 'Miễn phí'
-                      : 'Thành tích'}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+                        {/* Tên vật phẩm */}
+                        <td className="px-lg py-3">
+                          <div className="font-semibold text-sm text-on-surface hover:text-[#1D4532] transition-colors">
+                            {item.name}
+                          </div>
+                          <div className="text-[12px] text-[#5e5e5b] font-mono">
+                            Mã: DECOR-{item.id}
+                          </div>
+                        </td>
+
+                        {/* Phân loại */}
+                        <td className="px-lg py-3">
+                          <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-md bg-[#1D4532]/10 text-[#1D4532]">
+                            <Layers className="w-3.5 h-3.5" />
+                            Trang trí phòng
+                          </span>
+                        </td>
+
+                        {/* Vị trí dự kiến */}
+                        <td className="px-lg py-3 text-xs text-[#5e5e5b]">
+                          {getDecorLocation(item.name)}
+                        </td>
+
+                        {/* Điều kiện mở khóa Badge */}
+                        <td className="px-lg py-3">
+                          <span
+                            className={`inline-flex items-center gap-1.5 px-3 py-1 text-xs font-bold rounded-lg ${
+                              UNLOCK_TYPE_BADGE_STYLES[unlockType] ?? 'bg-gray-100 text-gray-700'
+                            }`}
+                          >
+                            {UNLOCK_TYPE_ICONS[unlockType]}
+                            {formatUnlockCondition(item)}
+                          </span>
+                        </td>
+
+                        {/* Thao tác */}
+                        <td className="px-lg py-3 text-right relative" onClick={(e) => e.stopPropagation()}>
+                          <button
+                            onClick={() => setOpenActionMenuId(openActionMenuId === item.id ? null : item.id)}
+                            className="p-2 hover:bg-[#EDF7F2] rounded-full transition-colors text-on-surface-variant hover:text-on-surface"
+                          >
+                            <MoreVertical className="w-5 h-5" />
+                          </button>
+
+                          {openActionMenuId === item.id && (
+                            <>
+                              <div
+                                className="fixed inset-0 z-[1100]"
+                                onClick={() => setOpenActionMenuId(null)}
+                              />
+                              <div className="absolute right-4 mt-1 w-44 bg-white border border-[#d1e4fb] rounded-xl shadow-xl py-1 z-[1101] text-left">
+                                <button
+                                  onClick={() => {
+                                    setOpenActionMenuId(null);
+                                    setSelectedItem(item);
+                                  }}
+                                  className="w-full flex items-center gap-2 px-3.5 py-2 hover:bg-[#EDF7F2] text-[13px] text-on-surface transition-colors"
+                                >
+                                  <Eye className="w-4 h-4 text-[#1D4532]" />
+                                  Xem chi tiết
+                                </button>
+                                <button
+                                  onClick={() => openEditDrawer(item)}
+                                  className="w-full flex items-center gap-2 px-3.5 py-2 hover:bg-[#EDF7F2] text-[13px] text-on-surface transition-colors"
+                                >
+                                  <Edit2 className="w-4 h-4 text-[#1D4532]" />
+                                  Sửa vật phẩm
+                                </button>
+                                <button
+                                  onClick={() => void handleDelete(item.id)}
+                                  className="w-full flex items-center gap-2 px-3.5 py-2 hover:bg-red-50 text-[13px] text-red-600 transition-colors border-t border-[#d1e4fb]/40"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                  Xóa vật phẩm
+                                </button>
+                              </div>
+                            </>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
-      )}
 
-      {/* ── Pagination ──────────────────────────────────────────────── */}
-      {filteredItems.length > 0 && (
-        <div className="mt-auto pt-4 flex flex-col sm:flex-row justify-between items-center gap-3 text-[12px] text-[#5e5e5b] border-t border-outline-variant/10">
-          <div className="flex items-center gap-4">
+        {/* ── Pagination Bar ──────────────────────────────────────────── */}
+        <div className="mt-lg flex flex-col sm:flex-row justify-between items-center gap-md text-[12px] text-[#5e5e5b] pt-4">
+          <div className="flex items-center gap-lg">
             <p>
-              Hiển thị {(currentPage - 1) * perPage + 1}–{Math.min(currentPage * perPage, filteredItems.length)} / {filteredItems.length} vật phẩm
+              Hiển thị {filteredItems.length === 0 ? 0 : (currentPage - 1) * perPage + 1}–
+              {Math.min(currentPage * perPage, filteredItems.length)} trong tổng số {filteredItems.length} vật phẩm
             </p>
-            <div className="flex items-center gap-1.5">
-              <span>Mỗi trang:</span>
+
+            <div className="flex items-center gap-xs">
+              <span>Số dòng mỗi trang:</span>
               <select
                 value={perPage}
-                onChange={(e) => { setPerPage(Number(e.target.value)); setCurrentPage(1); }}
-                className="bg-white border border-outline-variant rounded px-2 py-1 outline-none cursor-pointer"
+                onChange={(e) => {
+                  setPerPage(Number(e.target.value));
+                  setCurrentPage(1);
+                }}
+                className="bg-white border border-outline-variant rounded px-2 py-1 text-label-md cursor-pointer outline-none"
               >
-                <option value={12}>12</option>
-                <option value={24}>24</option>
-                <option value={48}>48</option>
+                <option value={5}>5 dòng</option>
+                <option value={10}>10 dòng</option>
+                <option value={20}>20 dòng</option>
+                <option value={50}>50 dòng</option>
               </select>
             </div>
           </div>
-          <div className="flex gap-1.5">
+
+          <div className="flex gap-xs">
             <button
               disabled={currentPage <= 1}
               onClick={() => setCurrentPage((p) => p - 1)}
@@ -424,7 +601,9 @@ const AdminCosmetics = () => {
                 key={p}
                 onClick={() => setCurrentPage(p)}
                 className={`px-3 py-1 rounded font-bold transition-colors ${
-                  p === currentPage ? 'bg-[#1D4532] text-white' : 'border border-outline-variant hover:bg-[#EDF7F2]'
+                  p === currentPage
+                    ? 'bg-[#1D4532] text-white'
+                    : 'border border-outline-variant hover:bg-[#EDF7F2]'
                 }`}
               >
                 {p}
@@ -439,9 +618,146 @@ const AdminCosmetics = () => {
             </button>
           </div>
         </div>
+      </div>
+
+      {/* ═══════════════════════════════════════════════════════════════
+           ITEM DETAIL SLIDE-IN PANEL (Bảng chú thích & Chi tiết vật phẩm)
+         ═══════════════════════════════════════════════════════════════ */}
+      {selectedItem && (
+        <div
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[999]"
+          onClick={() => setSelectedItem(null)}
+        >
+          <div
+            className="fixed top-0 right-0 h-full w-[100%] sm:w-[60%] md:w-[50%] lg:w-[40%] bg-white border-l border-[#d1e4fb] shadow-2xl z-[1000] overflow-hidden flex flex-col animate-[slideIn_0.3s_ease-out]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="px-xl py-lg border-b border-[#d1e4fb] flex justify-between items-center bg-[#EDF7F2]">
+              <div className="flex items-center gap-md">
+                <div className="w-14 h-14 rounded-2xl bg-white border border-[#d1e4fb] flex items-center justify-center p-2 shadow-sm">
+                  {selectedItem.assetUrl ? (
+                    <img
+                      src={selectedItem.assetUrl}
+                      alt={selectedItem.name}
+                      className="w-full h-full object-contain"
+                    />
+                  ) : (
+                    <ImageIcon className="w-6 h-6 text-[#9CA3AF]" />
+                  )}
+                </div>
+                <div>
+                  <h3
+                    className="text-headline-md font-bold text-[#1D4532]"
+                    style={{ fontFamily: "'Montserrat', sans-serif" }}
+                  >
+                    {selectedItem.name}
+                  </h3>
+                  <p className="text-[12px] text-[#5e5e5b]">
+                    Mã hệ thống: DECOR-{selectedItem.id} • Trang trí phòng học ảo
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedItem(null)}
+                className="p-2 hover:bg-white/70 rounded-full transition-colors text-[#5e5e5b]"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="flex-1 overflow-y-auto p-xl space-y-6 bg-white custom-scrollbar">
+              {/* Preview lớn có nền trong suốt */}
+              <div className="rounded-2xl border border-[#d1e4fb] bg-[#FAF8F5] p-6 flex flex-col items-center justify-center text-center shadow-inner">
+                <div className="w-48 h-48 flex items-center justify-center">
+                  {selectedItem.assetUrl ? (
+                    <img
+                      src={selectedItem.assetUrl}
+                      alt={selectedItem.name}
+                      className="max-w-full max-h-full object-contain drop-shadow-md"
+                    />
+                  ) : (
+                    <ImageIcon className="w-16 h-16 text-[#9CA3AF]/40" />
+                  )}
+                </div>
+                <p className="text-xs text-on-surface-variant mt-2">
+                  Texture PNG hiển thị trực tiếp trong VirtualMusicRoom (Godot)
+                </p>
+              </div>
+
+              {/* Thông tin chi tiết */}
+              <section className="rounded-xl border border-[#d1e4fb] bg-white p-lg space-y-4">
+                <h4 className="text-label-md font-bold uppercase tracking-wider text-[#1D4532] border-b border-[#d1e4fb]/40 pb-2">
+                  Bảng thông số & Chú thích vật phẩm
+                </h4>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <p className="text-xs text-[#5e5e5b]">Tên vật phẩm</p>
+                    <p className="mt-1 font-semibold text-on-surface">{selectedItem.name}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-[#5e5e5b]">Phân loại chức năng</p>
+                    <p className="mt-1 font-semibold text-[#1D4532]">Trang trí phòng học ảo</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-[#5e5e5b]">Điều kiện mở khóa</p>
+                    <div className="mt-1">
+                      <span
+                        className={`inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-bold rounded-md ${
+                          UNLOCK_TYPE_BADGE_STYLES[(selectedItem.unlockType as UnlockType) || 'DEFAULT']
+                        }`}
+                      >
+                        {UNLOCK_TYPE_ICONS[(selectedItem.unlockType as UnlockType) || 'DEFAULT']}
+                        {formatUnlockCondition(selectedItem)}
+                      </span>
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-xs text-[#5e5e5b]">Vị trí hiển thị trong phòng</p>
+                    <p className="mt-1 font-medium text-on-surface">{getDecorLocation(selectedItem.name)}</p>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <p className="text-xs text-[#5e5e5b]">Đường dẫn asset (URL)</p>
+                    <p className="mt-1 font-mono text-xs text-on-surface break-all bg-gray-50 p-2 rounded-lg border border-gray-200">
+                      {selectedItem.assetUrl || 'Chưa cập nhật'}
+                    </p>
+                  </div>
+                </div>
+              </section>
+
+              {/* Thao tác nhanh */}
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => {
+                    const item = selectedItem;
+                    setSelectedItem(null);
+                    openEditDrawer(item);
+                  }}
+                  className="flex-1 flex items-center justify-center gap-2 bg-[#1D4532] text-white py-3 rounded-xl font-bold text-sm hover:bg-[#1D4532]/90 transition-all shadow-sm"
+                >
+                  <Edit2 className="w-4 h-4" /> Chỉnh sửa thông tin
+                </button>
+                <button
+                  onClick={() => {
+                    const id = selectedItem.id;
+                    setSelectedItem(null);
+                    void handleDelete(id);
+                  }}
+                  className="px-5 flex items-center justify-center gap-2 bg-red-50 text-red-600 border border-red-200 py-3 rounded-xl font-bold text-sm hover:bg-red-100 transition-all"
+                >
+                  <Trash2 className="w-4 h-4" /> Xóa
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
-      {/* ── DRAWER (Portal) ─────────────────────────────────────────── */}
+      {/* ═══════════════════════════════════════════════════════════════
+           ADD / EDIT DRAWER (Slide-in Form)
+         ═══════════════════════════════════════════════════════════════ */}
       {createPortal(
         <AnimatePresence>
           {isDrawerOpen && (
@@ -486,7 +802,6 @@ const AdminCosmetics = () => {
                 {/* Form */}
                 <form onSubmit={(e) => void handleSubmit(e)} className="flex-grow flex flex-col overflow-hidden">
                   <div className="p-6 space-y-5 flex-grow overflow-y-auto">
-
                     {/* Image Upload zone */}
                     <div className="flex flex-col gap-2">
                       <label className={labelClass}>
@@ -528,7 +843,9 @@ const AdminCosmetics = () => {
                             </div>
                             <span className="text-sm font-medium text-[#1D4532]">Nhấn để chọn ảnh</span>
                             <span className="text-xs text-center leading-relaxed opacity-70">
-                              PNG (khuyến nghị cắt nền), JPG, WEBP<br />Tự động upload lên Cloudinary
+                              PNG (khuyến nghị cắt nền), JPG, WEBP
+                              <br />
+                              Tự động upload lên Cloudinary
                             </span>
                           </div>
                         )}
@@ -549,8 +866,8 @@ const AdminCosmetics = () => {
                         <div className="h-px flex-1 bg-outline-variant/20" />
                       </div>
                       <input
-                        type="url"
-                        placeholder="https://res.cloudinary.com/..."
+                        type="text"
+                        placeholder="https://res.cloudinary.com/... hoặc /decorations/..."
                         value={form.assetUrl ?? ''}
                         onChange={(e) => {
                           setForm((prev) => ({ ...prev, assetUrl: e.target.value }));
@@ -567,7 +884,7 @@ const AdminCosmetics = () => {
                       </label>
                       <input
                         required
-                        placeholder="Ví dụ: Đèn lồng đỏ, Chậu cây phong cách cổ truyền..."
+                        placeholder="Ví dụ: Đèn lồng đỏ, Chậu sen nhỏ, Bàn trà đạo..."
                         value={form.name}
                         onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
                         className={fieldClass}
@@ -588,12 +905,14 @@ const AdminCosmetics = () => {
                         className={`${fieldClass} cursor-pointer`}
                       >
                         {(Object.keys(UNLOCK_TYPE_LABELS) as UnlockType[]).map((ut) => (
-                          <option key={ut} value={ut}>{UNLOCK_TYPE_LABELS[ut]}</option>
+                          <option key={ut} value={ut}>
+                            {UNLOCK_TYPE_LABELS[ut]}
+                          </option>
                         ))}
                       </select>
                     </div>
 
-                    {/* Số sao / điểm cần (chỉ khi STARS hoặc POINTS) */}
+                    {/* Số sao / điểm cần */}
                     {(form.unlockType === 'STARS' || form.unlockType === 'POINTS') && (
                       <div className="flex flex-col gap-1.5">
                         <label className={labelClass}>
@@ -625,20 +944,18 @@ const AdminCosmetics = () => {
                         />
                         <div>
                           <p className="font-semibold text-sm text-[#1D4532]">{form.name}</p>
-                          <p className="text-xs text-on-surface-variant mt-0.5">
-                            Trang trí phòng
-                          </p>
+                          <p className="text-xs text-on-surface-variant mt-0.5">Trang trí phòng học ảo</p>
                           <div
                             className={`mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium ${
-                              UNLOCK_TYPE_COLORS[form.unlockType as UnlockType] ?? 'bg-gray-100 text-gray-600'
+                              UNLOCK_TYPE_BADGE_STYLES[(form.unlockType as UnlockType) || 'DEFAULT']
                             }`}
                           >
-                            {UNLOCK_TYPE_ICONS[form.unlockType as UnlockType]}
+                            {UNLOCK_TYPE_ICONS[(form.unlockType as UnlockType) || 'DEFAULT']}
                             {form.unlockType === 'DEFAULT'
                               ? 'Miễn phí'
                               : form.unlockValue
                               ? `${form.unlockValue} ${form.unlockType === 'STARS' ? 'sao' : 'điểm'}`
-                              : UNLOCK_TYPE_LABELS[form.unlockType as UnlockType]}
+                              : UNLOCK_TYPE_LABELS[(form.unlockType as UnlockType) || 'DEFAULT']}
                           </div>
                         </div>
                       </div>
