@@ -11,10 +11,7 @@ import {
   Upload,
   Image as ImageIcon,
   Search,
-  Sparkles,
   Star,
-  Trophy,
-  Zap,
   Eye,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -22,46 +19,22 @@ import { createPortal } from 'react-dom';
 import { cosmeticsApi, uploadApi, type CosmeticItem, type CosmeticRequest } from '../../api/services';
 import { mockCosmetics } from '../../data/mockCosmetics';
 
-// ─── Types ───────────────────────────────────────────────────────────────────
-type UnlockType = 'DEFAULT' | 'STARS' | 'POINTS' | 'ACHIEVEMENT';
-
-const UNLOCK_TYPE_LABELS: Record<UnlockType, string> = {
-  DEFAULT: 'Mặc định (miễn phí)',
-  STARS: 'Mở khóa bằng Sao ⭐',
-  POINTS: 'Mở khóa bằng Điểm 💎',
-  ACHIEVEMENT: 'Thành tích đặc biệt 🏆',
-};
-
-const UNLOCK_TYPE_BADGE_STYLES: Record<UnlockType, string> = {
-  DEFAULT: 'bg-emerald-100 text-emerald-800 border border-emerald-200',
-  STARS: 'bg-amber-100 text-amber-900 border border-amber-200',
-  POINTS: 'bg-blue-100 text-blue-800 border border-blue-200',
-  ACHIEVEMENT: 'bg-purple-100 text-purple-800 border border-purple-200',
-};
-
-const UNLOCK_TYPE_ICONS: Record<UnlockType, React.ReactNode> = {
-  DEFAULT: <Sparkles className="w-3.5 h-3.5 text-emerald-600" />,
-  STARS: <Star className="w-3.5 h-3.5 text-amber-600 fill-amber-500" />,
-  POINTS: <Zap className="w-3.5 h-3.5 text-blue-600" />,
-  ACHIEVEMENT: <Trophy className="w-3.5 h-3.5 text-purple-600" />,
-};
-
 const emptyForm: CosmeticRequest = {
   name: '',
   itemType: 'ROOM_DECOR',
   assetUrl: '',
-  unlockType: 'DEFAULT',
-  unlockValue: undefined,
+  unlockType: 'STARS',
+  unlockValue: 0,
 };
 
 // ─── Component ───────────────────────────────────────────────────────────────
-// Trang Admin quản lý vật phẩm trang trí phòng học ảo: Bảng quản lý chuyên nghiệp chuẩn hệ thống
+// Trang Admin quản lý vật phẩm trang trí phòng học ảo: Mở khóa bằng Sao ⭐
 const AdminCosmetics = () => {
   const [items, setItems] = useState<CosmeticItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [unlockFilter, setUnlockFilter] = useState<'ALL' | UnlockType>('ALL');
+  const [starFilter, setStarFilter] = useState<'ALL' | 'FREE' | 'PAID'>('ALL');
   const [currentPage, setCurrentPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
 
@@ -104,8 +77,6 @@ const AdminCosmetics = () => {
     void loadItems();
   }, [loadItems]);
 
-
-
   // ── Filter + Search ──
   const filteredItems = useMemo(() => {
     return items.filter((item) => {
@@ -113,10 +84,15 @@ const AdminCosmetics = () => {
         !searchQuery.trim() ||
         item.name.toLowerCase().includes(searchQuery.trim().toLowerCase()) ||
         item.id.toString().includes(searchQuery.trim());
-      const matchUnlock = unlockFilter === 'ALL' || item.unlockType === unlockFilter;
-      return matchSearch && matchUnlock;
+      
+      const val = item.unlockValue ?? 0;
+      let matchStar = true;
+      if (starFilter === 'FREE') matchStar = val === 0;
+      if (starFilter === 'PAID') matchStar = val > 0;
+
+      return matchSearch && matchStar;
     });
-  }, [items, searchQuery, unlockFilter]);
+  }, [items, searchQuery, starFilter]);
 
   const totalPages = Math.max(1, Math.ceil(filteredItems.length / perPage));
   const pagedItems = filteredItems.slice((currentPage - 1) * perPage, currentPage * perPage);
@@ -135,8 +111,8 @@ const AdminCosmetics = () => {
       name: item.name,
       itemType: item.itemType || 'ROOM_DECOR',
       assetUrl: item.assetUrl ?? '',
-      unlockType: item.unlockType,
-      unlockValue: item.unlockValue,
+      unlockType: 'STARS',
+      unlockValue: item.unlockValue ?? 0,
     });
     setPreviewUrl(item.assetUrl ?? null);
     setIsDrawerOpen(true);
@@ -183,6 +159,8 @@ const AdminCosmetics = () => {
       const payload: CosmeticRequest = {
         ...form,
         itemType: 'ROOM_DECOR',
+        unlockType: 'STARS',
+        unlockValue: Number(form.unlockValue) || 0,
       };
       if (editingId) {
         try {
@@ -204,7 +182,7 @@ const AdminCosmetics = () => {
             name: payload.name,
             itemType: payload.itemType,
             assetUrl: payload.assetUrl,
-            unlockType: payload.unlockType,
+            unlockType: 'STARS',
             unlockValue: payload.unlockValue,
           };
           setItems((prev) => [newItem, ...prev]);
@@ -235,38 +213,6 @@ const AdminCosmetics = () => {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Không thể xóa vật phẩm.');
     }
-  };
-
-  // Helper format unlock text
-  const formatUnlockCondition = (item: CosmeticItem) => {
-    const ut = (item.unlockType as UnlockType) || 'DEFAULT';
-    switch (ut) {
-      case 'DEFAULT':
-        return 'Miễn phí';
-      case 'STARS':
-        return `${item.unlockValue ?? 0} Sao`;
-      case 'POINTS':
-        return `${item.unlockValue ?? 0} Điểm`;
-      case 'ACHIEVEMENT':
-        return 'Thành tích đặc biệt';
-      default:
-        return item.unlockType;
-    }
-  };
-
-  // Helper format location text for decorations
-  const getDecorLocation = (name: string) => {
-    const n = name.toLowerCase();
-    if (n.includes('chậu') || n.includes('sen') || n.includes('bình') || n.includes('bàn') || n.includes('đá')) {
-      return 'Đặt trên sàn / Góc phòng';
-    }
-    if (n.includes('quạt') || n.includes('tranh')) {
-      return 'Treo tường chính diện';
-    }
-    if (n.includes('đèn lồng') || n.includes('chuông gió')) {
-      return 'Treo xà trần nhà';
-    }
-    return 'Phòng học ảo';
   };
 
   const fieldClass =
@@ -318,22 +264,20 @@ const AdminCosmetics = () => {
               )}
             </div>
 
-            {/* Unlock Type Filter */}
+            {/* Star Filter */}
             <div className="flex items-center gap-1.5 px-3 py-sm bg-white border border-outline-variant rounded-lg shadow-sm">
-              <span className="font-label-md text-[#5e5e5b]">Mở khóa:</span>
+              <span className="font-label-md text-[#5e5e5b]">Yêu cầu Sao:</span>
               <select
-                value={unlockFilter}
+                value={starFilter}
                 onChange={(e) => {
-                  setUnlockFilter(e.target.value as 'ALL' | UnlockType);
+                  setStarFilter(e.target.value as 'ALL' | 'FREE' | 'PAID');
                   setCurrentPage(1);
                 }}
                 className="bg-transparent border-none py-0 pl-0 pr-4 text-label-md font-semibold text-[#1D4532] focus:ring-0 cursor-pointer outline-none"
               >
-                <option value="ALL">Tất cả điều kiện</option>
-                <option value="DEFAULT">Mặc định (Miễn phí)</option>
-                <option value="STARS">Đổi bằng Sao ⭐</option>
-                <option value="POINTS">Đổi bằng Điểm 💎</option>
-                <option value="ACHIEVEMENT">Thành tích đặc biệt 🏆</option>
+                <option value="ALL">Tất cả vật phẩm</option>
+                <option value="FREE">Mặc định (0 Sao / Miễn phí)</option>
+                <option value="PAID">Cần đổi bằng Sao ⭐</option>
               </select>
             </div>
 
@@ -355,22 +299,22 @@ const AdminCosmetics = () => {
         {/* ── Table Container ─────────────────────────────────────────── */}
         <div className="bg-white rounded-xl border border-[#d1e4fb]/50 overflow-hidden shadow-sm">
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse min-w-[750px]">
+            <table className="w-full text-left border-collapse min-w-[700px]">
               <thead className="bg-[#EDF7F2]">
-                <tr>
-                  <th className="px-lg py-md font-label-md text-[#1D4532] font-semibold uppercase tracking-wider w-32 text-center">
+                <tr className="border-b border-[#d1e4fb]/60">
+                  <th className="px-6 py-4 font-label-md text-[#1D4532] font-semibold uppercase tracking-wider w-32 text-center">
                     Ảnh vật phẩm
                   </th>
-                  <th className="px-lg py-md font-label-md text-[#1D4532] font-semibold uppercase tracking-wider w-36">
+                  <th className="px-6 py-4 font-label-md text-[#1D4532] font-semibold uppercase tracking-wider w-40 text-left">
                     Mã vật phẩm
                   </th>
-                  <th className="px-lg py-md font-label-md text-[#1D4532] font-semibold uppercase tracking-wider">
+                  <th className="px-6 py-4 font-label-md text-[#1D4532] font-semibold uppercase tracking-wider text-left">
                     Tên vật phẩm
                   </th>
-                  <th className="px-lg py-md font-label-md text-[#1D4532] font-semibold uppercase tracking-wider w-64">
+                  <th className="px-6 py-4 font-label-md text-[#1D4532] font-semibold uppercase tracking-wider w-56 text-left">
                     Điều kiện mở khóa
                   </th>
-                  <th className="px-lg py-md font-label-md text-[#1D4532] font-semibold uppercase tracking-wider text-right w-28">
+                  <th className="px-6 py-4 font-label-md text-[#1D4532] font-semibold uppercase tracking-wider text-center w-24">
                     Thao tác
                   </th>
                 </tr>
@@ -394,15 +338,15 @@ const AdminCosmetics = () => {
                   </tr>
                 ) : (
                   pagedItems.map((item) => {
-                    const unlockType = (item.unlockType as UnlockType) || 'DEFAULT';
+                    const stars = item.unlockValue ?? 0;
                     return (
                       <tr
                         key={item.id}
                         onClick={() => setSelectedItem(item)}
-                        className="hover:bg-[#EDF7F2]/60 transition-colors cursor-pointer"
+                        className="hover:bg-[#EDF7F2]/50 transition-colors cursor-pointer"
                       >
-                        {/* Ảnh xem trước thumbnail lớn rõ nét */}
-                        <td className="px-lg py-3 text-center">
+                        {/* 1. Ảnh xem trước thumbnail lớn rõ nét */}
+                        <td className="px-6 py-3.5 text-center">
                           <div className="w-20 h-20 rounded-2xl bg-[#FAF8F5] border border-outline-variant/30 flex items-center justify-center mx-auto overflow-hidden p-2 shadow-sm transition-transform duration-200 hover:scale-105">
                             {item.assetUrl ? (
                               <img
@@ -419,15 +363,15 @@ const AdminCosmetics = () => {
                           </div>
                         </td>
 
-                        {/* Mã vật phẩm riêng */}
-                        <td className="px-lg py-3">
-                          <span className="font-mono text-xs font-bold text-[#1D4532] bg-[#EDF7F2] px-2.5 py-1 rounded-md border border-[#1D4532]/20">
+                        {/* 2. Mã vật phẩm */}
+                        <td className="px-6 py-3.5 text-left">
+                          <span className="font-mono text-xs font-bold text-[#1D4532] bg-[#EDF7F2] px-2.5 py-1 rounded-md border border-[#1D4532]/20 inline-block">
                             DECOR-{item.id}
                           </span>
                         </td>
 
-                        {/* Tên vật phẩm */}
-                        <td className="px-lg py-3">
+                        {/* 3. Tên vật phẩm */}
+                        <td className="px-6 py-3.5 text-left">
                           <div className="font-semibold text-base text-on-surface hover:text-[#1D4532] transition-colors">
                             {item.name}
                           </div>
@@ -436,23 +380,26 @@ const AdminCosmetics = () => {
                           </div>
                         </td>
 
-                        {/* Điều kiện mở khóa Badge */}
-                        <td className="px-lg py-3">
-                          <span
-                            className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg ${
-                              UNLOCK_TYPE_BADGE_STYLES[unlockType] ?? 'bg-gray-100 text-gray-700'
-                            }`}
-                          >
-                            {UNLOCK_TYPE_ICONS[unlockType]}
-                            {formatUnlockCondition(item)}
-                          </span>
+                        {/* 4. Điều kiện mở khóa (Số Sao ⭐) */}
+                        <td className="px-6 py-3.5 text-left">
+                          {stars > 0 ? (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-amber-100 text-amber-900 border border-amber-200">
+                              <Star className="w-4 h-4 text-amber-600 fill-amber-500" />
+                              {stars} Sao
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-emerald-100 text-emerald-800 border border-emerald-200">
+                              <Star className="w-4 h-4 text-emerald-600" />
+                              Mặc định (Miễn phí)
+                            </span>
+                          )}
                         </td>
 
-                        {/* Thao tác */}
-                        <td className="px-lg py-3 text-right relative" onClick={(e) => e.stopPropagation()}>
+                        {/* 5. Thao tác */}
+                        <td className="px-6 py-3.5 text-center relative" onClick={(e) => e.stopPropagation()}>
                           <button
                             onClick={() => setOpenActionMenuId(openActionMenuId === item.id ? null : item.id)}
-                            className="p-2 hover:bg-[#EDF7F2] rounded-full transition-colors text-on-surface-variant hover:text-on-surface"
+                            className="p-2 hover:bg-[#EDF7F2] rounded-full transition-colors text-on-surface-variant hover:text-on-surface mx-auto"
                           >
                             <MoreVertical className="w-5 h-5" />
                           </button>
@@ -463,7 +410,7 @@ const AdminCosmetics = () => {
                                 className="fixed inset-0 z-[1100]"
                                 onClick={() => setOpenActionMenuId(null)}
                               />
-                              <div className="absolute right-4 mt-1 w-44 bg-white border border-[#d1e4fb] rounded-xl shadow-xl py-1 z-[1101] text-left">
+                              <div className="absolute right-6 mt-1 w-44 bg-white border border-[#d1e4fb] rounded-xl shadow-xl py-1 z-[1101] text-left">
                                 <button
                                   onClick={() => {
                                     setOpenActionMenuId(null);
@@ -560,7 +507,7 @@ const AdminCosmetics = () => {
       </div>
 
       {/* ═══════════════════════════════════════════════════════════════
-           ITEM DETAIL SLIDE-IN PANEL (Bảng chú thích & Chi tiết vật phẩm)
+           ITEM DETAIL SLIDE-IN PANEL
          ═══════════════════════════════════════════════════════════════ */}
       {selectedItem && (
         <div
@@ -607,7 +554,7 @@ const AdminCosmetics = () => {
 
             {/* Body */}
             <div className="flex-1 overflow-y-auto p-xl space-y-6 bg-white custom-scrollbar">
-              {/* Preview lớn có nền trong suốt */}
+              {/* Preview lớn */}
               <div className="rounded-2xl border border-[#d1e4fb] bg-[#FAF8F5] p-6 flex flex-col items-center justify-center text-center shadow-inner">
                 <div className="w-48 h-48 flex items-center justify-center">
                   {selectedItem.assetUrl ? (
@@ -628,7 +575,7 @@ const AdminCosmetics = () => {
               {/* Thông tin chi tiết */}
               <section className="rounded-xl border border-[#d1e4fb] bg-white p-lg space-y-4">
                 <h4 className="text-label-md font-bold uppercase tracking-wider text-[#1D4532] border-b border-[#d1e4fb]/40 pb-2">
-                  Bảng thông số & Chú thích vật phẩm
+                  Thông tin chi tiết vật phẩm
                 </h4>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
@@ -639,14 +586,16 @@ const AdminCosmetics = () => {
                   <div>
                     <p className="text-xs text-[#5e5e5b]">Điều kiện mở khóa</p>
                     <div className="mt-1">
-                      <span
-                        className={`inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-bold rounded-md ${
-                          UNLOCK_TYPE_BADGE_STYLES[(selectedItem.unlockType as UnlockType) || 'DEFAULT']
-                        }`}
-                      >
-                        {UNLOCK_TYPE_ICONS[(selectedItem.unlockType as UnlockType) || 'DEFAULT']}
-                        {formatUnlockCondition(selectedItem)}
-                      </span>
+                      {(selectedItem.unlockValue ?? 0) > 0 ? (
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-bold rounded-lg bg-amber-100 text-amber-900 border border-amber-200">
+                          <Star className="w-3.5 h-3.5 text-amber-600 fill-amber-500" />
+                          {selectedItem.unlockValue} Sao ⭐
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-bold rounded-lg bg-emerald-100 text-emerald-800 border border-emerald-200">
+                          Mặc định (Miễn phí)
+                        </span>
+                      )}
                     </div>
                   </div>
                   <div className="sm:col-span-2">
@@ -719,7 +668,7 @@ const AdminCosmetics = () => {
                       {editingId ? 'Chỉnh sửa vật phẩm' : 'Thêm vật phẩm mới'}
                     </h4>
                     <p className="text-xs text-on-surface-variant mt-0.5">
-                      Upload ảnh PNG cắt nền + điền thông tin để Godot nhận vật phẩm trang trí phòng.
+                      Upload ảnh PNG cắt nền + đặt số Sao để mở khóa trong phòng học ảo.
                     </p>
                   </div>
                   <button
@@ -822,48 +771,27 @@ const AdminCosmetics = () => {
                       />
                     </div>
 
-                    {/* Điều kiện mở khóa */}
+                    {/* Số sao mở khóa */}
                     <div className="flex flex-col gap-1.5">
                       <label className={labelClass}>
-                        Điều kiện mở khóa <span className="text-red-500">*</span>
+                        Số Sao ⭐ yêu cầu để mở khóa <span className="text-red-500">*</span>
                       </label>
-                      <select
+                      <input
                         required
-                        value={form.unlockType}
+                        type="number"
+                        min={0}
+                        step={1}
+                        placeholder="Nhập 0 nếu là vật phẩm mặc định (miễn phí)"
+                        value={form.unlockValue ?? 0}
                         onChange={(e) =>
-                          setForm((prev) => ({ ...prev, unlockType: e.target.value, unlockValue: undefined }))
+                          setForm((prev) => ({ ...prev, unlockValue: Number(e.target.value) || 0 }))
                         }
-                        className={`${fieldClass} cursor-pointer`}
-                      >
-                        {(Object.keys(UNLOCK_TYPE_LABELS) as UnlockType[]).map((ut) => (
-                          <option key={ut} value={ut}>
-                            {UNLOCK_TYPE_LABELS[ut]}
-                          </option>
-                        ))}
-                      </select>
+                        className={fieldClass}
+                      />
+                      <span className="text-xs text-[#5e5e5b]">
+                        * Đặt <strong>0 Sao</strong> nếu muốn vật phẩm được mở khóa sẵn mặc định.
+                      </span>
                     </div>
-
-                    {/* Số sao / điểm cần */}
-                    {(form.unlockType === 'STARS' || form.unlockType === 'POINTS') && (
-                      <div className="flex flex-col gap-1.5">
-                        <label className={labelClass}>
-                          Số {form.unlockType === 'STARS' ? 'Sao ⭐' : 'Điểm 💎'} cần có{' '}
-                          <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                          required
-                          type="number"
-                          min={1}
-                          step={1}
-                          placeholder={form.unlockType === 'STARS' ? 'Ví dụ: 50' : 'Ví dụ: 500'}
-                          value={form.unlockValue ?? ''}
-                          onChange={(e) =>
-                            setForm((prev) => ({ ...prev, unlockValue: Number(e.target.value) || undefined }))
-                          }
-                          className={fieldClass}
-                        />
-                      </div>
-                    )}
 
                     {/* Preview card nhỏ */}
                     {previewUrl && form.name && (
@@ -876,17 +804,9 @@ const AdminCosmetics = () => {
                         <div>
                           <p className="font-semibold text-sm text-[#1D4532]">{form.name}</p>
                           <p className="text-xs text-on-surface-variant mt-0.5">Trang trí phòng học ảo</p>
-                          <div
-                            className={`mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium ${
-                              UNLOCK_TYPE_BADGE_STYLES[(form.unlockType as UnlockType) || 'DEFAULT']
-                            }`}
-                          >
-                            {UNLOCK_TYPE_ICONS[(form.unlockType as UnlockType) || 'DEFAULT']}
-                            {form.unlockType === 'DEFAULT'
-                              ? 'Miễn phí'
-                              : form.unlockValue
-                              ? `${form.unlockValue} ${form.unlockType === 'STARS' ? 'sao' : 'điểm'}`
-                              : UNLOCK_TYPE_LABELS[(form.unlockType as UnlockType) || 'DEFAULT']}
+                          <div className="mt-1 inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-900 border border-amber-200">
+                            <Star className="w-3.5 h-3.5 text-amber-600 fill-amber-500" />
+                            {(form.unlockValue ?? 0) > 0 ? `${form.unlockValue} Sao` : 'Mặc định (Miễn phí)'}
                           </div>
                         </div>
                       </div>
@@ -932,4 +852,5 @@ const AdminCosmetics = () => {
 };
 
 export default AdminCosmetics;
+
 

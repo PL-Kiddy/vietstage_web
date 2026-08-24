@@ -1,6 +1,6 @@
 import type { CosmeticItem } from '../api/services';
 
-// Danh sách vật phẩm trang trí phòng học ảo từ VietStageApp
+// Danh sách vật phẩm trang trí phòng học ảo từ VietStageApp (Chỉ dùng Sao để mở khóa)
 export const mockCosmetics: CosmeticItem[] = [
   {
     id: 1,
@@ -39,24 +39,24 @@ export const mockCosmetics: CosmeticItem[] = [
     name: 'Đèn lồng đỏ cung đình',
     itemType: 'ROOM_DECOR',
     assetUrl: '/decorations/7f2fca74-fec1-42a5-ba94-bfde4c80fe21.png',
-    unlockType: 'DEFAULT',
-    unlockValue: undefined,
+    unlockType: 'STARS',
+    unlockValue: 0,
   },
   {
     id: 6,
     name: 'Đèn đá sân vườn',
     itemType: 'ROOM_DECOR',
     assetUrl: '/decorations/98fada3c-096e-4105-af8d-c74e249aad04.png',
-    unlockType: 'POINTS',
-    unlockValue: 300,
+    unlockType: 'STARS',
+    unlockValue: 120,
   },
   {
     id: 7,
     name: 'Chuông gió trúc',
     itemType: 'ROOM_DECOR',
     assetUrl: '/decorations/a39c0e84-7cad-4af1-823e-af840b82328a.png',
-    unlockType: 'ACHIEVEMENT',
-    unlockValue: undefined,
+    unlockType: 'STARS',
+    unlockValue: 80,
   },
   {
     id: 8,
@@ -67,3 +67,4 @@ export const mockCosmetics: CosmeticItem[] = [
     unlockValue: 90,
   },
 ];
+
