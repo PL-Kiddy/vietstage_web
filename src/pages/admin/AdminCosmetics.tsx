@@ -556,29 +556,16 @@ const AdminCosmetics = () => {
           >
             {/* Header */}
             <div className="px-5 py-3.5 border-b border-[#d1e4fb] flex justify-between items-center bg-[#EDF7F2] flex-shrink-0">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-white border border-[#d1e4fb] flex items-center justify-center p-1.5 shadow-sm shrink-0">
-                  {selectedItem.assetUrl ? (
-                    <img
-                      src={selectedItem.assetUrl}
-                      alt={selectedItem.name}
-                      className="w-full h-full object-contain"
-                    />
-                  ) : (
-                    <ImageIcon className="w-5 h-5 text-[#9CA3AF]" />
-                  )}
-                </div>
-                <div>
-                  <h3
-                    className="text-base font-bold text-[#1D4532] leading-snug"
-                    style={{ fontFamily: "'Montserrat', sans-serif" }}
-                  >
-                    {selectedItem.name}
-                  </h3>
-                  <p className="text-[11px] text-[#5e5e5b]">
-                    Mã hệ thống: DECOR-{selectedItem.id}
-                  </p>
-                </div>
+              <div>
+                <h3
+                  className="text-base font-bold text-[#1D4532] leading-snug"
+                  style={{ fontFamily: "'Montserrat', sans-serif" }}
+                >
+                  {selectedItem.name}
+                </h3>
+                <p className="text-[11px] text-[#5e5e5b] mt-0.5">
+                  Mã vật phẩm: <span className="font-semibold text-on-surface">DECOR-{selectedItem.id}</span>
+                </p>
               </div>
               <button
                 onClick={() => setSelectedItem(null)}
@@ -636,25 +623,20 @@ const AdminCosmetics = () => {
                     </div>
                   </div>
 
-                  <div>
+                  <div className="col-span-2">
                     <p className="text-[#5e5e5b]">Điều kiện mở khóa</p>
                     <div className="mt-0.5">
                       {(selectedItem.unlockValue ?? 0) > 0 ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-bold rounded-md bg-amber-100 text-amber-900 border border-amber-200">
-                          <Star className="w-3 h-3 text-amber-600 fill-amber-500" />
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold rounded-md bg-amber-100 text-amber-900 border border-amber-200">
+                          <Star className="w-3.5 h-3.5 text-amber-600 fill-amber-500" />
                           {selectedItem.unlockValue} Sao ⭐
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-bold rounded-md bg-emerald-100 text-emerald-800 border border-emerald-200">
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold rounded-md bg-emerald-100 text-emerald-800 border border-emerald-200">
                           Mặc định (Miễn phí)
                         </span>
                       )}
                     </div>
-                  </div>
-
-                  <div>
-                    <p className="text-[#5e5e5b]">Phân loại</p>
-                    <p className="mt-0.5 font-medium text-[#1D4532]">Trang trí phòng học ảo</p>
                   </div>
 
                   <div className="col-span-2">
