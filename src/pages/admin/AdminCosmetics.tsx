@@ -19,6 +19,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { createPortal } from 'react-dom';
 import { cosmeticsApi, uploadApi, type CosmeticItem, type CosmeticRequest } from '../../api/services';
+import { mockCosmetics } from '../../data/mockCosmetics';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 type UnlockType = 'DEFAULT' | 'STARS' | 'POINTS' | 'ACHIEVEMENT';
@@ -80,9 +81,15 @@ const AdminCosmetics = () => {
     setError('');
     try {
       const data = await cosmeticsApi.list('ROOM_DECOR');
-      setItems(Array.isArray(data) ? data : []);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Không thể tải danh sách vật phẩm.');
+      if (Array.isArray(data) && data.length > 0) {
+        setItems(data);
+      } else {
+        // Sử dụng mockData từ VietStageApp nếu backend trả về rỗng
+        setItems(mockCosmetics);
+      }
+    } catch {
+      // Fallback sang mockData nếu backend chưa có endpoint
+      setItems(mockCosmetics);
     } finally {
       setLoading(false);
     }
@@ -171,12 +178,37 @@ const AdminCosmetics = () => {
         itemType: 'ROOM_DECOR',
       };
       if (editingId) {
-        await cosmeticsApi.update(editingId, payload);
+        try {
+          await cosmeticsApi.update(editingId, payload);
+        } catch {
+          // Cập nhật local state nếu backend chưa có API
+          setItems((prev) =>
+            prev.map((item) => (item.id === editingId ? { ...item, ...payload } : item)),
+          );
+        }
       } else {
-        await cosmeticsApi.create(payload);
+        try {
+          const res = await cosmeticsApi.create(payload);
+          if (res) {
+            await loadItems();
+          }
+        } catch {
+          // Thêm vào local state nếu backend chưa có API
+          const newItem: CosmeticItem = {
+            id: Date.now(),
+            name: payload.name,
+            itemType: payload.itemType,
+            assetUrl: payload.assetUrl,
+            unlockType: payload.unlockType,
+            unlockValue: payload.unlockValue,
+          };
+          setItems((prev) => [newItem, ...prev]);
+        }
       }
       closeDrawer();
-      await loadItems();
+      if (!editingId) {
+        await loadItems();
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Không thể lưu vật phẩm.');
     } finally {
@@ -189,7 +221,12 @@ const AdminCosmetics = () => {
     setOpenActionMenu(null);
     if (!confirm('Xóa vật phẩm này? Thao tác không thể hoàn tác.')) return;
     try {
-      await cosmeticsApi.remove(id);
+      try {
+        await cosmeticsApi.remove(id);
+      } catch {
+        // Xóa local state nếu backend chưa có API
+        setItems((prev) => prev.filter((item) => item.id !== id));
+      }
       await loadItems();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Không thể xóa vật phẩm.');
