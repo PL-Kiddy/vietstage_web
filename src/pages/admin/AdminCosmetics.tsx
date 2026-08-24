@@ -16,8 +16,6 @@ import {
   Trophy,
   Zap,
   Eye,
-  Layers,
-  Award,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createPortal } from 'react-dom';
@@ -106,14 +104,7 @@ const AdminCosmetics = () => {
     void loadItems();
   }, [loadItems]);
 
-  // ── Metrics Statistics ──
-  const stats = useMemo(() => {
-    const total = items.length;
-    const freeCount = items.filter((i) => i.unlockType === 'DEFAULT').length;
-    const starCount = items.filter((i) => i.unlockType === 'STARS').length;
-    const otherCount = items.filter((i) => i.unlockType === 'POINTS' || i.unlockType === 'ACHIEVEMENT').length;
-    return { total, freeCount, starCount, otherCount };
-  }, [items]);
+
 
   // ── Filter + Search ──
   const filteredItems = useMemo(() => {
@@ -297,49 +288,6 @@ const AdminCosmetics = () => {
             <p className="text-body-md text-[#5e5e5b]">
               Quản lý danh mục vật phẩm trang trí trong phòng học ảo hiển thị trên ứng dụng VietStage (Godot).
             </p>
-          </div>
-
-          {/* ── KPI Summary Cards (Bảng chú thích tóm tắt) ─────────────── */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <div className="bg-white rounded-xl p-4 border border-[#d1e4fb]/60 shadow-sm flex items-center gap-3.5">
-              <div className="w-11 h-11 rounded-xl bg-[#EDF7F2] text-[#1D4532] flex items-center justify-center font-bold">
-                <Layers className="w-5 h-5" />
-              </div>
-              <div>
-                <p className="text-xs font-semibold text-[#5e5e5b] uppercase tracking-wider">Tổng vật phẩm</p>
-                <p className="text-xl font-bold text-[#1D4532] leading-tight mt-0.5">{stats.total}</p>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-xl p-4 border border-[#d1e4fb]/60 shadow-sm flex items-center gap-3.5">
-              <div className="w-11 h-11 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center font-bold">
-                <Star className="w-5 h-5 fill-amber-500" />
-              </div>
-              <div>
-                <p className="text-xs font-semibold text-[#5e5e5b] uppercase tracking-wider">Mở bằng Sao</p>
-                <p className="text-xl font-bold text-amber-800 leading-tight mt-0.5">{stats.starCount}</p>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-xl p-4 border border-[#d1e4fb]/60 shadow-sm flex items-center gap-3.5">
-              <div className="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center font-bold">
-                <Sparkles className="w-5 h-5" />
-              </div>
-              <div>
-                <p className="text-xs font-semibold text-[#5e5e5b] uppercase tracking-wider">Mặc định / Free</p>
-                <p className="text-xl font-bold text-emerald-800 leading-tight mt-0.5">{stats.freeCount}</p>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-xl p-4 border border-[#d1e4fb]/60 shadow-sm flex items-center gap-3.5">
-              <div className="w-11 h-11 rounded-xl bg-purple-50 text-purple-700 flex items-center justify-center font-bold">
-                <Award className="w-5 h-5" />
-              </div>
-              <div>
-                <p className="text-xs font-semibold text-[#5e5e5b] uppercase tracking-wider">Điểm & Thành tích</p>
-                <p className="text-xl font-bold text-purple-800 leading-tight mt-0.5">{stats.otherCount}</p>
-              </div>
-            </div>
           </div>
 
           {/* ── Toolbar & Filter Bar ──────────────────────────────────── */}
