@@ -225,8 +225,6 @@ const AdminCosmetics = () => {
     }
   };
 
-  const fieldClass =
-    'w-full bg-[#fbf9f4] border border-outline-variant/30 rounded-xl p-md text-body-md focus:border-[#1D4532] focus:ring-1 focus:ring-[#1D4532] transition-all outline-none text-on-surface';
   const labelClass = 'font-label-sm text-on-surface-variant font-semibold uppercase tracking-wider text-xs';
 
   return (
