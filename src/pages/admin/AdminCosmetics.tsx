@@ -407,20 +407,14 @@ const AdminCosmetics = () => {
         {/* ── Table Container ─────────────────────────────────────────── */}
         <div className="bg-white rounded-xl border border-[#d1e4fb]/50 overflow-hidden shadow-sm">
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse min-w-[850px]">
+            <table className="w-full text-left border-collapse min-w-[700px]">
               <thead className="bg-[#EDF7F2]">
                 <tr>
-                  <th className="px-lg py-md font-label-md text-[#1D4532] font-semibold uppercase tracking-wider w-20 text-center">
+                  <th className="px-lg py-md font-label-md text-[#1D4532] font-semibold uppercase tracking-wider w-24 text-center">
                     Ảnh
                   </th>
                   <th className="px-lg py-md font-label-md text-[#1D4532] font-semibold uppercase tracking-wider">
                     Tên vật phẩm
-                  </th>
-                  <th className="px-lg py-md font-label-md text-[#1D4532] font-semibold uppercase tracking-wider">
-                    Phân loại
-                  </th>
-                  <th className="px-lg py-md font-label-md text-[#1D4532] font-semibold uppercase tracking-wider">
-                    Vị trí phòng học
                   </th>
                   <th className="px-lg py-md font-label-md text-[#1D4532] font-semibold uppercase tracking-wider">
                     Điều kiện mở khóa
@@ -434,7 +428,7 @@ const AdminCosmetics = () => {
               <tbody className="divide-y divide-[#d1e4fb]/50">
                 {loading ? (
                   <tr>
-                    <td colSpan={6} className="text-center py-xl text-body-md text-[#5e5e5b]">
+                    <td colSpan={4} className="text-center py-xl text-body-md text-[#5e5e5b]">
                       <div className="flex items-center justify-center gap-2">
                         <div className="w-5 h-5 border-2 border-[#1D4532] border-t-transparent rounded-full animate-spin" />
                         <span>Đang tải danh mục vật phẩm...</span>
@@ -443,7 +437,7 @@ const AdminCosmetics = () => {
                   </tr>
                 ) : pagedItems.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="text-center py-xl text-body-md text-[#5e5e5b]">
+                    <td colSpan={4} className="text-center py-xl text-body-md text-[#5e5e5b]">
                       Không tìm thấy vật phẩm phù hợp với bộ lọc.
                     </td>
                   </tr>
@@ -482,19 +476,6 @@ const AdminCosmetics = () => {
                           <div className="text-[12px] text-[#5e5e5b] font-mono">
                             Mã: DECOR-{item.id}
                           </div>
-                        </td>
-
-                        {/* Phân loại */}
-                        <td className="px-lg py-3">
-                          <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-md bg-[#1D4532]/10 text-[#1D4532]">
-                            <Layers className="w-3.5 h-3.5" />
-                            Trang trí phòng
-                          </span>
-                        </td>
-
-                        {/* Vị trí dự kiến */}
-                        <td className="px-lg py-3 text-xs text-[#5e5e5b]">
-                          {getDecorLocation(item.name)}
                         </td>
 
                         {/* Điều kiện mở khóa Badge */}
@@ -654,7 +635,7 @@ const AdminCosmetics = () => {
                     {selectedItem.name}
                   </h3>
                   <p className="text-[12px] text-[#5e5e5b]">
-                    Mã hệ thống: DECOR-{selectedItem.id} • Trang trí phòng học ảo
+                    Mã hệ thống: DECOR-{selectedItem.id}
                   </p>
                 </div>
               </div>
@@ -698,10 +679,6 @@ const AdminCosmetics = () => {
                     <p className="mt-1 font-semibold text-on-surface">{selectedItem.name}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-[#5e5e5b]">Phân loại chức năng</p>
-                    <p className="mt-1 font-semibold text-[#1D4532]">Trang trí phòng học ảo</p>
-                  </div>
-                  <div>
                     <p className="text-xs text-[#5e5e5b]">Điều kiện mở khóa</p>
                     <div className="mt-1">
                       <span
@@ -713,10 +690,6 @@ const AdminCosmetics = () => {
                         {formatUnlockCondition(selectedItem)}
                       </span>
                     </div>
-                  </div>
-                  <div>
-                    <p className="text-xs text-[#5e5e5b]">Vị trí hiển thị trong phòng</p>
-                    <p className="mt-1 font-medium text-on-surface">{getDecorLocation(selectedItem.name)}</p>
                   </div>
                   <div className="sm:col-span-2">
                     <p className="text-xs text-[#5e5e5b]">Đường dẫn asset (URL)</p>
