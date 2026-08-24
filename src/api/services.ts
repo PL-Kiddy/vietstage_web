@@ -293,20 +293,20 @@ export const lessonTechniquesApi = {
 export const lessonAssetsApi = {
   getAssets: (lessonId: number, options?: RequestOptions) =>
     apiRequest<LessonAsset[]>(`/api/lessons/${lessonId}/assets`, options),
-    
+
   uploadAsset: (lessonId: number, file: File, type: string, tempoBpm?: number, durationSec?: number) => {
     const formData = new FormData();
     formData.append('file', file);
     let url = `/api/lessons/${lessonId}/assets?type=${type}`;
     if (tempoBpm) url += `&tempo_bpm=${tempoBpm}`;
     if (durationSec) url += `&duration_sec=${durationSec}`;
-    
+
     return apiRequest<LessonAsset>(url, {
       method: 'POST',
       body: formData,
     });
   },
-  
+
   deleteAsset: (lessonId: number, assetId: number, options?: RequestOptions) =>
     apiRequest<void>(`/api/lessons/${lessonId}/assets/${assetId}`, {
       ...options,
@@ -360,4 +360,43 @@ export const adminDashboardApi = {
     });
     return apiRequest<AdminDashboardStats>(`/api/admin/dashboard?${query.toString()}`, options);
   },
+};
+
+// ── Vật phẩm trang trí (Cosmetics): CRUD dành cho Admin ──
+// Entity backend: CosmeticItem { id, name, itemType, assetUrl, unlockType, unlockValue }
+// itemType: ROOM_DECOR | INSTRUMENT_SKIN | AVATAR_SKIN
+// unlockType: ACHIEVEMENT | STARS | POINTS | DEFAULT
+
+export interface CosmeticItem {
+  id: number;
+  name: string;
+  itemType: 'ROOM_DECOR' | 'INSTRUMENT_SKIN' | 'AVATAR_SKIN' | string;
+  assetUrl?: string;
+  unlockType: 'ACHIEVEMENT' | 'STARS' | 'POINTS' | 'DEFAULT' | string;
+  unlockValue?: number;
+}
+
+export interface CosmeticRequest {
+  name: string;
+  itemType: string;
+  assetUrl?: string;
+  unlockType: string;
+  unlockValue?: number;
+}
+
+export const cosmeticsApi = {
+  // GET /api/cosmetics?item_type=ROOM_DECOR
+  list: (itemType?: string, options?: RequestOptions) => {
+    const query = itemType ? `?item_type=${encodeURIComponent(itemType)}` : '';
+    return apiRequest<CosmeticItem[]>(`/api/cosmetics${query}`, options);
+  },
+  // POST /api/admin/cosmetics  ← Admin endpoint (backend cần thêm)
+  create: (body: CosmeticRequest, options?: RequestOptions) =>
+    apiRequest<CosmeticItem>('/api/admin/cosmetics', { ...options, method: 'POST', body }),
+  // PUT /api/admin/cosmetics/{id}  ← Admin endpoint (backend cần thêm)
+  update: (id: number, body: CosmeticRequest, options?: RequestOptions) =>
+    apiRequest<CosmeticItem>(`/api/admin/cosmetics/${id}`, { ...options, method: 'PUT', body }),
+  // DELETE /api/admin/cosmetics/{id}  ← Admin endpoint (backend cần thêm)
+  remove: (id: number, options?: RequestOptions) =>
+    apiRequest<void>(`/api/admin/cosmetics/${id}`, { ...options, method: 'DELETE' }),
 };
