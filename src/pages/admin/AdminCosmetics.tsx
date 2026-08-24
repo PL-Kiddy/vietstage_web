@@ -703,7 +703,7 @@ const AdminCosmetics = () => {
 
               {/* Slide-in panel */}
               <motion.div
-                className="fixed top-0 right-0 h-full w-full sm:w-[60%] md:w-[50%] lg:w-[42%] bg-[#fbf9f4] border-l border-outline-variant/15 shadow-2xl flex flex-col overflow-hidden"
+                className="fixed top-0 right-0 h-full w-full sm:w-[520px] md:w-[560px] bg-[#fbf9f4] border-l border-outline-variant/15 shadow-2xl flex flex-col overflow-hidden"
                 style={{ zIndex: 1000 }}
                 initial={{ x: '100%' }}
                 animate={{ x: 0 }}
@@ -711,73 +711,77 @@ const AdminCosmetics = () => {
                 transition={{ type: 'spring', damping: 25, stiffness: 220 }}
               >
                 {/* Header */}
-                <div className="px-6 py-5 border-b border-outline-variant/10 flex justify-between items-center bg-[#f5f3ee]/30 flex-shrink-0">
+                <div className="px-5 py-3.5 border-b border-outline-variant/10 flex justify-between items-center bg-[#f5f3ee]/40 flex-shrink-0">
                   <div>
-                    <h4 className="text-lg font-bold text-[#1D4532]">
+                    <h4 className="text-base font-bold text-[#1D4532]">
                       {editingId ? 'Chỉnh sửa vật phẩm' : 'Thêm vật phẩm mới'}
                     </h4>
-                    <p className="text-xs text-on-surface-variant mt-0.5">
+                    <p className="text-[11px] text-on-surface-variant mt-0.5">
                       Upload ảnh PNG cắt nền + đặt số Sao để mở khóa trong phòng học ảo.
                     </p>
                   </div>
                   <button
                     onClick={closeDrawer}
-                    className="p-2 hover:bg-[#eae8e3]/80 rounded-full text-on-surface-variant hover:text-on-surface transition-colors"
+                    className="p-1.5 hover:bg-[#eae8e3]/80 rounded-full text-on-surface-variant hover:text-on-surface transition-colors"
                   >
                     <X className="w-5 h-5" />
                   </button>
                 </div>
 
-                {/* Form */}
-                <form onSubmit={(e) => void handleSubmit(e)} className="flex-grow flex flex-col overflow-hidden">
-                  <div className="p-6 space-y-5 flex-grow overflow-y-auto">
-                    {/* Image Upload zone */}
-                    <div className="flex flex-col gap-2">
+                {/* Form: Bố cục gọn gàng, hiển thị trọn vẹn */}
+                <form onSubmit={(e) => void handleSubmit(e)} className="flex-grow flex flex-col justify-between overflow-hidden">
+                  <div className="p-5 space-y-3.5 flex-grow overflow-y-auto">
+                    {/* Khu vực Upload ảnh + Xem trước (Side-by-Side gọn gàng) */}
+                    <div className="flex flex-col gap-1.5">
                       <label className={labelClass}>
                         Ảnh vật phẩm (PNG cắt nền) <span className="text-red-500">*</span>
                       </label>
 
-                      <div
-                        onClick={() => fileInputRef.current?.click()}
-                        className={`relative w-full aspect-video rounded-2xl border-2 border-dashed flex flex-col items-center justify-center cursor-pointer transition-all overflow-hidden ${
-                          uploadingImage
-                            ? 'border-[#1D4532]/40 bg-[#EDF7F2]/40'
-                            : previewUrl
-                            ? 'border-[#1D4532]/30 bg-transparent'
-                            : 'border-outline-variant/40 hover:border-[#1D4532]/50 bg-white hover:bg-[#EDF7F2]/20'
-                        }`}
-                      >
-                        {uploadingImage ? (
-                          <div className="flex flex-col items-center gap-2 text-[#1D4532]">
-                            <div className="w-7 h-7 border-2 border-[#1D4532] border-t-transparent rounded-full animate-spin" />
-                            <span className="text-xs font-medium">Đang upload lên Cloudinary...</span>
-                          </div>
-                        ) : previewUrl ? (
-                          <>
+                      <div className="flex gap-3 items-stretch">
+                        {/* Box ảnh xem trước */}
+                        <div className="w-24 h-24 rounded-xl bg-white border border-outline-variant/30 flex items-center justify-center p-2 shadow-sm shrink-0 overflow-hidden">
+                          {previewUrl ? (
                             <img
                               src={previewUrl}
                               alt="preview"
-                              className="w-full h-full object-contain p-4"
+                              className="w-full h-full object-contain"
                             />
-                            <div className="absolute inset-0 bg-black/0 hover:bg-black/10 transition-colors flex items-center justify-center opacity-0 hover:opacity-100">
-                              <span className="text-white text-xs font-medium bg-black/50 px-3 py-1.5 rounded-lg flex items-center gap-1.5">
-                                <Upload className="w-3.5 h-3.5" /> Thay ảnh
+                          ) : (
+                            <div className="flex flex-col items-center justify-center text-[#9CA3AF]">
+                              <ImageIcon className="w-8 h-8 opacity-40" />
+                              <span className="text-[10px] mt-0.5 opacity-60">Chưa có ảnh</span>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Dropzone Upload */}
+                        <div
+                          onClick={() => fileInputRef.current?.click()}
+                          className={`flex-1 rounded-xl border border-dashed flex flex-col items-center justify-center cursor-pointer p-3 transition-all ${
+                            uploadingImage
+                              ? 'border-[#1D4532]/40 bg-[#EDF7F2]/40'
+                              : 'border-outline-variant/40 hover:border-[#1D4532]/60 bg-white hover:bg-[#EDF7F2]/20'
+                          }`}
+                        >
+                          {uploadingImage ? (
+                            <div className="flex items-center gap-2 text-[#1D4532]">
+                              <div className="w-4 h-4 border-2 border-[#1D4532] border-t-transparent rounded-full animate-spin" />
+                              <span className="text-xs font-medium">Đang tải lên...</span>
+                            </div>
+                          ) : (
+                            <div className="flex flex-col items-center text-center">
+                              <div className="w-8 h-8 bg-[#EDF7F2] rounded-lg flex items-center justify-center text-[#1D4532] mb-1">
+                                <Upload className="w-4 h-4" />
+                              </div>
+                              <span className="text-xs font-semibold text-[#1D4532]">
+                                {previewUrl ? 'Thay đổi hình ảnh' : 'Tải lên ảnh PNG'}
+                              </span>
+                              <span className="text-[10px] text-on-surface-variant opacity-70 mt-0.5">
+                                Tự động upload Cloudinary
                               </span>
                             </div>
-                          </>
-                        ) : (
-                          <div className="flex flex-col items-center gap-2 text-on-surface-variant p-6">
-                            <div className="w-12 h-12 bg-[#EDF7F2] rounded-xl flex items-center justify-center">
-                              <Upload className="w-6 h-6 text-[#1D4532]" />
-                            </div>
-                            <span className="text-sm font-medium text-[#1D4532]">Nhấn để chọn ảnh</span>
-                            <span className="text-xs text-center leading-relaxed opacity-70">
-                              PNG (khuyến nghị cắt nền), JPG, WEBP
-                              <br />
-                              Tự động upload lên Cloudinary
-                            </span>
-                          </div>
-                        )}
+                          )}
+                        </div>
                       </div>
 
                       <input
@@ -788,26 +792,21 @@ const AdminCosmetics = () => {
                         onChange={(e) => void handleFileChange(e)}
                       />
 
-                      {/* URL fallback */}
-                      <div className="flex items-center gap-2 mt-1">
-                        <div className="h-px flex-1 bg-outline-variant/20" />
-                        <span className="text-xs text-on-surface-variant">hoặc nhập URL trực tiếp</span>
-                        <div className="h-px flex-1 bg-outline-variant/20" />
-                      </div>
+                      {/* URL input nhỏ gọn */}
                       <input
                         type="text"
-                        placeholder="https://res.cloudinary.com/... hoặc /decorations/..."
+                        placeholder="Hoặc dán URL: https://... hoặc /decorations/..."
                         value={form.assetUrl ?? ''}
                         onChange={(e) => {
                           setForm((prev) => ({ ...prev, assetUrl: e.target.value }));
                           setPreviewUrl(e.target.value || null);
                         }}
-                        className={fieldClass}
+                        className="w-full bg-[#fbf9f4] border border-outline-variant/30 rounded-lg px-3 py-1.5 text-xs focus:border-[#1D4532] focus:ring-1 focus:ring-[#1D4532] outline-none text-on-surface font-mono"
                       />
                     </div>
 
                     {/* Tên vật phẩm */}
-                    <div className="flex flex-col gap-1.5">
+                    <div className="flex flex-col gap-1">
                       <label className={labelClass}>
                         Tên vật phẩm <span className="text-red-500">*</span>
                       </label>
@@ -816,65 +815,67 @@ const AdminCosmetics = () => {
                         placeholder="Ví dụ: Đèn lồng đỏ, Chậu sen nhỏ, Bàn trà đạo..."
                         value={form.name}
                         onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
-                        className={fieldClass}
+                        className="w-full bg-white border border-outline-variant/30 rounded-xl px-3.5 py-2 text-sm focus:border-[#1D4532] focus:ring-1 focus:ring-[#1D4532] transition-all outline-none text-on-surface font-medium"
                       />
                     </div>
 
-                    {/* Số sao mở khóa */}
-                    <div className="flex flex-col gap-1.5">
-                      <label className={labelClass}>
-                        Số Sao ⭐ yêu cầu để mở khóa <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        required
-                        type="number"
-                        min={0}
-                        step={1}
-                        placeholder="Nhập 0 nếu là vật phẩm mặc định (miễn phí)"
-                        value={form.unlockValue ?? 0}
-                        onChange={(e) =>
-                          setForm((prev) => ({ ...prev, unlockValue: Number(e.target.value) || 0 }))
-                        }
-                        className={fieldClass}
-                      />
-                      <span className="text-xs text-[#5e5e5b]">
-                        * Đặt <strong>0 Sao</strong> nếu muốn vật phẩm được mở khóa sẵn mặc định.
-                      </span>
+                    {/* Grid 2 cột: Số Sao + Trạng thái */}
+                    <div className="grid grid-cols-2 gap-3">
+                      {/* Số sao mở khóa */}
+                      <div className="flex flex-col gap-1">
+                        <label className={labelClass}>
+                          Số Sao ⭐ <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          required
+                          type="number"
+                          min={0}
+                          step={1}
+                          placeholder="0 = Miễn phí"
+                          value={form.unlockValue ?? 0}
+                          onChange={(e) =>
+                            setForm((prev) => ({ ...prev, unlockValue: Number(e.target.value) || 0 }))
+                          }
+                          className="w-full bg-white border border-outline-variant/30 rounded-xl px-3.5 py-2 text-sm focus:border-[#1D4532] focus:ring-1 focus:ring-[#1D4532] transition-all outline-none text-on-surface font-medium"
+                        />
+                        <span className="text-[10px] text-[#5e5e5b]">
+                          * <strong>0 Sao</strong>: Miễn phí
+                        </span>
+                      </div>
+
+                      {/* Trạng thái hoạt động */}
+                      <div className="flex flex-col gap-1">
+                        <label className={labelClass}>
+                          Trạng thái <span className="text-red-500">*</span>
+                        </label>
+                        <select
+                          value={form.status || 'ACTIVE'}
+                          onChange={(e) => setForm((prev) => ({ ...prev, status: e.target.value }))}
+                          className="w-full bg-white border border-outline-variant/30 rounded-xl px-3.5 py-2 text-sm focus:border-[#1D4532] focus:ring-1 focus:ring-[#1D4532] transition-all outline-none text-on-surface font-medium cursor-pointer"
+                        >
+                          <option value="ACTIVE">Đang hoạt động</option>
+                          <option value="INACTIVE">Tạm khóa / Ẩn</option>
+                        </select>
+                      </div>
                     </div>
 
-                    {/* Trạng thái hoạt động */}
-                    <div className="flex flex-col gap-1.5">
-                      <label className={labelClass}>
-                        Trạng thái hoạt động <span className="text-red-500">*</span>
-                      </label>
-                      <select
-                        value={form.status || 'ACTIVE'}
-                        onChange={(e) => setForm((prev) => ({ ...prev, status: e.target.value }))}
-                        className={`${fieldClass} cursor-pointer`}
-                      >
-                        <option value="ACTIVE">Đang hoạt động</option>
-                        <option value="INACTIVE">Tạm khóa / Ẩn khỏi cửa hàng</option>
-                      </select>
-                    </div>
-
-                    {/* Preview card nhỏ */}
+                    {/* Preview kết quả tóm tắt */}
                     {previewUrl && form.name && (
-                      <div className="bg-[#EDF7F2]/60 border border-[#1D4532]/15 rounded-xl p-4 flex gap-4 items-center">
+                      <div className="bg-[#EDF7F2] border border-[#1D4532]/15 rounded-xl p-2.5 flex gap-3 items-center">
                         <img
                           src={previewUrl}
                           alt="preview"
-                          className="w-16 h-16 object-contain rounded-lg bg-white border border-outline-variant/20 p-1 flex-shrink-0"
+                          className="w-11 h-11 object-contain rounded-lg bg-white border border-outline-variant/20 p-1 shrink-0"
                         />
-                        <div>
-                          <p className="font-semibold text-sm text-[#1D4532]">{form.name}</p>
-                          <p className="text-xs text-on-surface-variant mt-0.5">Trang trí phòng học ảo</p>
-                          <div className="mt-1 flex items-center gap-2">
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-900 border border-amber-200">
-                              <Star className="w-3.5 h-3.5 text-amber-600 fill-amber-500" />
-                              {(form.unlockValue ?? 0) > 0 ? `${form.unlockValue} Sao` : 'Mặc định (Miễn phí)'}
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-xs text-[#1D4532] truncate">{form.name}</p>
+                          <div className="mt-0.5 flex items-center gap-1.5 flex-wrap">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-200">
+                              <Star className="w-2.5 h-2.5 text-amber-600 fill-amber-500" />
+                              {(form.unlockValue ?? 0) > 0 ? `${form.unlockValue} Sao` : 'Miễn phí'}
                             </span>
                             <span
-                              className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
+                              className={`text-[10px] font-semibold px-2 py-0.5 rounded-md ${
                                 form.status !== 'INACTIVE'
                                   ? 'bg-emerald-100 text-emerald-800'
                                   : 'bg-gray-200 text-gray-700'
@@ -888,45 +889,52 @@ const AdminCosmetics = () => {
                     )}
                   </div>
 
-                  {/* Footer actions */}
-                  <div className="px-6 py-4 border-t border-outline-variant/10 bg-[#f5f3ee]/40 flex items-center gap-3 flex-shrink-0">
-                    {editingId && (
+                  {/* Footer actions: Nút Xóa (bên trái), Hủy bỏ & Cập nhật (bên phải) */}
+                  <div className="px-5 py-3.5 border-t border-outline-variant/10 bg-[#f5f3ee]/50 flex items-center justify-between gap-2.5 flex-shrink-0">
+                    <div>
+                      {editingId ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const idToDelete = editingId;
+                            closeDrawer();
+                            void handleDelete(idToDelete);
+                          }}
+                          className="flex items-center gap-1.5 px-3 py-2 rounded-lg font-bold text-xs text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 transition-all shadow-xs"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" /> Xóa
+                        </button>
+                      ) : null}
+                    </div>
+
+                    <div className="flex items-center gap-2">
                       <button
                         type="button"
-                        onClick={() => {
-                          const idToDelete = editingId;
-                          closeDrawer();
-                          void handleDelete(idToDelete);
-                        }}
-                        className="flex items-center justify-center gap-1.5 px-4 py-3 rounded-xl font-bold text-xs text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 transition-all"
+                        onClick={closeDrawer}
+                        className="px-4 py-2 bg-white text-[#5e5e5b] hover:text-on-surface rounded-lg font-semibold text-xs hover:bg-[#eae8e3] transition-all border border-outline-variant/40 shadow-xs"
                       >
-                        <Trash2 className="w-4 h-4" /> Xóa
+                        <span className="flex items-center gap-1">
+                          <X className="w-3.5 h-3.5" /> Hủy bỏ
+                        </span>
                       </button>
-                    )}
-                    <button
-                      type="button"
-                      onClick={closeDrawer}
-                      className="flex-1 flex items-center justify-center gap-2 bg-[#e1dfdb] text-on-surface py-3 rounded-xl font-bold text-sm hover:bg-[#c8c6c2] transition-all border border-outline-variant/30"
-                    >
-                      <X className="w-4 h-4" /> Hủy bỏ
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={saving || uploadingImage}
-                      className="flex-1 flex items-center justify-center gap-2 bg-[#1D4532] text-white py-3 rounded-xl font-bold text-sm hover:bg-[#1D4532]/90 transition-all shadow-md disabled:opacity-60 disabled:cursor-not-allowed"
-                    >
-                      {saving ? (
-                        <>
-                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                          Đang lưu...
-                        </>
-                      ) : (
-                        <>
-                          <Check className="w-4 h-4" />
-                          {editingId ? 'Cập nhật' : 'Tạo vật phẩm'}
-                        </>
-                      )}
-                    </button>
+                      <button
+                        type="submit"
+                        disabled={saving || uploadingImage}
+                        className="px-5 py-2 bg-[#1D4532] text-white rounded-lg font-bold text-xs hover:bg-[#1D4532]/90 transition-all shadow-sm flex items-center gap-1.5 disabled:opacity-60 disabled:cursor-not-allowed"
+                      >
+                        {saving ? (
+                          <>
+                            <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                            Đang lưu...
+                          </>
+                        ) : (
+                          <>
+                            <Check className="w-3.5 h-3.5" />
+                            {editingId ? 'Cập nhật' : 'Tạo vật phẩm'}
+                          </>
+                        )}
+                      </button>
+                    </div>
                   </div>
                 </form>
               </motion.div>
