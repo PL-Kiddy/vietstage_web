@@ -10,7 +10,6 @@ import {
   UserCheck,
   GraduationCap,
   Gem,
-  Database,
 } from 'lucide-react';
 import logo from '../../assets/logongangtachnen.png';
 
@@ -143,22 +142,6 @@ const AdminSidebar = () => {
           <span className="whitespace-nowrap">Cấu hình hệ thống</span>
         </Link>
 
-        {/* Danh mục tham chiếu */}
-        <Link
-          to="/admin/master-data"
-          className={`relative flex items-center gap-3 px-3.5 h-11 rounded-lg transition-all duration-150 text-[14px] font-medium ${
-            location.pathname === '/admin/master-data'
-              ? 'bg-[#EDF7F2] text-[#1D4532] font-semibold'
-              : 'text-[#6B7280] hover:text-[#374151] hover:bg-[#F9FAFB]'
-          }`}
-        >
-          {location.pathname === '/admin/master-data' && (
-            <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-[#1D4532] rounded-r-full" />
-          )}
-          <Database className={`w-5 h-5 flex-shrink-0 ${location.pathname === '/admin/master-data' ? 'text-[#1D4532]' : 'text-[#9CA3AF]'}`} />
-          <span className="whitespace-nowrap">Danh mục tham chiếu</span>
-        </Link>
-
         {/* Vật phẩm trang trí */}
         <Link
           to="/admin/cosmetics"
@@ -180,3 +163,4 @@ const AdminSidebar = () => {
 };
 
 export default AdminSidebar;
+
