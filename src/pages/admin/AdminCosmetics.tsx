@@ -407,19 +407,22 @@ const AdminCosmetics = () => {
         {/* ── Table Container ─────────────────────────────────────────── */}
         <div className="bg-white rounded-xl border border-[#d1e4fb]/50 overflow-hidden shadow-sm">
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse min-w-[700px]">
+            <table className="w-full text-left border-collapse min-w-[750px]">
               <thead className="bg-[#EDF7F2]">
                 <tr>
-                  <th className="px-lg py-md font-label-md text-[#1D4532] font-semibold uppercase tracking-wider w-24 text-center">
-                    Ảnh
+                  <th className="px-lg py-md font-label-md text-[#1D4532] font-semibold uppercase tracking-wider w-32 text-center">
+                    Ảnh vật phẩm
+                  </th>
+                  <th className="px-lg py-md font-label-md text-[#1D4532] font-semibold uppercase tracking-wider w-36">
+                    Mã vật phẩm
                   </th>
                   <th className="px-lg py-md font-label-md text-[#1D4532] font-semibold uppercase tracking-wider">
                     Tên vật phẩm
                   </th>
-                  <th className="px-lg py-md font-label-md text-[#1D4532] font-semibold uppercase tracking-wider">
+                  <th className="px-lg py-md font-label-md text-[#1D4532] font-semibold uppercase tracking-wider w-64">
                     Điều kiện mở khóa
                   </th>
-                  <th className="px-lg py-md font-label-md text-[#1D4532] font-semibold uppercase tracking-wider text-right">
+                  <th className="px-lg py-md font-label-md text-[#1D4532] font-semibold uppercase tracking-wider text-right w-28">
                     Thao tác
                   </th>
                 </tr>
@@ -428,7 +431,7 @@ const AdminCosmetics = () => {
               <tbody className="divide-y divide-[#d1e4fb]/50">
                 {loading ? (
                   <tr>
-                    <td colSpan={4} className="text-center py-xl text-body-md text-[#5e5e5b]">
+                    <td colSpan={5} className="text-center py-xl text-body-md text-[#5e5e5b]">
                       <div className="flex items-center justify-center gap-2">
                         <div className="w-5 h-5 border-2 border-[#1D4532] border-t-transparent rounded-full animate-spin" />
                         <span>Đang tải danh mục vật phẩm...</span>
@@ -437,7 +440,7 @@ const AdminCosmetics = () => {
                   </tr>
                 ) : pagedItems.length === 0 ? (
                   <tr>
-                    <td colSpan={4} className="text-center py-xl text-body-md text-[#5e5e5b]">
+                    <td colSpan={5} className="text-center py-xl text-body-md text-[#5e5e5b]">
                       Không tìm thấy vật phẩm phù hợp với bộ lọc.
                     </td>
                   </tr>
@@ -450,9 +453,9 @@ const AdminCosmetics = () => {
                         onClick={() => setSelectedItem(item)}
                         className="hover:bg-[#EDF7F2]/60 transition-colors cursor-pointer"
                       >
-                        {/* Ảnh xem trước thumbnail */}
+                        {/* Ảnh xem trước thumbnail lớn rõ nét */}
                         <td className="px-lg py-3 text-center">
-                          <div className="w-12 h-12 rounded-xl bg-[#FAF8F5] border border-outline-variant/30 flex items-center justify-center mx-auto overflow-hidden p-1">
+                          <div className="w-20 h-20 rounded-2xl bg-[#FAF8F5] border border-outline-variant/30 flex items-center justify-center mx-auto overflow-hidden p-2 shadow-sm transition-transform duration-200 hover:scale-105">
                             {item.assetUrl ? (
                               <img
                                 src={item.assetUrl}
@@ -463,25 +466,32 @@ const AdminCosmetics = () => {
                                 }}
                               />
                             ) : (
-                              <ImageIcon className="w-5 h-5 text-[#9CA3AF]" />
+                              <ImageIcon className="w-8 h-8 text-[#9CA3AF]" />
                             )}
                           </div>
                         </td>
 
+                        {/* Mã vật phẩm riêng */}
+                        <td className="px-lg py-3">
+                          <span className="font-mono text-xs font-bold text-[#1D4532] bg-[#EDF7F2] px-2.5 py-1 rounded-md border border-[#1D4532]/20">
+                            DECOR-{item.id}
+                          </span>
+                        </td>
+
                         {/* Tên vật phẩm */}
                         <td className="px-lg py-3">
-                          <div className="font-semibold text-sm text-on-surface hover:text-[#1D4532] transition-colors">
+                          <div className="font-semibold text-base text-on-surface hover:text-[#1D4532] transition-colors">
                             {item.name}
                           </div>
-                          <div className="text-[12px] text-[#5e5e5b] font-mono">
-                            Mã: DECOR-{item.id}
+                          <div className="text-[12px] text-[#5e5e5b] mt-0.5">
+                            Vật phẩm trang trí phòng học ảo
                           </div>
                         </td>
 
                         {/* Điều kiện mở khóa Badge */}
                         <td className="px-lg py-3">
                           <span
-                            className={`inline-flex items-center gap-1.5 px-3 py-1 text-xs font-bold rounded-lg ${
+                            className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg ${
                               UNLOCK_TYPE_BADGE_STYLES[unlockType] ?? 'bg-gray-100 text-gray-700'
                             }`}
                           >
