@@ -406,40 +406,48 @@ const AdminCosmetics = () => {
 
                         {/* 6. Thao tác */}
                         <td className="px-6 py-3.5 text-center relative" onClick={(e) => e.stopPropagation()}>
-                          <button
-                            onClick={() => setOpenActionMenuId(openActionMenuId === item.id ? null : item.id)}
-                            className="p-2 hover:bg-[#EDF7F2] rounded-full transition-colors text-on-surface-variant hover:text-on-surface mx-auto"
-                          >
-                            <MoreVertical className="w-5 h-5" />
-                          </button>
+                          <div className="relative inline-block text-left">
+                            <button
+                              onClick={() => setOpenActionMenuId(openActionMenuId === item.id ? null : item.id)}
+                              className="p-2 hover:bg-[#EDF7F2] rounded-full transition-colors text-on-surface-variant hover:text-on-surface"
+                              title="Thao tác"
+                            >
+                              <MoreVertical className="w-5 h-5" />
+                            </button>
 
-                          {openActionMenuId === item.id && (
-                            <>
-                              <div
-                                className="fixed inset-0 z-[1100]"
-                                onClick={() => setOpenActionMenuId(null)}
-                              />
-                              <div className="absolute right-6 mt-1 w-44 bg-white border border-[#d1e4fb] rounded-xl shadow-xl py-1 z-[1101] text-left">
-                                <button
-                                  onClick={() => {
-                                    setOpenActionMenuId(null);
-                                    setSelectedItem(item);
-                                  }}
-                                  className="w-full flex items-center gap-2 px-3.5 py-2 hover:bg-[#EDF7F2] text-[13px] text-on-surface transition-colors"
-                                >
-                                  <Eye className="w-4 h-4 text-[#1D4532]" />
-                                  Xem chi tiết
-                                </button>
-                                <button
-                                  onClick={() => openEditDrawer(item)}
-                                  className="w-full flex items-center gap-2 px-3.5 py-2 hover:bg-[#EDF7F2] text-[13px] text-on-surface transition-colors border-t border-[#d1e4fb]/40"
-                                >
-                                  <Edit2 className="w-4 h-4 text-[#1D4532]" />
-                                  Sửa vật phẩm
-                                </button>
-                              </div>
-                            </>
-                          )}
+                            {openActionMenuId === item.id && (
+                              <>
+                                <div
+                                  className="fixed inset-0 z-[1100]"
+                                  onClick={() => setOpenActionMenuId(null)}
+                                />
+                                <div className="absolute right-0 top-full mt-1 w-44 bg-white border border-[#d1e4fb] rounded-xl shadow-2xl py-1.5 z-[1101] text-left">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setOpenActionMenuId(null);
+                                      setSelectedItem(item);
+                                    }}
+                                    className="w-full flex items-center gap-2.5 px-3.5 py-2 hover:bg-[#EDF7F2] text-[13px] font-medium text-on-surface transition-colors"
+                                  >
+                                    <Eye className="w-4 h-4 text-[#1D4532]" />
+                                    Xem chi tiết
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setOpenActionMenuId(null);
+                                      openEditDrawer(item);
+                                    }}
+                                    className="w-full flex items-center gap-2.5 px-3.5 py-2 hover:bg-[#EDF7F2] text-[13px] font-medium text-on-surface transition-colors border-t border-[#d1e4fb]/40"
+                                  >
+                                    <Edit2 className="w-4 h-4 text-[#1D4532]" />
+                                    Chỉnh sửa
+                                  </button>
+                                </div>
+                              </>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     );
