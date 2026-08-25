@@ -379,26 +379,32 @@ export interface CosmeticItem {
 
 export interface CosmeticRequest {
   name: string;
-  itemType: string;
+  itemType?: string;
   assetUrl?: string;
-  unlockType: string;
+  unlockType?: string;
   unlockValue?: number;
-  status?: string;
+  status?: 'ACTIVE' | 'INACTIVE' | string;
 }
 
 export const cosmeticsApi = {
-  // GET /api/cosmetics?item_type=ROOM_DECOR
-  list: (itemType?: string, options?: RequestOptions) => {
-    const query = itemType ? `?item_type=${encodeURIComponent(itemType)}` : '';
-    return apiRequest<CosmeticItem[]>(`/api/cosmetics${query}`, options);
+  // GET /api/admin/cosmetics?item_type=ROOM_DECOR&status=ACTIVE
+  list: (params?: { itemType?: string; status?: string }, options?: RequestOptions) => {
+    const query = new URLSearchParams();
+    if (params?.itemType) query.set('item_type', params.itemType);
+    if (params?.status && params.status !== 'ALL') query.set('status', params.status);
+    const queryString = query.toString();
+    return apiRequest<CosmeticItem[]>(`/api/admin/cosmetics${queryString ? `?${queryString}` : ''}`, options);
   },
-  // POST /api/admin/cosmetics  ← Admin endpoint (backend cần thêm)
+
+  // POST /api/admin/cosmetics
   create: (body: CosmeticRequest, options?: RequestOptions) =>
     apiRequest<CosmeticItem>('/api/admin/cosmetics', { ...options, method: 'POST', body }),
-  // PUT /api/admin/cosmetics/{id}  ← Admin endpoint (backend cần thêm)
+
+  // PUT /api/admin/cosmetics/{id}
   update: (id: number, body: CosmeticRequest, options?: RequestOptions) =>
     apiRequest<CosmeticItem>(`/api/admin/cosmetics/${id}`, { ...options, method: 'PUT', body }),
-  // DELETE /api/admin/cosmetics/{id}  ← Admin endpoint (backend cần thêm)
+
+  // DELETE /api/admin/cosmetics/{id}
   remove: (id: number, options?: RequestOptions) =>
-    apiRequest<void>(`/api/admin/cosmetics/${id}`, { ...options, method: 'DELETE' }),
+    apiRequest<string>(`/api/admin/cosmetics/${id}`, { ...options, method: 'DELETE' }),
 };

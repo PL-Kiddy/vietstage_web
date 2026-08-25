@@ -61,7 +61,7 @@ const AdminCosmetics = () => {
     setLoading(true);
     setError('');
     try {
-      const data = await cosmeticsApi.list('ROOM_DECOR');
+      const data = await cosmeticsApi.list({ itemType: 'ROOM_DECOR' });
       if (Array.isArray(data) && data.length > 0) {
         setItems(data);
       } else {
@@ -189,7 +189,7 @@ const AdminCosmetics = () => {
           const newItem: CosmeticItem = {
             id: Date.now(),
             name: payload.name,
-            itemType: payload.itemType,
+            itemType: payload.itemType || 'ROOM_DECOR',
             assetUrl: payload.assetUrl,
             unlockType: 'STARS',
             unlockValue: payload.unlockValue,
@@ -199,9 +199,7 @@ const AdminCosmetics = () => {
         }
       }
       closeDrawer();
-      if (!editingId) {
-        await loadItems();
-      }
+      await loadItems();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Không thể lưu vật phẩm.');
     } finally {
