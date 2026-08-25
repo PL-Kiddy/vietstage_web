@@ -40,8 +40,8 @@ const AdminCosmetics = () => {
   // Detail Modal / Slide-in Panel
   const [selectedItem, setSelectedItem] = useState<CosmeticItem | null>(null);
 
-  // Action Menu state
-  const [openActionMenuId, setOpenActionMenuId] = useState<number | null>(null);
+  // Action Menu state (Lưu trữ id và toạ độ nút bấm để render qua Portal ra ngoài body)
+  const [activeMenu, setActiveMenu] = useState<{ id: number; item: CosmeticItem; top: number; left: number } | null>(null);
 
   // Add / Edit Drawer state
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -119,7 +119,7 @@ const AdminCosmetics = () => {
     });
     setPreviewUrl(item.assetUrl ?? null);
     setIsDrawerOpen(true);
-    setOpenActionMenuId(null);
+    setActiveMenu(null);
   };
 
   const closeDrawer = () => {
@@ -204,8 +204,8 @@ const AdminCosmetics = () => {
   const labelClass = 'font-label-sm text-on-surface-variant font-semibold uppercase tracking-wider text-xs';
 
   return (
-    <div className="w-full max-w-[1300px] mx-auto flex-1 flex flex-col justify-between">
-      <div className="flex-grow">
+    <div className="w-full max-w-[1300px] mx-auto min-h-[calc(100vh-140px)] flex flex-col justify-between">
+      <div className="flex-grow flex flex-col">
         {/* ── Page Header & Info ──────────────────────────────────────── */}
         <div className="flex flex-col gap-4 mb-6">
           <div>
@@ -413,67 +413,26 @@ const AdminCosmetics = () => {
                         </td>
 
                         {/* 6. Thao tác */}
-                        <td className="px-6 py-3.5 text-center relative" onClick={(e) => e.stopPropagation()}>
-                          <div className="relative inline-block text-left">
-                            <button
-                              onClick={() => setOpenActionMenuId(openActionMenuId === item.id ? null : item.id)}
-                              className="p-2 hover:bg-[#EDF7F2] rounded-full transition-colors text-on-surface-variant hover:text-on-surface"
-                              title="Thao tác"
-                            >
-                              <MoreVertical className="w-5 h-5" />
-                            </button>
-
-                            {openActionMenuId === item.id && (
-                              <>
-                                <div
-                                  className="fixed inset-0 z-[1100]"
-                                  onClick={() => setOpenActionMenuId(null)}
-                                />
-                                <div className="absolute right-0 top-full mt-1 w-44 bg-white border border-[#d1e4fb] rounded-xl shadow-2xl py-1.5 z-[1101] text-left">
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setOpenActionMenuId(null);
-                                      setSelectedItem(item);
-                                    }}
-                                    className="w-full flex items-center gap-2.5 px-3.5 py-2 hover:bg-[#EDF7F2] text-[13px] font-medium text-on-surface transition-colors"
-                                  >
-                                    <Eye className="w-4 h-4 text-[#1D4532]" />
-                                    Xem chi tiết
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setOpenActionMenuId(null);
-                                      openEditDrawer(item);
-                                    }}
-                                    className="w-full flex items-center gap-2.5 px-3.5 py-2 hover:bg-[#EDF7F2] text-[13px] font-medium text-on-surface transition-colors border-t border-[#d1e4fb]/40"
-                                  >
-                                    <Edit2 className="w-4 h-4 text-[#1D4532]" />
-                                    Chỉnh sửa
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      void handleToggleStatus(item);
-                                    }}
-                                    className={`w-full flex items-center gap-2.5 px-3.5 py-2 text-[13px] font-medium transition-colors border-t border-[#d1e4fb]/40 ${
-                                      item.status === 'INACTIVE'
-                                        ? 'hover:bg-emerald-50 text-emerald-700'
-                                        : 'hover:bg-amber-50 text-amber-700'
-                                    }`}
-                                  >
-                                    <span
-                                      className={`w-2 h-2 rounded-full ${
-                                        item.status === 'INACTIVE' ? 'bg-emerald-500' : 'bg-amber-500'
-                                      }`}
-                                    />
-                                    {item.status === 'INACTIVE' ? 'Kích hoạt lại' : 'Tạm khóa / Ẩn'}
-                                  </button>
-                                </div>
-                              </>
-                            )}
-                          </div>
+                        <td className="px-6 py-3.5 text-center" onClick={(e) => e.stopPropagation()}>
+                          <button
+                            onClick={(e) => {
+                              if (activeMenu?.id === item.id) {
+                                setActiveMenu(null);
+                              } else {
+                                const rect = e.currentTarget.getBoundingClientRect();
+                                setActiveMenu({
+                                  id: item.id,
+                                  item,
+                                  top: rect.bottom + 4,
+                                  left: rect.right - 180, // w-44 is 176px
+                                });
+                              }
+                            }}
+                            className="p-2 hover:bg-[#EDF7F2] rounded-full transition-colors text-on-surface-variant hover:text-on-surface mx-auto"
+                            title="Thao tác"
+                          >
+                            <MoreVertical className="w-5 h-5" />
+                          </button>
                         </td>
                       </tr>
                     );
@@ -484,61 +443,125 @@ const AdminCosmetics = () => {
           </div>
         </div>
 
-        {/* ── Pagination Bar ──────────────────────────────────────────── */}
-        <div className="mt-lg flex flex-col sm:flex-row justify-between items-center gap-md text-[12px] text-[#5e5e5b] pt-4">
-          <div className="flex items-center gap-lg">
-            <p>
-              Hiển thị {filteredItems.length === 0 ? 0 : (currentPage - 1) * perPage + 1}–
-              {Math.min(currentPage * perPage, filteredItems.length)} trong tổng số {filteredItems.length} vật phẩm
-            </p>
-
-            <div className="flex items-center gap-xs">
-              <span>Số dòng mỗi trang:</span>
-              <select
-                value={perPage}
-                onChange={(e) => {
-                  setPerPage(Number(e.target.value));
-                  setCurrentPage(1);
-                }}
-                className="bg-white border border-outline-variant rounded px-2 py-1 text-label-md cursor-pointer outline-none"
-              >
-                <option value={5}>5 dòng</option>
-                <option value={10}>10 dòng</option>
-                <option value={20}>20 dòng</option>
-                <option value={50}>50 dòng</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="flex gap-xs">
-            <button
-              disabled={currentPage <= 1}
-              onClick={() => setCurrentPage((p) => p - 1)}
-              className="p-2 border border-outline-variant rounded hover:bg-[#EDF7F2] transition-colors disabled:opacity-40"
+        {/* ── Action Menu Portal (Nổi lên trên cùng toàn màn hình, không bao giờ bị cắt do overflow) ── */}
+        {activeMenu && typeof document !== 'undefined' && createPortal(
+          <>
+            <div
+              className="fixed inset-0 z-[9998]"
+              onClick={() => setActiveMenu(null)}
+            />
+            <div
+              style={{
+                position: 'fixed',
+                top: `${activeMenu.top}px`,
+                left: `${Math.max(10, activeMenu.left)}px`,
+              }}
+              className="w-44 bg-white border border-[#d1e4fb] rounded-xl shadow-2xl py-1.5 z-[9999] text-left animate-[fadeIn_0.15s_ease-out]"
             >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
               <button
-                key={p}
-                onClick={() => setCurrentPage(p)}
-                className={`px-3 py-1 rounded font-bold transition-colors ${
-                  p === currentPage
-                    ? 'bg-[#1D4532] text-white'
-                    : 'border border-outline-variant hover:bg-[#EDF7F2]'
+                type="button"
+                onClick={() => {
+                  const item = activeMenu.item;
+                  setActiveMenu(null);
+                  setSelectedItem(item);
+                }}
+                className="w-full flex items-center gap-2.5 px-3.5 py-2 hover:bg-[#EDF7F2] text-[13px] font-medium text-on-surface transition-colors"
+              >
+                <Eye className="w-4 h-4 text-[#1D4532]" />
+                Xem chi tiết
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const item = activeMenu.item;
+                  setActiveMenu(null);
+                  openEditDrawer(item);
+                }}
+                className="w-full flex items-center gap-2.5 px-3.5 py-2 hover:bg-[#EDF7F2] text-[13px] font-medium text-on-surface transition-colors border-t border-[#d1e4fb]/40"
+              >
+                <Edit2 className="w-4 h-4 text-[#1D4532]" />
+                Chỉnh sửa
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const item = activeMenu.item;
+                  setActiveMenu(null);
+                  void handleToggleStatus(item);
+                }}
+                className={`w-full flex items-center gap-2.5 px-3.5 py-2 text-[13px] font-medium transition-colors border-t border-[#d1e4fb]/40 ${
+                  activeMenu.item.status === 'INACTIVE'
+                    ? 'hover:bg-emerald-50 text-emerald-700'
+                    : 'hover:bg-amber-50 text-amber-700'
                 }`}
               >
-                {p}
+                <span
+                  className={`w-2 h-2 rounded-full ${
+                    activeMenu.item.status === 'INACTIVE' ? 'bg-emerald-500' : 'bg-amber-500'
+                  }`}
+                />
+                {activeMenu.item.status === 'INACTIVE' ? 'Kích hoạt lại' : 'Tạm khóa / Ẩn'}
               </button>
-            ))}
-            <button
-              disabled={currentPage >= totalPages}
-              onClick={() => setCurrentPage((p) => p + 1)}
-              className="p-2 border border-outline-variant rounded hover:bg-[#EDF7F2] transition-colors disabled:opacity-40"
+            </div>
+          </>,
+          document.body
+        )}
+      </div>
+
+      {/* ── Pagination Bar (Luôn ở dưới cùng) ──────────────────────────── */}
+      <div className="mt-8 flex flex-col sm:flex-row justify-between items-center gap-md text-[12px] text-[#5e5e5b] pt-4 border-t border-[#d1e4fb]/30 flex-shrink-0">
+        <div className="flex items-center gap-lg">
+          <p>
+            Hiển thị {filteredItems.length === 0 ? 0 : (currentPage - 1) * perPage + 1}–
+            {Math.min(currentPage * perPage, filteredItems.length)} trong tổng số {filteredItems.length} vật phẩm
+          </p>
+
+          <div className="flex items-center gap-xs">
+            <span>Số dòng mỗi trang:</span>
+            <select
+              value={perPage}
+              onChange={(e) => {
+                setPerPage(Number(e.target.value));
+                setCurrentPage(1);
+              }}
+              className="bg-white border border-outline-variant rounded px-2 py-1 text-label-md cursor-pointer outline-none"
             >
-              <ChevronRight className="w-4 h-4" />
-            </button>
+              <option value={5}>5 dòng</option>
+              <option value={10}>10 dòng</option>
+              <option value={20}>20 dòng</option>
+              <option value={50}>50 dòng</option>
+            </select>
           </div>
+        </div>
+
+        <div className="flex gap-xs">
+          <button
+            disabled={currentPage <= 1}
+            onClick={() => setCurrentPage((p) => p - 1)}
+            className="p-2 border border-outline-variant rounded hover:bg-[#EDF7F2] transition-colors disabled:opacity-40"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+          {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+            <button
+              key={p}
+              onClick={() => setCurrentPage(p)}
+              className={`px-3 py-1 rounded font-bold transition-colors ${
+                p === currentPage
+                  ? 'bg-[#1D4532] text-white'
+                  : 'border border-outline-variant hover:bg-[#EDF7F2]'
+              }`}
+            >
+              {p}
+            </button>
+          ))}
+          <button
+            disabled={currentPage >= totalPages}
+            onClick={() => setCurrentPage((p) => p + 1)}
+            className="p-2 border border-outline-variant rounded hover:bg-[#EDF7F2] transition-colors disabled:opacity-40"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
         </div>
       </div>
 
