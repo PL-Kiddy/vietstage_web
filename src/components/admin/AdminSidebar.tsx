@@ -126,6 +126,22 @@ const AdminSidebar = () => {
           <span className="whitespace-nowrap">Kiểm duyệt học liệu</span>
         </Link>
 
+        {/* Quản lý vật phẩm */}
+        <Link
+          to="/admin/cosmetics"
+          className={`relative flex items-center gap-3 px-3.5 h-11 rounded-lg transition-all duration-150 text-[14px] font-medium ${
+            location.pathname === '/admin/cosmetics'
+              ? 'bg-[#EDF7F2] text-[#1D4532] font-semibold'
+              : 'text-[#6B7280] hover:text-[#374151] hover:bg-[#F9FAFB]'
+          }`}
+        >
+          {location.pathname === '/admin/cosmetics' && (
+            <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-[#1D4532] rounded-r-full" />
+          )}
+          <Gem className={`w-5 h-5 flex-shrink-0 ${location.pathname === '/admin/cosmetics' ? 'text-[#1D4532]' : 'text-[#9CA3AF]'}`} />
+          <span className="whitespace-nowrap">Quản lý vật phẩm</span>
+        </Link>
+
         {/* Cấu hình hệ thống */}
         <Link
           to="/admin/settings"
@@ -140,22 +156,6 @@ const AdminSidebar = () => {
           )}
           <Settings className={`w-5 h-5 flex-shrink-0 ${location.pathname === '/admin/settings' ? 'text-[#1D4532]' : 'text-[#9CA3AF]'}`} />
           <span className="whitespace-nowrap">Cấu hình hệ thống</span>
-        </Link>
-
-        {/* Vật phẩm trang trí */}
-        <Link
-          to="/admin/cosmetics"
-          className={`relative flex items-center gap-3 px-3.5 h-11 rounded-lg transition-all duration-150 text-[14px] font-medium ${
-            location.pathname === '/admin/cosmetics'
-              ? 'bg-[#EDF7F2] text-[#1D4532] font-semibold'
-              : 'text-[#6B7280] hover:text-[#374151] hover:bg-[#F9FAFB]'
-          }`}
-        >
-          {location.pathname === '/admin/cosmetics' && (
-            <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-[#1D4532] rounded-r-full" />
-          )}
-          <Gem className={`w-5 h-5 flex-shrink-0 ${location.pathname === '/admin/cosmetics' ? 'text-[#1D4532]' : 'text-[#9CA3AF]'}`} />
-          <span className="whitespace-nowrap">Vật phẩm trang trí</span>
         </Link>
       </nav>
     </aside>

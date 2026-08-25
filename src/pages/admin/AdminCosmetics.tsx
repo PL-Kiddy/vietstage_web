@@ -237,10 +237,10 @@ const AdminCosmetics = () => {
               className="text-headline-lg font-bold text-[#1D4532] mb-xs"
               style={{ fontFamily: "'Montserrat', sans-serif" }}
             >
-              Quản lý vật phẩm trang trí
+              Quản lý vật phẩm
             </h2>
             <p className="text-body-md text-[#5e5e5b]">
-              Quản lý danh mục vật phẩm trang trí trong phòng học ảo hiển thị trên ứng dụng VietStage (Godot).
+              Quản lý danh mục vật phẩm trong phòng học ảo hiển thị trên ứng dụng VietStage (Godot).
             </p>
           </div>
 
