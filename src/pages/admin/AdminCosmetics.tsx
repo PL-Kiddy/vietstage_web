@@ -182,7 +182,7 @@ const AdminCosmetics = () => {
 
   // ── Đổi nhanh trạng thái hoạt động (ACTIVE <-> INACTIVE) ──
   const handleToggleStatus = async (item: CosmeticItem) => {
-    setOpenActionMenuId(null);
+    setActiveMenu(null);
     const nextStatus = item.status === 'INACTIVE' ? 'ACTIVE' : 'INACTIVE';
     const statusText = nextStatus === 'ACTIVE' ? 'Kích hoạt lại' : 'Tạm khóa / Ẩn';
     if (!confirm(`Bạn có muốn ${statusText} vật phẩm "${item.name}"?`)) return;
