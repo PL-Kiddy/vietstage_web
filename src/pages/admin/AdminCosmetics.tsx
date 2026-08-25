@@ -17,7 +17,6 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { createPortal } from 'react-dom';
 import { cosmeticsApi, uploadApi, type CosmeticItem, type CosmeticRequest } from '../../api/services';
-import { mockCosmetics } from '../../data/mockCosmetics';
 
 const emptyForm: CosmeticRequest = {
   name: '',
@@ -62,13 +61,10 @@ const AdminCosmetics = () => {
     setError('');
     try {
       const data = await cosmeticsApi.list({ itemType: 'ROOM_DECOR' });
-      if (Array.isArray(data) && data.length > 0) {
-        setItems(data);
-      } else {
-        setItems(mockCosmetics);
-      }
-    } catch {
-      setItems(mockCosmetics);
+      setItems(Array.isArray(data) ? data : []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Không thể tải danh sách vật phẩm từ máy chủ.');
+      setItems([]);
     } finally {
       setLoading(false);
     }
@@ -172,31 +168,9 @@ const AdminCosmetics = () => {
         status: form.status || 'ACTIVE',
       };
       if (editingId) {
-        try {
-          await cosmeticsApi.update(editingId, payload);
-        } catch {
-          setItems((prev) =>
-            prev.map((item) => (item.id === editingId ? { ...item, ...payload } : item)),
-          );
-        }
+        await cosmeticsApi.update(editingId, payload);
       } else {
-        try {
-          const res = await cosmeticsApi.create(payload);
-          if (res) {
-            await loadItems();
-          }
-        } catch {
-          const newItem: CosmeticItem = {
-            id: Date.now(),
-            name: payload.name,
-            itemType: payload.itemType || 'ROOM_DECOR',
-            assetUrl: payload.assetUrl,
-            unlockType: 'STARS',
-            unlockValue: payload.unlockValue,
-            status: payload.status,
-          };
-          setItems((prev) => [newItem, ...prev]);
-        }
+        await cosmeticsApi.create(payload);
       }
       closeDrawer();
       await loadItems();
@@ -212,11 +186,7 @@ const AdminCosmetics = () => {
     setOpenActionMenuId(null);
     if (!confirm('Xóa vật phẩm này khỏi hệ thống? Thao tác không thể hoàn tác.')) return;
     try {
-      try {
-        await cosmeticsApi.remove(id);
-      } catch {
-        setItems((prev) => prev.filter((item) => item.id !== id));
-      }
+      await cosmeticsApi.remove(id);
       await loadItems();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Không thể xóa vật phẩm.');
