@@ -204,8 +204,8 @@ const AdminCosmetics = () => {
   const labelClass = 'font-label-sm text-on-surface-variant font-semibold uppercase tracking-wider text-xs';
 
   return (
-    <div className="w-full max-w-[1300px] mx-auto min-h-[calc(100vh-140px)] flex flex-col justify-between">
-      <div className="flex-grow flex flex-col">
+    <div className="flex-1 flex flex-col justify-between">
+      <div className="flex-grow">
         {/* ── Page Header & Info ──────────────────────────────────────── */}
         <div className="flex flex-col gap-4 mb-6">
           <div>
