@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState, useMemo, type FormEvent } fro
 import {
   Edit2,
   Plus,
-  Trash2,
   X,
   Check,
   MoreVertical,
@@ -181,15 +180,24 @@ const AdminCosmetics = () => {
     }
   };
 
-  // ── Delete ──
-  const handleDelete = async (id: number) => {
+  // ── Đổi nhanh trạng thái hoạt động (ACTIVE <-> INACTIVE) ──
+  const handleToggleStatus = async (item: CosmeticItem) => {
     setOpenActionMenuId(null);
-    if (!confirm('Xóa vật phẩm này khỏi hệ thống? Thao tác không thể hoàn tác.')) return;
+    const nextStatus = item.status === 'INACTIVE' ? 'ACTIVE' : 'INACTIVE';
+    const statusText = nextStatus === 'ACTIVE' ? 'Kích hoạt lại' : 'Tạm khóa / Ẩn';
+    if (!confirm(`Bạn có muốn ${statusText} vật phẩm "${item.name}"?`)) return;
     try {
-      await cosmeticsApi.remove(id);
+      await cosmeticsApi.update(item.id, {
+        name: item.name,
+        itemType: item.itemType || 'ROOM_DECOR',
+        assetUrl: item.assetUrl,
+        unlockType: item.unlockType || 'STARS',
+        unlockValue: item.unlockValue ?? 0,
+        status: nextStatus,
+      });
       await loadItems();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Không thể xóa vật phẩm.');
+      setError(err instanceof Error ? err.message : 'Không thể cập nhật trạng thái vật phẩm.');
     }
   };
 
@@ -443,6 +451,24 @@ const AdminCosmetics = () => {
                                   >
                                     <Edit2 className="w-4 h-4 text-[#1D4532]" />
                                     Chỉnh sửa
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      void handleToggleStatus(item);
+                                    }}
+                                    className={`w-full flex items-center gap-2.5 px-3.5 py-2 text-[13px] font-medium transition-colors border-t border-[#d1e4fb]/40 ${
+                                      item.status === 'INACTIVE'
+                                        ? 'hover:bg-emerald-50 text-emerald-700'
+                                        : 'hover:bg-amber-50 text-amber-700'
+                                    }`}
+                                  >
+                                    <span
+                                      className={`w-2 h-2 rounded-full ${
+                                        item.status === 'INACTIVE' ? 'bg-emerald-500' : 'bg-amber-500'
+                                      }`}
+                                    />
+                                    {item.status === 'INACTIVE' ? 'Kích hoạt lại' : 'Tạm khóa / Ẩn'}
                                   </button>
                                 </div>
                               </>
@@ -845,52 +871,34 @@ const AdminCosmetics = () => {
                     )}
                   </div>
 
-                  {/* Footer actions: Nút Xóa (bên trái), Hủy bỏ & Cập nhật (bên phải) */}
-                  <div className="px-5 py-3.5 border-t border-outline-variant/10 bg-[#f5f3ee]/50 flex items-center justify-between gap-2.5 flex-shrink-0">
-                    <div>
-                      {editingId ? (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const idToDelete = editingId;
-                            closeDrawer();
-                            void handleDelete(idToDelete);
-                          }}
-                          className="flex items-center gap-1.5 px-3 py-2 rounded-lg font-bold text-xs text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 transition-all shadow-xs"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" /> Xóa
-                        </button>
-                      ) : null}
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={closeDrawer}
-                        className="px-4 py-2 bg-white text-[#5e5e5b] hover:text-on-surface rounded-lg font-semibold text-xs hover:bg-[#eae8e3] transition-all border border-outline-variant/40 shadow-xs"
-                      >
-                        <span className="flex items-center gap-1">
-                          <X className="w-3.5 h-3.5" /> Hủy bỏ
-                        </span>
-                      </button>
-                      <button
-                        type="submit"
-                        disabled={saving || uploadingImage}
-                        className="px-5 py-2 bg-[#1D4532] text-white rounded-lg font-bold text-xs hover:bg-[#1D4532]/90 transition-all shadow-sm flex items-center gap-1.5 disabled:opacity-60 disabled:cursor-not-allowed"
-                      >
-                        {saving ? (
-                          <>
-                            <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                            Đang lưu...
-                          </>
-                        ) : (
-                          <>
-                            <Check className="w-3.5 h-3.5" />
-                            {editingId ? 'Cập nhật' : 'Tạo vật phẩm'}
-                          </>
-                        )}
-                      </button>
-                    </div>
+                  {/* Footer actions: Nút Hủy bỏ & Cập nhật / Tạo mới */}
+                  <div className="px-5 py-3.5 border-t border-outline-variant/10 bg-[#f5f3ee]/50 flex items-center justify-end gap-2.5 flex-shrink-0">
+                    <button
+                      type="button"
+                      onClick={closeDrawer}
+                      className="px-4 py-2 bg-white text-[#5e5e5b] hover:text-on-surface rounded-lg font-semibold text-xs hover:bg-[#eae8e3] transition-all border border-outline-variant/40 shadow-xs"
+                    >
+                      <span className="flex items-center gap-1">
+                        <X className="w-3.5 h-3.5" /> Hủy bỏ
+                      </span>
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={saving || uploadingImage}
+                      className="px-5 py-2 bg-[#1D4532] text-white rounded-lg font-bold text-xs hover:bg-[#1D4532]/90 transition-all shadow-sm flex items-center gap-1.5 disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
+                      {saving ? (
+                        <>
+                          <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          Đang lưu...
+                        </>
+                      ) : (
+                        <>
+                          <Check className="w-3.5 h-3.5" />
+                          {editingId ? 'Cập nhật' : 'Tạo vật phẩm'}
+                        </>
+                      )}
+                    </button>
                   </div>
                 </form>
               </motion.div>
