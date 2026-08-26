@@ -193,7 +193,7 @@ const AdminCosmetics = () => {
   // ── Xóa vật phẩm ──
   const handleDelete = async (item: CosmeticItem) => {
     setActiveMenu(null);
-    if (!confirm(`Xóa vĩnh viễn vật phẩm "${item.name}"? Thao tác này không thể hoàn tác.`)) return;
+    if (!confirm(`Xóa vật phẩm "${item.name}" khỏi danh sách quản lý? Vật phẩm đã có người sở hữu có thể được hệ thống chuyển sang trạng thái không hoạt động.`)) return;
     try {
       await cosmeticsApi.remove(item.id);
       if (selectedItem?.id === item.id) setSelectedItem(null);
