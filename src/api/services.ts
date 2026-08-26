@@ -364,26 +364,30 @@ export const adminDashboardApi = {
 
 // ── Vật phẩm trang trí (Cosmetics): CRUD dành cho Admin ──
 // Entity backend: CosmeticItem { id, name, itemType, assetUrl, unlockType, unlockValue }
-// itemType: ROOM_DECOR | INSTRUMENT_SKIN | AVATAR_SKIN
-// unlockType: ACHIEVEMENT | STARS | POINTS | DEFAULT
+// itemType: ROOM_DECOR | INSTRUMENT_SKIN | AVATAR
+// unlockType: ACHIEVEMENT | STARS | DEFAULT
+
+export type CosmeticItemType = 'ROOM_DECOR' | 'INSTRUMENT_SKIN' | 'AVATAR';
+export type CosmeticUnlockType = 'ACHIEVEMENT' | 'STARS' | 'DEFAULT';
+export type CosmeticStatus = 'ACTIVE' | 'INACTIVE';
 
 export interface CosmeticItem {
   id: number;
   name: string;
-  itemType: 'ROOM_DECOR' | 'INSTRUMENT_SKIN' | 'AVATAR_SKIN' | string;
+  itemType: CosmeticItemType;
   assetUrl?: string;
-  unlockType: 'ACHIEVEMENT' | 'STARS' | 'POINTS' | 'DEFAULT' | string;
+  unlockType: CosmeticUnlockType;
   unlockValue?: number;
-  status?: 'ACTIVE' | 'INACTIVE' | string;
+  status?: CosmeticStatus;
 }
 
 export interface CosmeticRequest {
   name: string;
-  itemType?: string;
-  assetUrl?: string;
-  unlockType?: string;
+  itemType: CosmeticItemType;
+  assetUrl: string;
+  unlockType: CosmeticUnlockType;
   unlockValue?: number;
-  status?: 'ACTIVE' | 'INACTIVE' | string;
+  status: CosmeticStatus;
 }
 
 export const cosmeticsApi = {
