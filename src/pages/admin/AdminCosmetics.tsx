@@ -12,6 +12,7 @@ import {
   Search,
   Star,
   Eye,
+  Trash2,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createPortal } from 'react-dom';
@@ -113,7 +114,7 @@ const AdminCosmetics = () => {
       name: item.name,
       itemType: item.itemType || 'ROOM_DECOR',
       assetUrl: item.assetUrl ?? '',
-      unlockType: 'STARS',
+      unlockType: item.unlockType || 'STARS',
       unlockValue: item.unlockValue ?? 0,
       status: item.status === 'INACTIVE' ? 'INACTIVE' : 'ACTIVE',
     });
@@ -155,14 +156,23 @@ const AdminCosmetics = () => {
   // ── Submit (create / update) ──
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!form.name.trim()) return;
+    if (!form.name.trim()) {
+      setError('Vui lòng nhập tên vật phẩm.');
+      return;
+    }
+    if (!form.assetUrl?.trim()) {
+      setError('Vui lòng tải lên ảnh hoặc nhập URL ảnh vật phẩm.');
+      return;
+    }
     setSaving(true);
     setError('');
     try {
       const payload: CosmeticRequest = {
         ...form,
+        name: form.name.trim(),
         itemType: 'ROOM_DECOR',
-        unlockType: 'STARS',
+        assetUrl: form.assetUrl.trim(),
+        unlockType: form.unlockType || 'STARS',
         unlockValue: Number(form.unlockValue) || 0,
         status: form.status || 'ACTIVE',
       };
@@ -177,6 +187,19 @@ const AdminCosmetics = () => {
       setError(err instanceof Error ? err.message : 'Không thể lưu vật phẩm.');
     } finally {
       setSaving(false);
+    }
+  };
+
+  // ── Xóa vật phẩm ──
+  const handleDelete = async (item: CosmeticItem) => {
+    setActiveMenu(null);
+    if (!confirm(`Xóa vĩnh viễn vật phẩm "${item.name}"? Thao tác này không thể hoàn tác.`)) return;
+    try {
+      await cosmeticsApi.remove(item.id);
+      if (selectedItem?.id === item.id) setSelectedItem(null);
+      await loadItems();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Không thể xóa vật phẩm.');
     }
   };
 
@@ -501,6 +524,14 @@ const AdminCosmetics = () => {
                   }`}
                 />
                 {activeMenu.item.status === 'INACTIVE' ? 'Kích hoạt lại' : 'Tạm khóa / Ẩn'}
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleDelete(activeMenu.item)}
+                className="w-full flex items-center gap-2.5 px-3.5 py-2 text-[13px] font-medium text-red-700 hover:bg-red-50 transition-colors border-t border-[#d1e4fb]/40"
+              >
+                <Trash2 className="w-4 h-4" />
+                Xóa vật phẩm
               </button>
             </div>
           </>,
