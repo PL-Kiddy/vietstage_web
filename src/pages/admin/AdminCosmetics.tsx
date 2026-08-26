@@ -16,7 +16,13 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createPortal } from 'react-dom';
-import { cosmeticsApi, uploadApi, type CosmeticItem, type CosmeticRequest } from '../../api/services';
+import {
+  cosmeticsApi,
+  uploadApi,
+  type CosmeticItem,
+  type CosmeticRequest,
+  type CosmeticStatus,
+} from '../../api/services';
 
 const emptyForm: CosmeticRequest = {
   name: '',
@@ -24,6 +30,7 @@ const emptyForm: CosmeticRequest = {
   assetUrl: '',
   unlockType: 'STARS',
   unlockValue: 0,
+  status: 'ACTIVE',
 };
 
 // ─── Component ───────────────────────────────────────────────────────────────
@@ -81,7 +88,7 @@ const AdminCosmetics = () => {
         !searchQuery.trim() ||
         item.name.toLowerCase().includes(searchQuery.trim().toLowerCase()) ||
         item.id.toString().includes(searchQuery.trim());
-      
+
       const val = item.unlockValue ?? 0;
       let matchStar = true;
       if (starFilter === 'FREE') matchStar = val === 0;
@@ -206,14 +213,14 @@ const AdminCosmetics = () => {
   // ── Đổi nhanh trạng thái hoạt động (ACTIVE <-> INACTIVE) ──
   const handleToggleStatus = async (item: CosmeticItem) => {
     setActiveMenu(null);
-    const nextStatus = item.status === 'INACTIVE' ? 'ACTIVE' : 'INACTIVE';
+    const nextStatus: CosmeticStatus = item.status === 'INACTIVE' ? 'ACTIVE' : 'INACTIVE';
     const statusText = nextStatus === 'ACTIVE' ? 'Kích hoạt lại' : 'Tạm khóa / Ẩn';
     if (!confirm(`Bạn có muốn ${statusText} vật phẩm "${item.name}"?`)) return;
     try {
       await cosmeticsApi.update(item.id, {
         name: item.name,
         itemType: item.itemType || 'ROOM_DECOR',
-        assetUrl: item.assetUrl,
+        assetUrl: item.assetUrl ?? '',
         unlockType: item.unlockType || 'STARS',
         unlockValue: item.unlockValue ?? 0,
         status: nextStatus,
@@ -512,16 +519,14 @@ const AdminCosmetics = () => {
                   setActiveMenu(null);
                   void handleToggleStatus(item);
                 }}
-                className={`w-full flex items-center gap-2.5 px-3.5 py-2 text-[13px] font-medium transition-colors border-t border-[#d1e4fb]/40 ${
-                  activeMenu.item.status === 'INACTIVE'
+                className={`w-full flex items-center gap-2.5 px-3.5 py-2 text-[13px] font-medium transition-colors border-t border-[#d1e4fb]/40 ${activeMenu.item.status === 'INACTIVE'
                     ? 'hover:bg-emerald-50 text-emerald-700'
                     : 'hover:bg-amber-50 text-amber-700'
-                }`}
+                  }`}
               >
                 <span
-                  className={`w-2 h-2 rounded-full ${
-                    activeMenu.item.status === 'INACTIVE' ? 'bg-emerald-500' : 'bg-amber-500'
-                  }`}
+                  className={`w-2 h-2 rounded-full ${activeMenu.item.status === 'INACTIVE' ? 'bg-emerald-500' : 'bg-amber-500'
+                    }`}
                 />
                 {activeMenu.item.status === 'INACTIVE' ? 'Kích hoạt lại' : 'Tạm khóa / Ẩn'}
               </button>
@@ -577,11 +582,10 @@ const AdminCosmetics = () => {
             <button
               key={p}
               onClick={() => setCurrentPage(p)}
-              className={`px-3 py-1 rounded font-bold transition-colors ${
-                p === currentPage
+              className={`px-3 py-1 rounded font-bold transition-colors ${p === currentPage
                   ? 'bg-[#1D4532] text-white'
                   : 'border border-outline-variant hover:bg-[#EDF7F2]'
-              }`}
+                }`}
             >
               {p}
             </button>
@@ -793,11 +797,10 @@ const AdminCosmetics = () => {
                         {/* Dropzone Upload */}
                         <div
                           onClick={() => fileInputRef.current?.click()}
-                          className={`flex-1 rounded-xl border border-dashed flex flex-col items-center justify-center cursor-pointer p-3 transition-all ${
-                            uploadingImage
+                          className={`flex-1 rounded-xl border border-dashed flex flex-col items-center justify-center cursor-pointer p-3 transition-all ${uploadingImage
                               ? 'border-[#1D4532]/40 bg-[#EDF7F2]/40'
                               : 'border-outline-variant/40 hover:border-[#1D4532]/60 bg-white hover:bg-[#EDF7F2]/20'
-                          }`}
+                            }`}
                         >
                           {uploadingImage ? (
                             <div className="flex items-center gap-2 text-[#1D4532]">
@@ -886,7 +889,10 @@ const AdminCosmetics = () => {
                         </label>
                         <select
                           value={form.status || 'ACTIVE'}
-                          onChange={(e) => setForm((prev) => ({ ...prev, status: e.target.value }))}
+                          onChange={(e) => setForm((prev) => ({
+                            ...prev,
+                            status: e.target.value as CosmeticStatus,
+                          }))}
                           className="w-full bg-white border border-outline-variant/30 rounded-xl px-3.5 py-2 text-sm focus:border-[#1D4532] focus:ring-1 focus:ring-[#1D4532] transition-all outline-none text-on-surface font-medium cursor-pointer"
                         >
                           <option value="ACTIVE">Đang hoạt động</option>
@@ -911,11 +917,10 @@ const AdminCosmetics = () => {
                               {(form.unlockValue ?? 0) > 0 ? `${form.unlockValue} Sao` : 'Miễn phí'}
                             </span>
                             <span
-                              className={`text-[10px] font-semibold px-2 py-0.5 rounded-md ${
-                                form.status !== 'INACTIVE'
+                              className={`text-[10px] font-semibold px-2 py-0.5 rounded-md ${form.status !== 'INACTIVE'
                                   ? 'bg-emerald-100 text-emerald-800'
                                   : 'bg-gray-200 text-gray-700'
-                              }`}
+                                }`}
                             >
                               {form.status !== 'INACTIVE' ? 'Đang hoạt động' : 'Tạm khóa'}
                             </span>
