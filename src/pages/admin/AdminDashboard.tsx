@@ -391,13 +391,13 @@ const AdminDashboard = () => {
                   <div key={instrument.instrumentId}>
                     <div className="mb-2 flex items-center justify-between gap-4">
                       <div className="flex min-w-0 items-center gap-3">
-                        <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-[#edf5f0] text-xs font-bold text-[#1E4D39]">{index + 1}</span>
-                        <span className="truncate text-sm font-semibold text-[#3d5d4e]">{instrument.instrumentName}</span>
+                        <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-[#f8f0df] text-xs font-bold text-[#a66a12]">{index + 1}</span>
+                        <span className="truncate text-sm font-semibold text-[#6e542d]">{instrument.instrumentName}</span>
                       </div>
                       <span className="shrink-0 text-sm font-bold text-[#183d2d]">{formatNumber(instrument.practiceCount)} lượt</span>
                     </div>
-                    <div className="ml-10 h-2 overflow-hidden rounded-full bg-[#edf3ef]">
-                      <div className="h-full rounded-full bg-[#17805E]" style={{ width: `${width}%` }} />
+                    <div className="ml-10 h-2 overflow-hidden rounded-full bg-[#f5ead4]">
+                      <div className="h-full rounded-full bg-[#b7791f]" style={{ width: `${width}%` }} />
                     </div>
                   </div>
                 );
