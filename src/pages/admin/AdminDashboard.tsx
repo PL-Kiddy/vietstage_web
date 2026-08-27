@@ -376,7 +376,7 @@ const AdminDashboard = () => {
           <div className="mb-3 flex items-start justify-between gap-3">
             <div>
               <h2 className="text-lg font-bold text-[#183d2d]">Nhạc cụ được luyện tập nhiều nhất</h2>
-              <p className="mt-1 text-sm text-[#6b7a72]">Top 5 nhạc cụ có lượt luyện tập trong khoảng đã chọn.</p>
+              <p className="mt-1 text-sm text-[#6b7a72]">Xác định nhạc cụ được quan tâm để ưu tiên học liệu, bài tập và nội dung phát triển.</p>
             </div>
           </div>
           {isDashboardLoading ? (
@@ -410,7 +410,7 @@ const AdminDashboard = () => {
           <div className="mb-3 flex items-start justify-between gap-3">
             <div>
               <h2 className="text-lg font-bold text-[#183d2d]">Xu hướng duy trì</h2>
-              <p className="mt-1 text-sm text-[#6b7a72]">Tỷ lệ người dùng quay lại hoạt động trong khoảng đã chọn.</p>
+              <p className="mt-1 text-sm text-[#6b7a72]">Theo dõi khả năng người học quay lại luyện tập và phát hiện sớm nguy cơ giảm gắn bó.</p>
             </div>
           </div>
           {isDashboardLoading ? (
@@ -423,7 +423,7 @@ const AdminDashboard = () => {
         <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h2 className="text-lg font-bold text-[#183d2d]">Thời lượng phiên trung bình</h2>
-            <p className="mt-1 text-sm text-[#6b7a72]">Thời gian hoạt động trung bình trong mỗi phiên theo khoảng đã chọn.</p>
+            <p className="mt-1 text-sm text-[#6b7a72]">Đánh giá mức độ tập trung để điều chỉnh độ dài bài học và trải nghiệm luyện tập.</p>
           </div>
         </div>
         {isDashboardLoading ? (
