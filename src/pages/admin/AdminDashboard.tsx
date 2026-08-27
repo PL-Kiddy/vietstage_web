@@ -229,13 +229,19 @@ const AdminDashboard = () => {
 
   const analytics = data?.analytics;
   const instruments = analytics?.popularInstruments ?? [];
-  const durations = analytics?.sessionDuration ?? [];
-  const retention = analytics?.retention ?? [];
-  const visibleInstruments = [...instruments].sort((a, b) => b.practiceCount - a.practiceCount).slice(0, 5);
+  const durations = [...(analytics?.sessionDuration ?? [])].sort((a, b) => a.period.localeCompare(b.period));
+  const retention = [...(analytics?.retention ?? [])].sort((a, b) => a.period.localeCompare(b.period));
+  // Chỉ thống kê nhạc cụ thật sự có hoạt động luyện tập trong kỳ đã chọn.
+  // Nhạc cụ đang phát triển hoặc chưa phát sinh lượt tập không bị hiểu nhầm là
+  // một nhạc cụ đã mở học nhưng có "0 lượt".
+  const visibleInstruments = [...instruments]
+    .filter((item) => item.practiceCount > 0)
+    .sort((a, b) => b.practiceCount - a.practiceCount)
+    .slice(0, 5);
   const latestDuration = durations.length > 0 ? durations[durations.length - 1] : undefined;
   const latestRetention = retention.length > 0 ? retention[retention.length - 1] : undefined;
-  const topInstrument = instruments[0];
-  const maxPracticeCount = Math.max(...instruments.map((item) => item.practiceCount), 0);
+  const topInstrument = visibleInstruments[0];
+  const maxPracticeCount = Math.max(...visibleInstruments.map((item) => item.practiceCount), 0);
   const selectedRangeDays = Math.round(
     (parseDateInputUtc(draftFilters.toDate) - parseDateInputUtc(draftFilters.fromDate)) / 86_400_000,
   );
@@ -257,8 +263,8 @@ const AdminDashboard = () => {
     },
     {
       icon: Music2,
-      label: 'Nhạc cụ phổ biến',
-      value: topInstrument?.instrumentName || '—',
+      label: 'Nhạc cụ được luyện tập nhiều nhất',
+      value: topInstrument?.instrumentName || 'Chưa có',
     },
     {
       icon: Timer,
@@ -369,8 +375,8 @@ const AdminDashboard = () => {
         <article className="h-full rounded-2xl border border-[#e0e9e4] bg-white p-3 shadow-[0_4px_18px_rgba(20,61,44,0.04)]">
           <div className="mb-3 flex items-start justify-between gap-3">
             <div>
-              <h2 className="text-lg font-bold text-[#173f2f]">Nhạc cụ phổ biến</h2>
-              <p className="mt-1 text-sm text-[#718078]">Top 5 theo số lượt luyện tập trong khoảng đã chọn.</p>
+              <h2 className="text-lg font-bold text-[#173f2f]">Nhạc cụ được luyện tập nhiều nhất</h2>
+              <p className="mt-1 text-sm text-[#718078]">Top 5 nhạc cụ có lượt luyện tập trong khoảng đã chọn.</p>
             </div>
           </div>
           {isDashboardLoading ? (
