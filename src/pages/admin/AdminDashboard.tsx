@@ -81,10 +81,10 @@ const formatPeriod = (period: string) => {
 };
 
 const EmptyAnalytics = ({ message }: { message: string }) => (
-  <div className="grid min-h-48 place-items-center rounded-xl border border-dashed border-[#d7e3dc] bg-[#fafcfb] px-5 text-center">
+  <div className="grid min-h-48 place-items-center rounded-xl border border-dashed border-[#d7e6df] bg-[#f8faf9] px-5 text-center">
     <div>
       <Activity className="mx-auto h-7 w-7 text-[#9aaba2]" />
-      <p className="mt-2 text-sm text-[#718078]">{message}</p>
+      <p className="mt-2 text-sm text-[#6b7a72]">{message}</p>
     </div>
   </div>
 );
@@ -140,8 +140,8 @@ const AnalyticsLineChart = ({ data, unit, emptyMessage, gradientId, color, fixed
           const y = padding.top + innerHeight - ratio * innerHeight;
           return (
             <g key={ratio}>
-              <line x1={padding.left} x2={padding.left + innerWidth} y1={y} y2={y} stroke="#e4ece7" strokeDasharray="4 5" />
-              <text x={padding.left - 8} y={y + 4} textAnchor="end" fontSize="12" fill="#66756d">
+              <line x1={padding.left} x2={padding.left + innerWidth} y1={y} y2={y} stroke="#e3ebe6" strokeDasharray="4 5" />
+              <text x={padding.left - 8} y={y + 4} textAnchor="end" fontSize="12" fill="#687870">
                 {formatDecimal(maxValue * ratio)}
               </text>
             </g>
@@ -149,7 +149,7 @@ const AnalyticsLineChart = ({ data, unit, emptyMessage, gradientId, color, fixed
         })}
 
         <polygon points={areaPoints} fill={`url(#${gradientId})`} />
-        <text x={padding.left} y="14" fontSize="12" fontWeight="600" fill="#66756d">Đơn vị: {unit.trim()}</text>
+        <text x={padding.left} y="14" fontSize="12" fontWeight="600" fill="#687870">Đơn vị: {unit.trim()}</text>
         <polyline points={points} fill="none" stroke={color} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
 
         {data.map((item, index) => {
@@ -161,12 +161,12 @@ const AnalyticsLineChart = ({ data, unit, emptyMessage, gradientId, color, fixed
                 <title>{`${formatPeriod(item.period)}: ${formatDecimal(item.value, unit)}`}</title>
               </circle>
               {index === data.length - 1 && (
-                <text x={x} y={Math.max(14, y - 13)} textAnchor="middle" fontSize="11" fontWeight="700" fill="#274b3b">
+                <text x={x} y={Math.max(14, y - 13)} textAnchor="middle" fontSize="11" fontWeight="700" fill="#183d2d">
                   {formatDecimal(item.value, unit)}
                 </text>
               )}
               {(index % labelStep === 0 || index === data.length - 1) && (
-                <text x={x} y={chartHeight - 14} textAnchor="middle" fontSize="12" fill="#66756d">
+                <text x={x} y={chartHeight - 14} textAnchor="middle" fontSize="12" fill="#687870">
                   {formatPeriod(item.period)}
                 </text>
               )}
@@ -184,7 +184,7 @@ const SessionDurationChart = ({ data }: { data: SessionDurationStat[] }) => (
     unit=" phút"
     emptyMessage="Chưa có dữ liệu thời lượng phiên trong khoảng đã chọn."
     gradientId="session-duration-gradient"
-    color="#2563EB"
+    color="#3F6FB5"
   />
 );
 
@@ -194,7 +194,7 @@ const RetentionChart = ({ data }: { data: RetentionStat[] }) => (
     unit="%"
     emptyMessage="Chưa có dữ liệu duy trì trong khoảng đã chọn."
     gradientId="retention-gradient"
-    color="#1D6750"
+    color="#17805E"
     fixedMax={100}
   />
 );
@@ -287,15 +287,15 @@ const AdminDashboard = () => {
     <div className="mx-auto w-full max-w-[1500px] space-y-3 pb-3">
       <header className="space-y-2">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-[#163d2d] md:text-4xl">
+          <h1 className="text-3xl font-bold tracking-tight text-[#183d2d] md:text-4xl">
             Tổng quan hệ thống
           </h1>
-          <p className="mt-1 text-sm text-[#68736d] md:text-base">
+          <p className="mt-1 text-sm text-[#687870] md:text-base">
             Theo dõi mức độ sử dụng, hoạt động luyện tập và khả năng quay lại của người học.
           </p>
         </div>
 
-        <div className="w-full rounded-2xl border border-[#dfe9e3] bg-white p-2.5 shadow-sm">
+        <div className="w-full rounded-2xl border border-[#e1e9e4] bg-white p-2.5 shadow-[0_6px_22px_rgba(24,61,45,0.045)]">
           <div className="grid w-full grid-cols-1 items-end gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <label className="w-full text-xs font-semibold text-[#64736b]">
             Từ ngày
@@ -305,7 +305,7 @@ const AdminDashboard = () => {
               max={draftFilters.toDate}
               min={addDaysToDateInput(draftFilters.toDate, -MAX_DASHBOARD_RANGE_DAYS)}
               onChange={(event) => setDraftFilters((current) => ({ ...current, fromDate: event.target.value }))}
-              className="mt-1 block h-9 w-full rounded-lg border border-[#d8e4dd] bg-white px-3 text-sm font-medium text-[#274b3b] outline-none focus:border-[#1D6750]"
+              className="mt-1 block h-9 w-full rounded-lg border border-[#dce7e1] bg-white px-3 text-sm font-medium text-[#234738] outline-none focus:border-[#17805E]"
             />
           </label>
           <label className="w-full text-xs font-semibold text-[#64736b]">
@@ -316,7 +316,7 @@ const AdminDashboard = () => {
               min={draftFilters.fromDate}
               max={addDaysToDateInput(draftFilters.fromDate, MAX_DASHBOARD_RANGE_DAYS)}
               onChange={(event) => setDraftFilters((current) => ({ ...current, toDate: event.target.value }))}
-              className="mt-1 block h-9 w-full rounded-lg border border-[#d8e4dd] bg-white px-3 text-sm font-medium text-[#274b3b] outline-none focus:border-[#1D6750]"
+              className="mt-1 block h-9 w-full rounded-lg border border-[#dce7e1] bg-white px-3 text-sm font-medium text-[#234738] outline-none focus:border-[#17805E]"
             />
           </label>
           <label className="w-full text-xs font-semibold text-[#64736b]">
@@ -324,7 +324,7 @@ const AdminDashboard = () => {
             <select
               value={draftFilters.granularity}
               onChange={(event) => setDraftFilters((current) => ({ ...current, granularity: event.target.value as DashboardGranularity }))}
-              className="mt-1 block h-9 w-full rounded-lg border border-[#d8e4dd] bg-white px-3 text-sm font-medium text-[#274b3b] outline-none focus:border-[#1D6750]"
+              className="mt-1 block h-9 w-full rounded-lg border border-[#dce7e1] bg-white px-3 text-sm font-medium text-[#234738] outline-none focus:border-[#17805E]"
             >
               <option value="DAY">Ngày</option>
               <option value="WEEK">Tuần</option>
@@ -335,7 +335,7 @@ const AdminDashboard = () => {
             type="button"
             disabled={invalidDateRange || isDashboardLoading}
             onClick={applyFilters}
-            className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-lg bg-[#1D4532] px-5 text-sm font-semibold text-white transition hover:bg-[#163a2a] disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-lg bg-[#1E4D39] px-5 text-sm font-semibold text-white shadow-[0_3px_8px_rgba(24,77,57,0.18)] transition hover:bg-[#163A2B] disabled:cursor-not-allowed disabled:opacity-50"
           >
             <CalendarDays className="h-4 w-4" /> Áp dụng
           </button>
@@ -357,30 +357,30 @@ const AdminDashboard = () => {
 
       <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="Chỉ số phân tích hệ thống">
         {cards.map((card) => (
-          <article key={card.label} className="flex min-h-[108px] items-center gap-3 rounded-2xl border border-[#e0e9e4] bg-white p-3 shadow-[0_4px_18px_rgba(20,61,44,0.04)]">
-            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#edf5f1] text-[#1D4532]">
+          <article key={card.label} className="flex min-h-[108px] items-center gap-3 rounded-2xl border border-[#e1e9e4] bg-white p-3 shadow-[0_6px_20px_rgba(24,61,45,0.045)]">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#edf5f0] text-[#1E4D39]">
               <card.icon className="h-[18px] w-[18px]" />
             </span>
             <div className="min-w-0">
-              <p className="truncate text-2xl font-bold tracking-tight text-[#173f2f]" title={card.value}>
+              <p className="truncate text-2xl font-bold tracking-tight text-[#183d2d]" title={card.value}>
                 {isDashboardLoading ? '—' : card.value}
               </p>
-              <p className="mt-0.5 text-sm font-semibold leading-5 text-[#52655b]">{card.label}</p>
+              <p className="mt-0.5 text-sm font-semibold leading-5 text-[#55675e]">{card.label}</p>
             </div>
           </article>
         ))}
       </section>
 
       <section className="grid grid-cols-1 items-stretch gap-3 xl:grid-cols-[minmax(230px,0.56fr)_minmax(0,1fr)_minmax(0,1fr)]">
-        <article className="h-full rounded-2xl border border-[#e0e9e4] bg-white p-3 shadow-[0_4px_18px_rgba(20,61,44,0.04)]">
+        <article className="h-full rounded-2xl border border-[#e1e9e4] bg-white p-3 shadow-[0_6px_20px_rgba(24,61,45,0.045)]">
           <div className="mb-3 flex items-start justify-between gap-3">
             <div>
-              <h2 className="text-lg font-bold text-[#173f2f]">Nhạc cụ được luyện tập nhiều nhất</h2>
-              <p className="mt-1 text-sm text-[#718078]">Top 5 nhạc cụ có lượt luyện tập trong khoảng đã chọn.</p>
+              <h2 className="text-lg font-bold text-[#183d2d]">Nhạc cụ được luyện tập nhiều nhất</h2>
+              <p className="mt-1 text-sm text-[#6b7a72]">Top 5 nhạc cụ có lượt luyện tập trong khoảng đã chọn.</p>
             </div>
           </div>
           {isDashboardLoading ? (
-            <div className="space-y-4">{[0, 1, 2].map((item) => <div key={item} className="h-12 animate-pulse rounded-xl bg-[#f1f5f3]" />)}</div>
+            <div className="space-y-4">{[0, 1, 2].map((item) => <div key={item} className="h-12 animate-pulse rounded-xl bg-[#f2f6f3]" />)}</div>
           ) : visibleInstruments.length === 0 ? (
             <EmptyAnalytics message="Chưa có dữ liệu luyện tập theo nhạc cụ trong khoảng đã chọn." />
           ) : (
@@ -391,13 +391,13 @@ const AdminDashboard = () => {
                   <div key={instrument.instrumentId}>
                     <div className="mb-2 flex items-center justify-between gap-4">
                       <div className="flex min-w-0 items-center gap-3">
-                        <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-[#edf5f1] text-xs font-bold text-[#1D4532]">{index + 1}</span>
-                        <span className="truncate text-sm font-semibold text-[#355647]">{instrument.instrumentName}</span>
+                        <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-[#edf5f0] text-xs font-bold text-[#1E4D39]">{index + 1}</span>
+                        <span className="truncate text-sm font-semibold text-[#3d5d4e]">{instrument.instrumentName}</span>
                       </div>
-                      <span className="shrink-0 text-sm font-bold text-[#173f2f]">{formatNumber(instrument.practiceCount)} lượt</span>
+                      <span className="shrink-0 text-sm font-bold text-[#183d2d]">{formatNumber(instrument.practiceCount)} lượt</span>
                     </div>
-                    <div className="ml-10 h-2 overflow-hidden rounded-full bg-[#edf2ef]">
-                      <div className="h-full rounded-full bg-[#1D6750]" style={{ width: `${width}%` }} />
+                    <div className="ml-10 h-2 overflow-hidden rounded-full bg-[#edf3ef]">
+                      <div className="h-full rounded-full bg-[#17805E]" style={{ width: `${width}%` }} />
                     </div>
                   </div>
                 );
@@ -406,28 +406,28 @@ const AdminDashboard = () => {
           )}
         </article>
 
-        <article className="h-full rounded-2xl border border-[#e0e9e4] bg-white p-3 shadow-[0_4px_18px_rgba(20,61,44,0.04)]">
+        <article className="h-full rounded-2xl border border-[#e1e9e4] bg-white p-3 shadow-[0_6px_20px_rgba(24,61,45,0.045)]">
           <div className="mb-3 flex items-start justify-between gap-3">
             <div>
-              <h2 className="text-lg font-bold text-[#173f2f]">Xu hướng duy trì</h2>
-              <p className="mt-1 text-sm text-[#718078]">Tỷ lệ người dùng quay lại hoạt động trong khoảng đã chọn.</p>
+              <h2 className="text-lg font-bold text-[#183d2d]">Xu hướng duy trì</h2>
+              <p className="mt-1 text-sm text-[#6b7a72]">Tỷ lệ người dùng quay lại hoạt động trong khoảng đã chọn.</p>
             </div>
           </div>
           {isDashboardLoading ? (
-            <div className="space-y-4">{[0, 1, 2].map((item) => <div key={item} className="h-12 animate-pulse rounded-xl bg-[#f1f5f3]" />)}</div>
+            <div className="space-y-4">{[0, 1, 2].map((item) => <div key={item} className="h-12 animate-pulse rounded-xl bg-[#f2f6f3]" />)}</div>
           ) : (
             <RetentionChart data={retention} />
           )}
         </article>
-      <article className="h-full rounded-2xl border border-[#e0e9e4] bg-white p-3 shadow-[0_4px_18px_rgba(20,61,44,0.04)]">
+      <article className="h-full rounded-2xl border border-[#e1e9e4] bg-white p-3 shadow-[0_6px_20px_rgba(24,61,45,0.045)]">
         <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h2 className="text-lg font-bold text-[#173f2f]">Thời lượng phiên trung bình</h2>
-            <p className="mt-1 text-sm text-[#718078]">Thời gian hoạt động trung bình trong mỗi phiên theo khoảng đã chọn.</p>
+            <h2 className="text-lg font-bold text-[#183d2d]">Thời lượng phiên trung bình</h2>
+            <p className="mt-1 text-sm text-[#6b7a72]">Thời gian hoạt động trung bình trong mỗi phiên theo khoảng đã chọn.</p>
           </div>
         </div>
         {isDashboardLoading ? (
-          <div className="space-y-4">{[0, 1, 2, 3].map((item) => <div key={item} className="h-10 animate-pulse rounded-xl bg-[#f1f5f3]" />)}</div>
+          <div className="space-y-4">{[0, 1, 2, 3].map((item) => <div key={item} className="h-10 animate-pulse rounded-xl bg-[#f2f6f3]" />)}</div>
           ) : (
           <SessionDurationChart data={durations} />
         )}
