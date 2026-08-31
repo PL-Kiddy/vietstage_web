@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { AlertCircle, Check, Music4, Plus, Trash2 } from 'lucide-react';
 import type { Quiz, QuizInput, QuizQuestionType } from '../../api/lessonContent';
+import type { LessonAsset } from '../../api/types';
 
 const MIN_OPTIONS = 4;
 
@@ -20,18 +21,24 @@ interface QuizEditorProps {
   defaultOrderIndex: number;
   saving: boolean;
   apiError?: string;
+  audioAssets?: LessonAsset[];
   onCancel: () => void;
   onSubmit: (body: QuizInput) => void;
 }
 
 // Editor tạo/sửa câu hỏi Quiz: tiêu đề, loại (GENERAL/NOTE_IDENTIFICATION), câu hỏi, >=4 lựa chọn, đáp án đúng
-const QuizEditor = ({ initial, defaultOrderIndex, saving, apiError, onCancel, onSubmit }: QuizEditorProps) => {
+const QuizEditor = ({ initial, defaultOrderIndex, saving, apiError, audioAssets = [], onCancel, onSubmit }: QuizEditorProps) => {
   const isEditing = initial !== null;
 
   const [title, setTitle] = useState(initial?.title ?? '');
   const [questionType, setQuestionType] = useState<QuizQuestionType>(initial?.questionType ?? 'GENERAL');
   const [note, setNote] = useState(initial?.note ?? '');
   const [audioUrl, setAudioUrl] = useState(initial?.audioUrl ?? '');
+  const [selectedAssetId, setSelectedAssetId] = useState<number | ''>(() => {
+    if (!initial?.audioUrl) return '';
+    const matched = audioAssets.find((a) => a.url === initial.audioUrl);
+    return matched ? matched.id : '';
+  });
   const [question, setQuestion] = useState(initial?.question ?? '');
   const [options, setOptions] = useState<string[]>(() => {
     const parsed = initial ? parseQuizOptions(initial.options) : [];
@@ -130,7 +137,7 @@ const QuizEditor = ({ initial, defaultOrderIndex, saving, apiError, onCancel, on
   return (
     <form onSubmit={(event) => void handleSubmit(event)} noValidate className="space-y-7">
       {apiError && (
-        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 font-medium">
           {apiError}
         </div>
       )}
@@ -140,66 +147,112 @@ const QuizEditor = ({ initial, defaultOrderIndex, saving, apiError, onCancel, on
 
         <div className="space-y-5">
           <div>
-            <input
-              value={title}
-              onChange={(event) => {
-                setTitle(event.target.value);
-                clearError('title');
-              }}
-              placeholder="Tiêu đề câu hỏi — ví dụ: Nhận diện nốt A4"
-              className={`input ${errors.title ? 'border-red-300 focus:border-red-400 focus:ring-red-200' : ''}`}
-            />
+            <label className="block">
+              <span className="block text-sm font-semibold mb-2 text-on-surface-variant">Tiêu đề câu hỏi</span>
+              <input
+                value={title}
+                onChange={(event) => {
+                  setTitle(event.target.value);
+                  clearError('title');
+                }}
+                placeholder="Ví dụ: Nhận diện nốt A4 trên khuông nhạc"
+                className={`input ${errors.title ? 'border-red-300 focus:border-red-400 focus:ring-red-200' : ''}`}
+              />
+            </label>
             {errors.title && <FieldError message={errors.title} />}
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <select
-                value={questionType}
-                onChange={(event) => {
-                  setQuestionType(event.target.value as QuizQuestionType);
-                  clearError('note');
-                }}
-                className="input cursor-pointer"
-              >
-                <option value="GENERAL">Kiến thức chung (General)</option>
-                <option value="NOTE_IDENTIFICATION">Nhận diện nốt nhạc (Note)</option>
-              </select>
-              <span className="mt-2 block text-xs text-on-surface-variant/70">
-                Loại câu hỏi quyết định cách học viên làm bài.
+              <label className="block">
+                <span className="block text-sm font-semibold mb-2 text-on-surface-variant">Loại câu hỏi</span>
+                <select
+                  value={questionType}
+                  onChange={(event) => {
+                    setQuestionType(event.target.value as QuizQuestionType);
+                    clearError('note');
+                  }}
+                  className="input cursor-pointer"
+                >
+                  <option value="GENERAL">Kiến thức chung (General)</option>
+                  <option value="NOTE_IDENTIFICATION">Nhận diện nốt nhạc (Note Identification)</option>
+                </select>
+              </label>
+              <span className="mt-1.5 block text-xs text-on-surface-variant">
+                Loại câu hỏi quyết định giao diện hiển thị cho học viên.
               </span>
             </div>
-            <div>
-              <input
-                value={audioUrl}
-                onChange={(event) => setAudioUrl(event.target.value)}
-                placeholder="URL âm thanh (không bắt buộc)"
-                className="input"
-              />
-              <span className="mt-2 block text-xs text-on-surface-variant/70">
-                Dán liên kết file audio để phát trong câu hỏi.
-              </span>
-            </div>
+
+            {questionType === 'NOTE_IDENTIFICATION' ? (
+              <div style={{ animationDelay: '0ms' }} className="animate-[fadeUp_0.25s_ease-out_both]">
+                <label className="block">
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <Music4 className="h-4 w-4 text-[#1D4532]" />
+                    <span className="text-sm font-semibold text-on-surface-variant">Nốt nhạc cần nhận diện</span>
+                  </div>
+                  <input
+                    value={note}
+                    list="quiz-note-suggestions"
+                    onChange={(event) => {
+                      setNote(event.target.value);
+                      clearError('note');
+                    }}
+                    placeholder="Ví dụ: A4 hoặc Đô"
+                    className={`input font-mono ${errors.note ? 'border-red-300 focus:border-red-400 focus:ring-red-200' : ''}`}
+                  />
+                </label>
+                {errors.note && <FieldError message={errors.note} />}
+              </div>
+            ) : (
+              <div className="hidden sm:block" />
+            )}
           </div>
 
-          {questionType === 'NOTE_IDENTIFICATION' && (
-            <div style={{ animationDelay: '0ms' }} className="animate-[fadeUp_0.25s_ease-out_both]">
-              <div className="flex items-center gap-2">
-                <Music4 className="h-4 w-4 text-[#1D4532]" />
-                <span className="text-sm font-semibold text-on-surface-variant">Nốt nhạc cần nhận diện</span>
-              </div>
-              <input
-                value={note}
-                onChange={(event) => {
-                  setNote(event.target.value);
-                  clearError('note');
-                }}
-                placeholder="Ví dụ: A4"
-                className={`input mt-2 ${errors.note ? 'border-red-300 focus:border-red-400 focus:ring-red-200' : ''}`}
-              />
-              {errors.note && <FieldError message={errors.note} />}
+          {/* TÙY CHỌN NÂNG CAO CHO AUDIO QUIZ */}
+          <details className="group rounded-xl border border-dashed border-[#1D4532]/25 bg-white/60 p-3.5 transition-all">
+            <summary className="flex cursor-pointer items-center justify-between text-xs font-bold text-[#1D4532] select-none">
+              <span>⚙️ Tùy chọn nâng cao: File audio phát kèm câu hỏi (không bắt buộc)</span>
+              <span className="text-neutral-400 group-open:rotate-180 transition-transform">▼</span>
+            </summary>
+            <div className="mt-3 pt-3 border-t border-outline-variant/15 space-y-2">
+              {audioAssets.length > 0 ? (
+                <select
+                  value={selectedAssetId}
+                  onChange={(event) => {
+                    const val = event.target.value ? Number(event.target.value) : '';
+                    setSelectedAssetId(val);
+                    if (val) {
+                      const asset = audioAssets.find((a) => a.id === val);
+                      setAudioUrl(asset?.url ?? '');
+                    } else {
+                      setAudioUrl('');
+                    }
+                  }}
+                  className="input cursor-pointer"
+                >
+                  <option value="">-- Không dùng audio --</option>
+                  {audioAssets.map((asset) => (
+                    <option key={asset.id} value={asset.id}>
+                      Asset #{asset.id} · {asset.title || 'Audio bài học'}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  value={audioUrl}
+                  onChange={(event) => {
+                    setAudioUrl(event.target.value);
+                    setSelectedAssetId('');
+                  }}
+                  placeholder="URL âm thanh (tùy chọn)"
+                  className="input"
+                />
+              )}
+              <span className="block text-[11px] text-on-surface-variant">
+                Chỉ sử dụng nếu câu hỏi yêu cầu học viên nghe một đoạn âm thanh mẫu để trả lời.
+              </span>
             </div>
-          )}
+          </details>
         </div>
       </section>
 
@@ -321,6 +374,12 @@ const QuizEditor = ({ initial, defaultOrderIndex, saving, apiError, onCancel, on
           </span>
         </label>
       </section>
+
+      <datalist id="quiz-note-suggestions">
+        {['C1', 'D1', 'E1', 'F1', 'G1', 'A1', 'B1', 'C2', 'D2', 'E2', 'F2', 'G2', 'A2', 'B2', 'C3', 'D3', 'E3', 'F3', 'G3', 'A3', 'B3', 'C4', 'D4', 'E4', 'F4', 'G4', 'A4', 'B4', 'C5', 'D5', 'E5', 'F5', 'G5', 'A5', 'B5', 'C6', 'Đô', 'Rê', 'Mi', 'Fa', 'Sol', 'La', 'Si'].map((n) => (
+          <option key={n} value={n} />
+        ))}
+      </datalist>
 
       <div className="grid grid-cols-2 gap-3 border-t border-outline-variant/20 pt-6">
         <button

@@ -66,8 +66,29 @@ export interface MinigameInput {
   orderIndex: number;
 }
 
+export interface RhythmRoundConfig {
+  title?: string;
+  tempo_bpm?: number;
+  beats: number[];
+}
+
+export interface RhythmMatchConfig {
+  audio_asset_id?: number;
+  referenceAudioUrl?: string;
+  tempo_bpm?: number;
+  beats: number[];
+  rounds?: RhythmRoundConfig[];
+}
+
+export const RHYTHM_MATCH_CONFIG: RhythmMatchConfig = {
+  tempo_bpm: 100,
+  beats: [1.0, 2.0, 3.0, 4.0],
+  rounds: [],
+};
+
 export interface MelodyCompleteConfig {
   audio_asset_id?: number;
+  referenceAudioUrl?: string;
   melody: string[];
   missing_positions: number[];
   note_options: Record<string, string[]>;
