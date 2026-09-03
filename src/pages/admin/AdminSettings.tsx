@@ -45,6 +45,160 @@ const GROUPS: Array<{
   },
 ];
 
+interface ConfigPresentation {
+  label: string;
+  helpText: string;
+  unit?: string;
+  order: number;
+  accuracyTolerance?: boolean;
+}
+
+const CONFIG_PRESENTATION: Record<string, ConfigPresentation> = {
+  'scoring.star1.threshold': {
+    label: 'Ngưỡng đạt 1 sao',
+    helpText: 'Người học đạt 1 sao khi tổng điểm bằng hoặc cao hơn giá trị này.',
+    unit: 'điểm',
+    order: 10,
+  },
+  'scoring.star2.threshold': {
+    label: 'Ngưỡng đạt 2 sao',
+    helpText: 'Người học đạt 2 sao khi tổng điểm bằng hoặc cao hơn giá trị này.',
+    unit: 'điểm',
+    order: 20,
+  },
+  'scoring.star3.threshold': {
+    label: 'Ngưỡng đạt 3 sao',
+    helpText: 'Người học đạt 3 sao khi tổng điểm bằng hoặc cao hơn giá trị này.',
+    unit: 'điểm',
+    order: 30,
+  },
+  'scoring.points_multiplier_per_star': {
+    label: 'Điểm thưởng cho mỗi sao',
+    helpText: 'Số điểm cộng thêm cho mỗi sao người học đạt được. Giá trị lớn hơn sẽ làm điểm thưởng theo sao tăng.',
+    unit: 'điểm',
+    order: 35,
+  },
+  'scoring.quiz.points': {
+    label: 'XP cho mỗi câu Quiz đúng',
+    helpText: 'XP được cộng sau khi Backend xác nhận đáp án đúng.',
+    unit: 'XP',
+    order: 10,
+  },
+  'scoring.quiz.stars': {
+    label: 'Sao cho mỗi câu Quiz đúng',
+    helpText: 'Số sao được cộng sau khi Backend xác nhận đáp án đúng.',
+    unit: 'sao',
+    order: 20,
+  },
+  'scoring.minigame.points_per_star': {
+    label: 'XP cho mỗi sao Mini Game',
+    helpText: 'XP nhận được bằng số sao Backend chấm nhân với giá trị này.',
+    unit: 'XP',
+    order: 30,
+  },
+  'scoring.minigame.star1_threshold': {
+    label: 'Ngưỡng 1 sao Mini Game',
+    helpText: 'Tỷ lệ điểm tối thiểu để nhận 1 sao.',
+    unit: '%',
+    order: 40,
+  },
+  'scoring.minigame.star2_threshold': {
+    label: 'Ngưỡng 2 sao Mini Game',
+    helpText: 'Tỷ lệ điểm tối thiểu để nhận 2 sao.',
+    unit: '%',
+    order: 50,
+  },
+  'scoring.minigame.star3_threshold': {
+    label: 'Ngưỡng 3 sao Mini Game',
+    helpText: 'Tỷ lệ điểm tối thiểu để nhận 3 sao.',
+    unit: '%',
+    order: 60,
+  },
+  'scoring.pitch_weight': { label: 'Trọng số cao độ', helpText: 'Mức đóng góp của độ chính xác cao độ vào điểm tổng.', order: 40 },
+  'scoring.rhythm_weight': { label: 'Trọng số nhịp điệu', helpText: 'Mức đóng góp của độ chính xác nhịp điệu vào điểm tổng.', order: 50 },
+  'scoring.tonal_weight': { label: 'Trọng số âm sắc', helpText: 'Mức đóng góp của chất lượng âm sắc vào điểm tổng.', order: 60 },
+  'scoring.breath_weight': { label: 'Trọng số hơi thở', helpText: 'Mức đóng góp của kỹ thuật hơi đối với nhạc cụ hơi.', order: 70 },
+  'scoring.dynamics_weight': { label: 'Trọng số sắc thái', helpText: 'Mức đóng góp của khả năng kiểm soát cường độ vào điểm tổng.', order: 80 },
+  'difficulty.rolling_window': {
+    label: 'Số lượt luyện tập dùng để điều chỉnh',
+    helpText: 'Hệ thống dùng số lượt luyện tập gần nhất này để tính và điều chỉnh độ khó.',
+    unit: 'lượt',
+    order: 10,
+  },
+  'difficulty.pitch_matching_tolerance_cents': {
+    label: 'Sai số cao độ cho phép',
+    helpText: 'Độ lệch cao độ tối đa vẫn được xem là chơi đúng. Giá trị càng nhỏ thì yêu cầu càng chính xác.',
+    unit: 'cent',
+    order: 20,
+    accuracyTolerance: true,
+  },
+  'difficulty.rhythm_timing_tolerance_seconds': {
+    label: 'Sai số nhịp cho phép',
+    helpText: 'Độ lệch thời gian tối đa giữa nốt được chơi và nhịp chuẩn. Giá trị càng nhỏ thì yêu cầu giữ nhịp càng chính xác.',
+    unit: 'giây',
+    order: 30,
+    accuracyTolerance: true,
+  },
+  'feature.minigame_enabled': {
+    label: 'Trò chơi nhỏ',
+    helpText: 'Cho phép người học sử dụng các trò chơi nhỏ.',
+    order: 10,
+  },
+  'feature.minigames_enabled': {
+    label: 'Trò chơi nhỏ',
+    helpText: 'Cho phép người học sử dụng các trò chơi nhỏ.',
+    order: 10,
+  },
+  'feature.minigame.enabled': {
+    label: 'Bật Mini Game cho học viên',
+    helpText: 'Khi tắt, học viên không thể tải hoặc nộp kết quả Mini Game.',
+    order: 10,
+  },
+  'feature.leaderboard_enabled': {
+    label: 'Bảng xếp hạng',
+    helpText: 'Cho phép người học xem và tham gia bảng xếp hạng.',
+    order: 20,
+  },
+  'feature.adaptive_difficulty': {
+    label: 'Điều chỉnh độ khó thích ứng',
+    helpText: 'Cho phép hệ thống tự điều chỉnh độ khó theo kết quả luyện tập của người học.',
+    order: 20,
+  },
+};
+
+const TOLERANCE_PRESENTATIONS: Record<string, ConfigPresentation> = {
+  'Pitch matching tolerance in cents': CONFIG_PRESENTATION['difficulty.pitch_matching_tolerance_cents'],
+  'Rhythm timing tolerance in seconds': CONFIG_PRESENTATION['difficulty.rhythm_timing_tolerance_seconds'],
+};
+
+const SCORING_PRESENTATIONS: Record<string, ConfigPresentation> = {
+  'Points multiplier per star': CONFIG_PRESENTATION['scoring.points_multiplier_per_star'],
+};
+
+const FEATURE_PRESENTATIONS: Record<string, ConfigPresentation> = {
+  'Enable or disable leaderboard globally': CONFIG_PRESENTATION['feature.leaderboard_enabled'],
+  'Enable or disable minigames': CONFIG_PRESENTATION['feature.minigames_enabled'],
+};
+
+CONFIG_PRESENTATION['difficulty.pitch_tolerance_cents'] = CONFIG_PRESENTATION['difficulty.pitch_matching_tolerance_cents'];
+CONFIG_PRESENTATION['difficulty.rhythm_tolerance_seconds'] = CONFIG_PRESENTATION['difficulty.rhythm_timing_tolerance_seconds'];
+
+const getPresentation = (config: AppConfig): ConfigPresentation =>
+  CONFIG_PRESENTATION[config.key]
+  ?? TOLERANCE_PRESENTATIONS[config.description ?? '']
+  ?? SCORING_PRESENTATIONS[config.description ?? '']
+  ?? FEATURE_PRESENTATIONS[config.description ?? '']
+  ?? {
+  label: config.description || config.key,
+  helpText: config.description || 'Cấu hình do Backend cung cấp.',
+  order: 999,
+};
+
+const formatNumberVi = (value: number | string) => {
+  const number = Number(value);
+  return Number.isFinite(number) ? new Intl.NumberFormat('vi-VN').format(number) : String(value);
+};
+
 const normalizeGroup = (value?: string): ConfigGroup | null => {
   const normalized = (value ?? '').trim().toLowerCase();
   if (normalized === 'scoring') return 'scoring';
@@ -159,7 +313,11 @@ const AdminSettings = () => {
         GROUPS.map((group) => appConfigsApi.list(group.id, { signal })),
       );
       if (signal?.aborted) return;
-      const response = groupResponses.flat().filter((config) => getConfigGroup(config) !== null);
+      // The previous multiplier key remains in the database only for migration
+      // compatibility; admins must manage the canonical points-per-star key.
+      const response = groupResponses.flat().filter((config) =>
+        getConfigGroup(config) !== null && config.key !== 'scoring.minigame.multiplier',
+      );
       setConfigs(response);
       setDrafts(Object.fromEntries(response.map((config) => [config.key, getDraftValue(config)])));
     } catch (error) {
@@ -201,6 +359,44 @@ const AdminSettings = () => {
     setNotice(null);
   };
 
+  const resetDraft = (config: AppConfig) => {
+    setDrafts((current) => ({ ...current, [config.key]: getDraftValue(config) }));
+    setNotice(null);
+  };
+
+  const validateScoringRelationship = (config: AppConfig, value: string) => {
+    if (/^scoring\.minigame\.star[123]_threshold$/.test(config.key)) {
+      const thresholdKeys = [
+        'scoring.minigame.star1_threshold',
+        'scoring.minigame.star2_threshold',
+        'scoring.minigame.star3_threshold',
+      ];
+      const values = thresholdKeys.map((key) => {
+        const relatedConfig = configs.find((item) => item.key === key);
+        return Number(key === config.key ? value : (drafts[key] ?? relatedConfig?.value));
+      });
+      if (values.some((item) => !Number.isFinite(item))) return '';
+      return values[0] < values[1] && values[1] < values[2]
+        ? ''
+        : 'Ngưỡng Mini Game phải thỏa mãn: 1 sao < 2 sao < 3 sao.';
+    }
+    if (!/^scoring\.star[123]\.threshold$/.test(config.key)) return '';
+    const thresholdKeys = [
+      'scoring.star1.threshold',
+      'scoring.star2.threshold',
+      'scoring.star3.threshold',
+    ];
+    const values = thresholdKeys.map((key) => {
+      const relatedConfig = configs.find((item) => item.key === key);
+      if (!relatedConfig) return Number.NaN;
+      return Number(key === config.key ? value : (drafts[key] ?? relatedConfig.value));
+    });
+    if (values.some((item) => !Number.isFinite(item))) return '';
+    return values[0] < values[1] && values[1] < values[2]
+      ? ''
+      : 'Ngưỡng sao phải thỏa mãn: 1 sao < 2 sao < 3 sao.';
+  };
+
   // Lưu config qua PUT /api/admin/configs/{key} với version; bắt lỗi 409 (xung đột version)
   const saveConfig = async (config: AppConfig) => {
     if (!Number.isInteger(config.version) || Number(config.version) < 0) {
@@ -212,6 +408,11 @@ const AdminSettings = () => {
     const validationError = validateValue(config, value);
     if (validationError) {
       setNotice({ type: 'error', message: `${config.description || config.key}: ${validationError}` });
+      return;
+    }
+    const scoringRelationshipError = validateScoringRelationship(config, value);
+    if (scoringRelationshipError) {
+      setNotice({ type: 'error', message: scoringRelationshipError });
       return;
     }
 
@@ -351,6 +552,7 @@ const AdminSettings = () => {
         ) : (
           <div className="divide-y divide-[#edf1ef]">
             {paginatedConfigs.map((config) => {
+              const presentation = getPresentation(config);
               const value = drafts[config.key] ?? '';
               const valueType = getValueType(config);
               const options = parseOptions(config.options);
@@ -364,16 +566,17 @@ const AdminSettings = () => {
                 <article key={config.key} className="grid gap-5 px-5 py-5 lg:grid-cols-[minmax(260px,1fr)_minmax(320px,0.9fr)] lg:items-center md:px-6">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="font-semibold text-[#274b3b]">{config.description || config.key}</h3>
+                      <h3 className="font-semibold text-[#274b3b]">{presentation.label}</h3>
                       {changed && <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-700">Chưa lưu</span>}
                     </div>
                     <p className="mt-1 break-all font-mono text-xs text-[#7a8780]">{config.key}</p>
+                    <p className="mt-2 text-sm text-[#64736b]">{presentation.helpText}</p>
 
                     <div className="mt-3 flex flex-wrap gap-2 text-xs text-[#64736b]">
-                      {config.min !== undefined && <span className="rounded-md bg-[#f3f6f4] px-2 py-1">Tối thiểu: {String(config.min)}</span>}
-                      {config.max !== undefined && <span className="rounded-md bg-[#f3f6f4] px-2 py-1">Tối đa: {String(config.max)}</span>}
+                      {config.min !== undefined && <span className="rounded-md bg-[#f3f6f4] px-2 py-1">Tối thiểu: {formatNumberVi(config.min)} {presentation.unit}</span>}
+                      {config.max !== undefined && <span className="rounded-md bg-[#f3f6f4] px-2 py-1">Tối đa: {formatNumberVi(config.max)} {presentation.unit}</span>}
                       {config.step !== undefined && <span className="rounded-md bg-[#f3f6f4] px-2 py-1">Bước: {String(config.step)}</span>}
-                      {config.defaultValue !== undefined && <span className="rounded-md bg-[#f3f6f4] px-2 py-1">Mặc định: {config.defaultValue}</span>}
+                      {config.defaultValue !== undefined && <span className="rounded-md bg-[#f3f6f4] px-2 py-1">Mặc định: {formatNumberVi(config.defaultValue)} {presentation.unit}</span>}
                       {config.version !== undefined && <span className="rounded-md bg-[#f3f6f4] px-2 py-1">Phiên bản: {config.version}</span>}
                     </div>
 
@@ -459,6 +662,15 @@ const AdminSettings = () => {
                     {validationError && <p className="mt-2 text-xs font-medium text-red-700">{validationError}</p>}
 
                     <div className="mt-3 flex flex-wrap justify-end gap-2">
+                      {changed && (
+                        <button
+                          type="button"
+                          onClick={() => resetDraft(config)}
+                          className="inline-flex h-9 items-center rounded-lg border border-[#cfded6] px-4 text-xs font-semibold text-[#365647] transition hover:bg-[#f3f6f4]"
+                        >
+                          Hoàn tác
+                        </button>
+                      )}
                       <button
                         type="button"
                         disabled={!hasValidVersion || !changed || Boolean(validationError) || isSaving || (savingKey !== null && !isSaving)}
