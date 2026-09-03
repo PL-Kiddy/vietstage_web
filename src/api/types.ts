@@ -262,6 +262,7 @@ export interface LessonAsset {
   id: number;
   type: string;
   url: string;
+  title?: string;
   tempo_bpm?: number;
   duration_sec?: number;
 }
