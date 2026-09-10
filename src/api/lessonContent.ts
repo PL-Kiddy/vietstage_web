@@ -66,24 +66,49 @@ export interface MinigameInput {
   orderIndex: number;
 }
 
+export type RhythmEventMode = 'SAMPLE' | 'TARGET';
+
+export interface RhythmEventConfig {
+  note: string;
+  mode: RhythmEventMode;
+  /** Whole=4, half=2, quarter=1, eighth=.5, sixteenth=.25 beats. */
+  duration_beats: number;
+  /** Calculated from the round BPM for the player. */
+  at_ms?: number;
+  duration_ms?: number;
+}
+
 export interface RhythmRoundConfig {
   title?: string;
-  tempo_bpm?: number;
+  tempo_bpm: number;
+  events: RhythmEventConfig[];
+  /** Legacy editor fields retained only while old saved drafts are supported. */
   beats: number[];
+  notes: string[];
 }
 
 export interface RhythmMatchConfig {
-  audio_asset_id?: number;
-  referenceAudioUrl?: string;
   tempo_bpm?: number;
   beats: number[];
-  rounds?: RhythmRoundConfig[];
+  audio_asset_id?: number;
+  referenceAudioUrl?: string;
+  rounds: RhythmRoundConfig[];
 }
 
 export const RHYTHM_MATCH_CONFIG: RhythmMatchConfig = {
-  tempo_bpm: 100,
-  beats: [1.0, 2.0, 3.0, 4.0],
-  rounds: [],
+  beats: [],
+  rounds: [
+    {
+      title: 'Vòng 1',
+      tempo_bpm: 100,
+      beats: [],
+      notes: [],
+      events: [
+        { note: 'Sol1', mode: 'SAMPLE', duration_beats: 1 },
+        { note: 'La1', mode: 'TARGET', duration_beats: 1 },
+      ],
+    },
+  ],
 };
 
 export interface MelodyCompleteConfig {

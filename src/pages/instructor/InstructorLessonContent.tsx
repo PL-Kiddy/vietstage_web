@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import {
   ArrowLeft,
+  ArrowDown,
+  ArrowUp,
   AudioLines,
   Check,
   ClipboardList,
@@ -31,6 +33,7 @@ import {
   type ExerciseInput,
   type MelodyCompleteConfig,
   type RhythmMatchConfig,
+  type RhythmRoundConfig,
   type Minigame,
   type MinigameInput,
   type Quiz,
@@ -52,6 +55,48 @@ const getQuestionTypeLabel = (type?: string) =>
   type === 'NOTE_IDENTIFICATION' ? 'Nhận diện nốt nhạc' : 'Kiến thức chung';
 
 type Tab = 'exercises' | 'quizzes' | 'minigames';
+
+const INSTRUMENT_NOTES: Record<string, string[]> = {
+  // Đàn tranh 17 dây, dây Bắc: Sol–La–Đô–Rê–Mi lặp lại theo 4 âm vực.
+  // Chuỗi này đồng nhất với thứ tự dây 1 → 17 trong ứng dụng Godot.
+  dan_tranh: ['Sol1', 'La1', 'Đô2', 'Rê2', 'Mi2', 'Sol2', 'La2', 'Đô3', 'Rê3', 'Mi3', 'Sol3', 'La3', 'Đô4', 'Rê4', 'Mi4', 'Sol4', 'La4'],
+  dan_bau: ['C4', 'D4', 'E4', 'G4', 'A4', 'C5', 'E5', 'G5'],
+  sao_truc: ['Đô', 'Rê', 'Mi', 'Fa', 'Sol', 'La', 'Si', 'Đố'],
+  trong_chau: ['Tịch', 'Cắc'],
+};
+
+const normalizeInstrumentKey = (instrument?: { name?: string; instrumentCode?: string } | string | null): string => {
+  if (!instrument) return 'dan_tranh';
+  const text = typeof instrument === 'string' ? instrument.toLowerCase() : `${instrument.instrumentCode ?? ''} ${instrument.name ?? ''}`.toLowerCase();
+  if (text.includes('tranh') || text.includes('dan_tranh')) return 'dan_tranh';
+  if (text.includes('bau') || text.includes('bầu') || text.includes('dan_bau')) return 'dan_bau';
+  if (text.includes('sao') || text.includes('sáo') || text.includes('sao_truc')) return 'sao_truc';
+  if (text.includes('trong') || text.includes('trống') || text.includes('trong_chau')) return 'trong_chau';
+  return 'dan_tranh';
+};
+
+const notesForInstrument = (instrument?: { name?: string; instrumentCode?: string } | string | null) =>
+  INSTRUMENT_NOTES[normalizeInstrumentKey(instrument)] ?? INSTRUMENT_NOTES.dan_tranh;
+
+const noteOptionLabel = (instrument: { name?: string; instrumentCode?: string } | string | null | undefined, note: string) => {
+  if (normalizeInstrumentKey(instrument) !== 'dan_tranh') return note;
+  const stringNumber = INSTRUMENT_NOTES.dan_tranh.indexOf(note) + 1;
+  return stringNumber > 0 ? `Dây ${stringNumber} · ${note}` : note;
+};
+
+const newRhythmRound = (index: number, instrument?: { name?: string; instrumentCode?: string } | string | null): RhythmRoundConfig => {
+  const notes = notesForInstrument(instrument);
+  return {
+    title: `Vòng ${index}`,
+    tempo_bpm: 100,
+    beats: [],
+    notes: [],
+    events: [
+      { note: notes[0], mode: 'SAMPLE', duration_beats: 1 },
+      { note: notes[1] ?? notes[0], mode: 'TARGET', duration_beats: 1 },
+    ],
+  };
+};
 
 const getChallengeTypeLabel = (type: string) => {
   switch (type.toUpperCase()) {
@@ -135,56 +180,79 @@ const validateMelodyDraft = (config: MelodyCompleteConfig): string | null => {
 };
 
 // ── Parser & Validator cho Mini game 1 (RHYTHM_MATCH) ──
+const NOTE_DURATIONS = [
+  { value: 4, label: 'Tròn · 4 phách' },
+  { value: 2, label: 'Trắng · 2 phách' },
+  { value: 1, label: 'Đen · 1 phách' },
+  { value: 0.5, label: 'Móc đơn · ½ phách' },
+  { value: 0.25, label: 'Móc đôi · ¼ phách' },
+] as const;
+
+const legacyEvents = (round: Record<string, unknown>, bpm: number) => {
+  const notes = Array.isArray(round.notes) ? round.notes.map(String) : [];
+  const beats = Array.isArray(round.beats) ? round.beats.map(Number) : [];
+  return notes.map((note, index) => {
+    const current = beats[index] ?? index + 1;
+    const next = beats[index + 1] ?? current + 60 / bpm;
+    return { note: note.trim(), mode: 'TARGET' as const, duration_beats: Math.max(0.25, Number(((next - current) * bpm / 60).toFixed(2))) };
+  });
+};
+
 const parseRhythmConfig = (contentJson?: string): RhythmMatchConfig => {
-  const fallback: RhythmMatchConfig = {
-    tempo_bpm: 100,
-    beats: [1.0, 2.0, 3.0, 4.0],
-    rounds: [],
-  };
-  if (!contentJson) return fallback;
+  if (!contentJson) return { beats: [], rounds: [] };
   try {
-    const raw = JSON.parse(contentJson) as Partial<RhythmMatchConfig> & { tempoBpm?: number };
-    const beats = Array.isArray(raw.beats)
-      ? raw.beats.map(Number).filter((n) => Number.isFinite(n) && n >= 0).sort((a, b) => a - b)
-      : fallback.beats;
-    const tempo_bpm = typeof raw.tempo_bpm === 'number' ? raw.tempo_bpm : typeof raw.tempoBpm === 'number' ? raw.tempoBpm : 100;
-    const rounds = Array.isArray(raw.rounds)
-      ? raw.rounds.map((r) => ({
-          title: r.title ? String(r.title) : undefined,
-          tempo_bpm: typeof r.tempo_bpm === 'number' ? r.tempo_bpm : undefined,
-          beats: Array.isArray(r.beats) ? r.beats.map(Number).filter((n) => Number.isFinite(n) && n >= 0).sort((a, b) => a - b) : [],
-        }))
-      : [];
+    const raw = JSON.parse(contentJson) as { rounds?: Array<Record<string, unknown>>; tempo_bpm?: number; tempoBpm?: number };
+    const inheritedBpm = Number(raw.tempo_bpm ?? raw.tempoBpm ?? 100) || 100;
     return {
-      audio_asset_id: typeof raw.audio_asset_id === 'number' ? raw.audio_asset_id : undefined,
-      referenceAudioUrl: raw.referenceAudioUrl ? String(raw.referenceAudioUrl) : undefined,
-      tempo_bpm: tempo_bpm > 0 ? tempo_bpm : 100,
-      beats: beats.length > 0 ? beats : fallback.beats,
-      rounds,
+      rounds: Array.isArray(raw.rounds) ? raw.rounds.map((round, index) => {
+        const bpm = Number(round.tempo_bpm ?? round.tempoBpm ?? inheritedBpm) || 100;
+        const events = Array.isArray(round.events)
+          ? round.events.map((event) => {
+              const item = event as Record<string, unknown>;
+              return {
+                note: String(item.note ?? '').trim(),
+                mode: item.mode === 'SAMPLE' ? 'SAMPLE' as const : 'TARGET' as const,
+                duration_beats: Number(item.duration_beats ?? 1),
+              };
+            })
+          : legacyEvents(round, bpm);
+        return { title: String(round.title ?? `Vòng ${index + 1}`), tempo_bpm: bpm, events, beats: [], notes: [] };
+      }) : [],
+      beats: [],
     };
   } catch {
-    return fallback;
+    return { beats: [], rounds: [] };
   }
 };
 
-const buildRhythmConfigJson = (config: RhythmMatchConfig): string =>
-  JSON.stringify({
-    audio_asset_id: config.audio_asset_id,
-    referenceAudioUrl: config.referenceAudioUrl,
-    tempo_bpm: config.tempo_bpm ?? 100,
-    beats: config.beats,
-    rounds: config.rounds && config.rounds.length > 0 ? config.rounds : undefined,
-  });
+const buildRhythmConfigJson = (config: RhythmMatchConfig): string => JSON.stringify({
+  rounds: config.rounds.map((round) => {
+    const msPerBeat = 60000 / round.tempo_bpm;
+    let elapsed = 0;
+    const events = round.events.map((event) => {
+      const durationMs = Math.round(event.duration_beats * msPerBeat);
+      const result = { ...event, at_ms: elapsed, duration_ms: durationMs };
+      elapsed += durationMs;
+      return result;
+    });
+    return { title: round.title, tempo_bpm: round.tempo_bpm, events };
+  }),
+});
 
 const validateRhythmDraft = (config: RhythmMatchConfig): string | null => {
-  if (!config.tempo_bpm || config.tempo_bpm <= 0) return 'Tempo (BPM) phải lớn hơn 0.';
-  if (!config.beats || config.beats.length < 2) return 'Vui lòng thiết lập tối thiểu 2 mốc phách (giây) để tạo thành tiết tấu.';
-  if (config.beats.length > 16) return `Khuyến nghị tối đa 16 phách cho mỗi thử thách (hiện có ${config.beats.length} phách).`;
-  for (const beat of config.beats) {
-    if (!Number.isFinite(beat) || beat < 0) return 'Các mốc phách phải là số không âm.';
+  if (!config.rounds.length) return 'Vui lòng tạo ít nhất 1 vòng luyện.';
+  for (let roundIndex = 0; roundIndex < config.rounds.length; roundIndex += 1) {
+    const round = config.rounds[roundIndex];
+    const label = `Vòng ${roundIndex + 1}`;
+    if (!Number.isFinite(round.tempo_bpm) || round.tempo_bpm < 30 || round.tempo_bpm > 300) return `${label}: BPM phải từ 30 đến 300.`;
+    if (round.events.length < 2 || round.events.length > 16) return `${label}: cần từ 2 đến 16 nốt.`;
+    if (!round.events.some((event) => event.mode === 'TARGET')) return `${label}: cần ít nhất 1 nốt học viên chơi.`;
+    for (let index = 0; index < round.events.length; index += 1) {
+      const event = round.events[index];
+      if (!event.note.trim()) return `${label}, nốt ${index + 1}: vui lòng chọn nốt.`;
+      if (!NOTE_DURATIONS.some((duration) => duration.value === event.duration_beats)) return `${label}, nốt ${index + 1}: trường độ không hợp lệ.`;
+    }
   }
-  const maxTime = Math.max(...config.beats, 0);
-  if (maxTime > 30) return `Thời lượng thử thách không nên vượt quá 30 giây (mốc phách cuối hiện tại: ${maxTime}s).`;
   return null;
 };
 
@@ -217,7 +285,7 @@ const InstructorLessonContent = () => {
 
   // Drafts cho 2 loại minigame (không bắt người dùng gõ JSON)
   const [rhythmDraft, setRhythmDraft] = useState<RhythmMatchConfig>(RHYTHM_MATCH_CONFIG);
-  const [rhythmBeatsInput, setRhythmBeatsInput] = useState('1.0 2.0 3.0 4.0');
+  const [rhythmBeatsInput, setRhythmBeatsInput] = useState(''); // retained for legacy editor markup
   const [melodyDraft, setMelodyDraft] = useState<MelodyCompleteConfig>(MELODY_COMPLETE_CONFIG);
   const [melodyInput, setMelodyInput] = useState('');
   const [audioAssets, setAudioAssets] = useState<LessonAsset[]>([]);
@@ -282,16 +350,16 @@ const InstructorLessonContent = () => {
       setExerciseForm({ ...emptyExercise, beatMapAssetId: beatMapAsset?.id, orderIndex: exercises.length + 1 });
     }
     if (tab === 'minigames') {
+      const nextOrderIndex = minigames.length > 0 ? Math.max(...minigames.map((item) => item.orderIndex || 0)) + 1 : 1;
       setMinigameForm({
         ...emptyMinigame,
         title: '',
         challengeType: 'RHYTHM_MATCH',
         difficulty: 'BEGINNER',
         maxScore: 100,
-        orderIndex: minigames.length + 1,
+        orderIndex: nextOrderIndex,
       });
-      setRhythmDraft(RHYTHM_MATCH_CONFIG);
-      setRhythmBeatsInput(RHYTHM_MATCH_CONFIG.beats.join(' '));
+      setRhythmDraft({ ...RHYTHM_MATCH_CONFIG, rounds: [newRhythmRound(1, lesson?.instrument)] });
       setMelodyDraft(MELODY_COMPLETE_CONFIG);
       setMelodyInput('');
     }
@@ -331,7 +399,6 @@ const InstructorLessonContent = () => {
     if (isRhythm) {
       const config = parseRhythmConfig(item.contentJson);
       setRhythmDraft(config);
-      setRhythmBeatsInput(config.beats.join(' '));
     } else {
       const config = parseMelodyConfig(item.contentJson);
       setMelodyDraft(config);
@@ -591,16 +658,11 @@ const InstructorLessonContent = () => {
                       {isRhythm && rhythmConfig && (
                         <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-on-surface-variant">
                           <span className="inline-flex items-center gap-1 font-medium bg-emerald-50 px-2 py-1 rounded text-emerald-800">
-                            <Flame className="w-3.5 h-3.5" /> Tempo: {rhythmConfig.tempo_bpm} BPM
+                            <Flame className="w-3.5 h-3.5" /> {rhythmConfig.rounds.length} vòng luyện
                           </span>
                           <span className="inline-flex items-center gap-1 bg-neutral-100 px-2 py-1 rounded text-neutral-700">
-                            <Timer className="w-3.5 h-3.5" /> {rhythmConfig.beats.length} phách ({rhythmConfig.beats.map((b) => `${b}s`).join(', ')})
+                            <Timer className="w-3.5 h-3.5" /> {rhythmConfig.rounds.reduce((total, round) => total + round.events.length, 0)} sự kiện nốt
                           </span>
-                          {rhythmConfig.audio_asset_id && (
-                            <span className="inline-flex items-center gap-1 bg-blue-50 px-2 py-1 rounded text-blue-800">
-                              <Volume2 className="w-3.5 h-3.5" /> Audio #{rhythmConfig.audio_asset_id}
-                            </span>
-                          )}
                         </div>
                       )}
 
@@ -766,7 +828,7 @@ const InstructorLessonContent = () => {
                         />
                       </Field>
 
-                      <div className="grid grid-cols-3 gap-3">
+                      {minigameForm.challengeType !== 'RHYTHM_MATCH' && <div className="grid grid-cols-3 gap-3">
                         <Field label="Độ khó">
                           <select
                             value={minigameForm.difficulty ?? 'BEGINNER'}
@@ -799,10 +861,78 @@ const InstructorLessonContent = () => {
                             className="input"
                           />
                         </Field>
-                      </div>
+                      </div>}
+
+                      {minigameForm.challengeType === 'RHYTHM_MATCH' && (
+                        <section className="rounded-2xl border border-[#1D4532]/20 bg-[#fbf9f4] p-4.5 space-y-5">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <div>
+                              <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#1D4532]">
+                                Thêm Mini game 1:
+                              </p>
+                              <p className="mt-1 text-xs text-on-surface-variant">Mỗi nốt cần có cao độ và thời điểm để app hiển thị đúng trên khuông nhạc.</p>
+                            </div>
+                            <span className="text-xs bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded">{rhythmDraft.rounds.length} vòng</span>
+                          </div>
+
+                          <div className="space-y-4">
+                            {rhythmDraft.rounds.map((round, roundIndex) => {
+                              const noteOptions = notesForInstrument(lesson?.instrument);
+                              const updateRound = (next: RhythmRoundConfig) => setRhythmDraft((prev) => ({ ...prev, rounds: prev.rounds.map((item, index) => index === roundIndex ? next : item) }));
+                              return (
+                                <article key={roundIndex} className="rounded-xl border border-[#1D4532]/20 bg-white p-4 space-y-3">
+                                  <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-2">
+                                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#1D4532] text-xs font-bold text-white">{roundIndex + 1}</span>
+                                    <div className="flex min-w-0 flex-wrap items-center gap-2">
+                                      <input value={round.title ?? ''} onChange={(e) => updateRound({ ...round, title: e.target.value })} placeholder={`Vòng ${roundIndex + 1}`} className="input h-11 min-w-36 flex-1 py-2 font-semibold" />
+                                      <input type="number" min="30" max="300" value={round.tempo_bpm} onChange={(e) => updateRound({ ...round, tempo_bpm: Number(e.target.value) || 100 })} className="input h-11 w-32 shrink-0 py-2" aria-label={`BPM vòng ${roundIndex + 1}`} />
+                                      <button type="button" disabled={roundIndex === 0} onClick={() => setRhythmDraft((prev) => {
+                                      const rounds = [...prev.rounds];
+                                      [rounds[roundIndex - 1], rounds[roundIndex]] = [rounds[roundIndex], rounds[roundIndex - 1]];
+                                      return { ...prev, rounds };
+                                      })} className="p-2 text-[#1D4532] disabled:opacity-30" title="Đưa vòng lên"><ArrowUp className="h-4 w-4" /></button>
+                                      <button type="button" disabled={roundIndex === rhythmDraft.rounds.length - 1} onClick={() => setRhythmDraft((prev) => {
+                                      const rounds = [...prev.rounds];
+                                      [rounds[roundIndex], rounds[roundIndex + 1]] = [rounds[roundIndex + 1], rounds[roundIndex]];
+                                      return { ...prev, rounds };
+                                      })} className="p-2 text-[#1D4532] disabled:opacity-30" title="Đưa vòng xuống"><ArrowDown className="h-4 w-4" /></button>
+                                      <button type="button" disabled={rhythmDraft.rounds.length === 1} onClick={() => {
+                                      setRhythmDraft((prev) => ({ ...prev, rounds: prev.rounds.filter((_, index) => index !== roundIndex) }));
+                                      }} className="p-2 text-red-600 disabled:opacity-30" title="Xóa vòng"><Trash2 className="h-4 w-4" /></button>
+                                    </div>
+                                  </div>
+                                  <div className="grid grid-cols-[2rem_8.5rem_minmax(0,1fr)_10rem_2rem] gap-2 items-center px-1 text-[11px] font-bold uppercase tracking-wide text-on-surface-variant">
+                                    <span>#</span><span>Loại</span><span>Nốt</span><span>Trường độ</span><span />
+                                  </div>
+                                  {round.events.map((event, noteIndex) => {
+                                    return <div key={noteIndex} className="grid grid-cols-[2rem_8.5rem_minmax(0,1fr)_10rem_2rem] gap-2 items-center">
+                                      <span className="text-center text-sm font-bold text-[#1D4532]">{noteIndex + 1}</span>
+                                      <select value={event.mode} onChange={(e) => { const events = [...round.events]; events[noteIndex] = { ...event, mode: e.target.value === 'SAMPLE' ? 'SAMPLE' : 'TARGET' }; updateRound({ ...round, events }); }} className="input h-11 px-2 py-2 text-xs font-semibold cursor-pointer">
+                                        <option value="SAMPLE">Nghe mẫu</option><option value="TARGET">Cần chơi</option>
+                                      </select>
+                                      <select value={event.note} onChange={(e) => { const events = [...round.events]; events[noteIndex] = { ...event, note: e.target.value }; updateRound({ ...round, events }); }} className="input h-11 cursor-pointer py-2">
+                                        <option value="">Chọn nốt</option>
+                                        {noteOptions.map((note) => <option key={note} value={note}>{noteOptionLabel(lesson?.instrument, note)}</option>)}
+                                      </select>
+                                      <select value={event.duration_beats} onChange={(e) => { const events = [...round.events]; events[noteIndex] = { ...event, duration_beats: Number(e.target.value) }; updateRound({ ...round, events }); }} className="input h-11 px-2 py-2 text-xs cursor-pointer">{NOTE_DURATIONS.map((duration) => <option key={duration.value} value={duration.value}>{duration.label}</option>)}</select>
+                                      <button type="button" disabled={round.events.length <= 2} onClick={() => updateRound({ ...round, events: round.events.filter((_, index) => index !== noteIndex) })} className="p-2 text-red-600 disabled:opacity-30" title="Xóa nốt"><X className="h-4 w-4" /></button>
+                                    </div>
+                                  })}
+                                  <button type="button" disabled={round.events.length >= 16} onClick={() => {
+                                    updateRound({ ...round, events: [...round.events, { note: noteOptions[0], mode: 'TARGET', duration_beats: 1 }] });
+                                  }} className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-800 disabled:opacity-40"><Plus className="h-3.5 w-3.5" /> Thêm nốt</button>
+                                </article>
+                              );
+                            })}
+                          </div>
+
+                          <button type="button" onClick={() => setRhythmDraft((prev) => ({ ...prev, rounds: [...prev.rounds, newRhythmRound(prev.rounds.length + 1, lesson?.instrument)] }))} className="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-[#1D4532]/40 px-3 py-2 text-xs font-bold text-[#1D4532] hover:bg-emerald-50"><Plus className="h-3.5 w-3.5" /> Thêm vòng</button>
+
+                        </section>
+                      )}
 
                       {/* FORM 1: THỬ THÁCH NHỊP ĐIỆU (RHYTHM_MATCH) */}
-                      {minigameForm.challengeType === 'RHYTHM_MATCH' && (
+                      {minigameForm.challengeType === 'RHYTHM_MATCH' && false && (
                         <section className="rounded-2xl border border-[#1D4532]/20 bg-[#fbf9f4] p-4.5 space-y-5">
                           <div className="flex items-center justify-between">
                             <p className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-[0.18em] text-[#1D4532]">
