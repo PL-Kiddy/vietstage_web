@@ -20,6 +20,7 @@ import {
 import { useAxiosRequest } from '../../hooks/useAxiosRequest';
 import { lessonsApi, exercisesApi, masterDataApi, type ExerciseInput } from '../../api/services';
 import type { Lesson, SkillLevel } from '../../api/types';
+import PracticeSheetComposer, { EMPTY_PRACTICE_SHEET, type PracticeSheetConfig } from '../../components/instructor/PracticeSheetComposer';
 
 
 
@@ -88,6 +89,7 @@ const InstructorMedia = () => {
   const [lessonOrderIndex, setLessonOrderIndex] = useState<number>(1);
   const [lessonStatus, setLessonStatus] = useState<string>('DRAFT');
   const [isSavingLesson, setIsSavingLesson] = useState(false);
+  const [practiceSheet, setPracticeSheet] = useState<PracticeSheetConfig>(EMPTY_PRACTICE_SHEET);
 
   // Mở drawer tạo bài học mới với giá trị mặc định (nhạc cụ/trình độ đầu tiên, orderIndex tiếp theo)
   const handleOpenCreateLesson = () => {
@@ -98,6 +100,7 @@ const InstructorMedia = () => {
     setLessonSkillLevelId(skillLevels[0]?.id);
     setLessonOrderIndex(lessons.length > 0 ? Math.max(...lessons.map((l: any) => l.orderIndex ?? l.order_index ?? 0)) + 1 : 1);
     setLessonStatus('DRAFT');
+    setPracticeSheet(EMPTY_PRACTICE_SHEET);
     setLessonModalOpen(true);
   };
 
@@ -110,6 +113,7 @@ const InstructorMedia = () => {
     setLessonSkillLevelId((lesson as any).skillLevel?.id ?? (lesson as any).skill_level_id);
     setLessonOrderIndex((lesson as any).orderIndex ?? (lesson as any).order_index ?? 1);
     setLessonStatus(lesson.status || 'DRAFT');
+    setPracticeSheet(EMPTY_PRACTICE_SHEET);
     setOpenActionMenuId(null);
     setLessonModalOpen(true);
   };
@@ -776,6 +780,8 @@ const InstructorMedia = () => {
                         className="bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl p-md text-sm focus:ring-1 focus:ring-[#1D4532] focus:border-[#1D4532] outline-none resize-none"
                       />
                     </div>
+
+                    <PracticeSheetComposer value={practiceSheet} onChange={setPracticeSheet} />
                   </div>
 
                   <div className="flex items-center justify-end gap-md pt-md">
