@@ -115,6 +115,9 @@ export interface MelodyCompleteConfig {
   audio_asset_id?: number;
   referenceAudioUrl?: string;
   melody: string[];
+  /** Vị trí 0-based của nốt học viên sẽ chơi bằng nhạc cụ thật. */
+  missing_index?: number;
+  /** Legacy fields, retained only so existing challenges can still be edited. */
   missing_positions: number[];
   note_options: Record<string, string[]>;
   correct_answers: Record<string, string>;
@@ -124,6 +127,7 @@ export interface MelodyCompleteConfig {
 
 export const MELODY_COMPLETE_CONFIG: MelodyCompleteConfig = {
   melody: [],
+  missing_index: undefined,
   missing_positions: [],
   note_options: {},
   correct_answers: {},

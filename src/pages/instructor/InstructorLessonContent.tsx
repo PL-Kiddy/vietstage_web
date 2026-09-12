@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import {
   ArrowLeft,
+  ArrowRight,
   ArrowDown,
   ArrowUp,
   AudioLines,
@@ -60,7 +61,8 @@ const INSTRUMENT_NOTES: Record<string, string[]> = {
   // Đàn tranh 17 dây, dây Bắc: Sol–La–Đô–Rê–Mi lặp lại theo 4 âm vực.
   // Chuỗi này đồng nhất với thứ tự dây 1 → 17 trong ứng dụng Godot.
   dan_tranh: ['Sol1', 'La1', 'Đô2', 'Rê2', 'Mi2', 'Sol2', 'La2', 'Đô3', 'Rê3', 'Mi3', 'Sol3', 'La3', 'Đô4', 'Rê4', 'Mi4', 'Sol4', 'La4'],
-  dan_bau: ['C4', 'D4', 'E4', 'G4', 'A4', 'C5', 'E5', 'G5'],
+  // Chỉ hiển thị cao độ đã có WAV thu thật để nốt "Nghe mẫu" luôn phát được.
+  dan_bau: ['C4', 'G4', 'C5', 'E5', 'G5', 'C6'],
   sao_truc: ['Đô', 'Rê', 'Mi', 'Fa', 'Sol', 'La', 'Si', 'Đố'],
   trong_chau: ['Tịch', 'Cắc'],
 };
@@ -137,6 +139,9 @@ const parseMelodyConfig = (contentJson?: string): MelodyCompleteConfig => {
       audio_asset_id: typeof raw.audio_asset_id === 'number' ? raw.audio_asset_id : undefined,
       referenceAudioUrl: raw.referenceAudioUrl ? String(raw.referenceAudioUrl) : undefined,
       melody: Array.isArray(raw.melody) ? raw.melody.map(String).filter(Boolean) : [],
+      missing_index: Number.isInteger(raw.missing_index)
+        ? Number(raw.missing_index)
+        : (Array.isArray(raw.missing_positions) ? Number(raw.missing_positions[0]) : undefined),
       missing_positions: Array.isArray(raw.missing_positions)
         ? raw.missing_positions.map(Number).filter((n) => Number.isFinite(n))
         : [],
@@ -155,27 +160,15 @@ const buildMelodyConfigJson = (config: MelodyCompleteConfig): string =>
     audio_asset_id: config.audio_asset_id,
     referenceAudioUrl: config.referenceAudioUrl,
     melody: config.melody,
-    missing_positions: config.missing_positions,
-    note_options: config.note_options,
-    correct_answers: config.correct_answers,
+    missing_index: config.missing_index,
     bpm: config.bpm,
-    time_limit_sec: config.time_limit_sec,
   });
 
 const validateMelodyDraft = (config: MelodyCompleteConfig): string | null => {
   const notes = config.melody.map((n) => n.trim()).filter(Boolean);
   if (notes.length < 2) return 'Giai điệu cần tối thiểu 2 nốt.';
-  if (config.missing_positions.length !== 1) return 'Vui lòng chọn đúng 1 vị trí nốt khuyết.';
-  for (const position of config.missing_positions) {
-    if (!Number.isInteger(position) || position < 0 || position >= notes.length) return 'Vị trí nốt khuyết không hợp lệ.';
-    const options = (config.note_options[String(position)] ?? []).map((o) => o.trim()).filter(Boolean);
-    if (options.length < 4) return `Vị trí nốt khuyết (nốt ${position + 1}): cần đủ 4 lựa chọn.`;
-    if (new Set(options).size !== options.length) return `Vị trí nốt khuyết (nốt ${position + 1}): các lựa chọn không được trùng nhau.`;
-    const correct = (config.correct_answers[String(position)] ?? '').trim();
-    if (!correct || !options.includes(correct)) return `Vị trí nốt khuyết (nốt ${position + 1}): vui lòng chọn một đáp án đúng trong 4 lựa chọn.`;
-  }
+  if (!Number.isInteger(config.missing_index) || config.missing_index! < 0 || config.missing_index! >= notes.length) return 'Vui lòng chọn đúng một nốt khuyết.';
   if (!config.bpm || config.bpm <= 0) return 'Tempo (BPM) phải lớn hơn 0.';
-  if (!config.time_limit_sec || config.time_limit_sec <= 0) return 'Thời gian giới hạn (giây) phải lớn hơn 0.';
   return null;
 };
 
@@ -287,7 +280,8 @@ const InstructorLessonContent = () => {
   const [rhythmDraft, setRhythmDraft] = useState<RhythmMatchConfig>(RHYTHM_MATCH_CONFIG);
   const [rhythmBeatsInput, setRhythmBeatsInput] = useState(''); // retained for legacy editor markup
   const [melodyDraft, setMelodyDraft] = useState<MelodyCompleteConfig>(MELODY_COMPLETE_CONFIG);
-  const [melodyInput, setMelodyInput] = useState('');
+  const [melodyMarkingMissing, setMelodyMarkingMissing] = useState(false);
+  const [selectedMelodyIndex, setSelectedMelodyIndex] = useState<number | null>(null);
   const [audioAssets, setAudioAssets] = useState<LessonAsset[]>([]);
 
   // Tải danh sách audio của bài học khi mở editor minigame hoặc quiz (dùng cho chọn file nhạc mẫu)
@@ -361,7 +355,6 @@ const InstructorLessonContent = () => {
       });
       setRhythmDraft({ ...RHYTHM_MATCH_CONFIG, rounds: [newRhythmRound(1, lesson?.instrument)] });
       setMelodyDraft(MELODY_COMPLETE_CONFIG);
-      setMelodyInput('');
     }
     setEditorOpen(true);
   };
@@ -402,7 +395,6 @@ const InstructorLessonContent = () => {
     } else {
       const config = parseMelodyConfig(item.contentJson);
       setMelodyDraft(config);
-      setMelodyInput(config.melody.join(' '));
     }
     setEditorOpen(true);
   };
@@ -828,7 +820,7 @@ const InstructorLessonContent = () => {
                         />
                       </Field>
 
-                      {minigameForm.challengeType !== 'RHYTHM_MATCH' && <div className="grid grid-cols-3 gap-3">
+                      {false && minigameForm.challengeType !== 'RHYTHM_MATCH' && <div className="grid grid-cols-3 gap-3">
                         <Field label="Độ khó">
                           <select
                             value={minigameForm.difficulty ?? 'BEGINNER'}
@@ -1148,33 +1140,25 @@ const InstructorLessonContent = () => {
 
                       {/* FORM 2: HOÀN THIỆN GIAI ĐIỆU (MELODY_COMPLETE) */}
                       {minigameForm.challengeType === 'MELODY_COMPLETE' && (
-                        <section className="rounded-2xl border border-purple-200 bg-[#fcfaff] p-4.5 space-y-5">
+                        <section className="rounded-xl border border-purple-100 bg-white p-4 space-y-4">
                           <div className="flex items-center justify-between">
-                            <p className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-[0.18em] text-[#6b21a8]">
-                              <Sparkles className="w-3.5 h-3.5" /> Cấu hình giai điệu & Nốt khuyết
+                            <p className="inline-flex items-center gap-1.5 text-sm font-bold text-[#4c1d75]">
+                              <Sparkles className="w-4 h-4" /> Giai điệu
                             </p>
-                            <span className="text-xs bg-purple-100 text-purple-800 font-bold px-2 py-0.5 rounded">MELODY_COMPLETE</span>
+                            <span className="text-xs text-on-surface-variant">Chọn 1 nốt khuyết</span>
                           </div>
 
                           {/* DÃY GIAI ĐIỆU */}
-                          <Field label="Dãy giai điệu (các nốt, phân cách bằng khoảng trắng)">
-                            <input
-                              value={melodyInput}
-                              list="minigame-note-suggestions"
-                              onChange={(e) => {
-                                const rawVal = e.target.value;
-                                setMelodyInput(rawVal);
-                                const nextMelody = rawVal.split(/\s+/).filter(Boolean);
-                                setMelodyDraft((prev) => ({
-                                  ...prev,
-                                  melody: nextMelody,
-                                  missing_positions: prev.missing_positions.filter((p) => p >= 0 && p < nextMelody.length),
-                                }));
-                              }}
-                              placeholder="Ví dụ: C4 E4 G4 C5 G4 E4 hoặc Đô Rê Mi Sol La"
-                              className="input font-mono"
-                            />
-                            <span className="mt-1.5 block text-xs text-on-surface-variant">Nhấn vào từng nốt bên dưới để chọn đúng 1 vị trí nốt khuyết (sẽ hiển thị dấu ? cho học viên).</span>
+                          <Field label={`Nốt giai điệu · ${melodyDraft.melody.length} nốt`}>
+                            <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-6">
+                              {notesForInstrument(lesson?.instrument).map((note) => (
+                                <button key={note} type="button" onClick={() => setMelodyDraft((prev) => ({ ...prev, melody: [...prev.melody, note] }))}
+                                  className="min-h-10 rounded-lg border border-purple-200 bg-purple-50 px-2 text-xs font-bold text-purple-900 transition hover:border-purple-500 hover:bg-purple-100 active:scale-[0.98]">
+                                  {noteOptionLabel(lesson?.instrument, note)}
+                                </button>
+                              ))}
+                            </div>
+                            <span className="mt-2 block text-xs text-on-surface-variant">Bấm một nốt để thêm vào cuối câu giai điệu.</span>
                           </Field>
 
                           {/* TÙY CHỌN NÂNG CAO CHO AUDIO GIAI ĐIỆU */}
@@ -1208,50 +1192,68 @@ const InstructorLessonContent = () => {
                               <span className="block text-[11px] text-on-surface-variant">
                                 Ứng dụng Godot đã tích hợp sẵn âm thanh nốt nhạc chuẩn. Không bắt buộc phải tải lên file audio.
                               </span>
+                              <div className="grid grid-cols-2 gap-3 pt-1">
+                                <Field label="BPM phát mẫu">
+                                  <input type="number" min="30" max="300" value={melodyDraft.bpm ?? 80} onChange={(e) => setMelodyDraft((prev) => ({ ...prev, bpm: Number(e.target.value) || 80 }))} className="input h-10" />
+                                </Field>
+                                <Field label="Độ khó">
+                                  <select value={minigameForm.difficulty ?? 'BEGINNER'} onChange={(e) => setMinigameForm((prev) => ({ ...prev, difficulty: e.target.value }))} className="input h-10 cursor-pointer">
+                                    <option value="BEGINNER">Cơ bản</option><option value="INTERMEDIATE">Trung cấp</option><option value="ADVANCED">Nâng cao</option>
+                                  </select>
+                                </Field>
+                              </div>
                             </div>
                           </details>
 
                           {melodyDraft.melody.length > 0 && (
                             <div>
-                              <p className="mb-2 text-xs font-semibold text-neutral-700">Chọn vị trí nốt khuyết (Click vào nốt):</p>
+                              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                                <p className="text-xs font-semibold text-neutral-700">Chuỗi giai điệu</p>
+                                <button type="button" onClick={() => setMelodyMarkingMissing((active) => !active)} className={`rounded-lg px-3 py-1.5 text-xs font-bold transition ${melodyMarkingMissing ? 'bg-amber-500 text-white' : 'border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100'}`}>
+                                  {melodyMarkingMissing ? 'Chọn một nốt…' : 'Đánh dấu nốt khuyết'}
+                                </button>
+                              </div>
+                              <p className="mb-3 text-xs text-on-surface-variant">{melodyMarkingMissing ? 'Bấm một chip để đặt nốt học viên sẽ chơi.' : 'Bấm chip để chọn; dùng mũi tên để đổi thứ tự hoặc × để xóa.'}</p>
                               <div className="flex flex-wrap items-center gap-2">
                                 {melodyDraft.melody.map((note, index) => {
-                                  const isMissing = melodyDraft.missing_positions.includes(index);
+                                  const isMissing = melodyDraft.missing_index === index;
+                                  const isSelected = selectedMelodyIndex === index;
                                   return (
+                                    <div key={index} className="flex items-center">
                                     <button
-                                      key={index}
                                       type="button"
                                       onClick={() => {
-                                        const nextMissing = isMissing ? [] : [index];
-                                        const posKey = String(index);
-                                        const currentOptions = melodyDraft.note_options[posKey] ?? ['', '', '', ''];
-                                        const nextOptions = [...currentOptions];
-                                        if (!isMissing && !nextOptions[0] && note) {
-                                          nextOptions[0] = note;
-                                        }
-                                        setMelodyDraft((prev) => ({
-                                          ...prev,
-                                          missing_positions: nextMissing,
-                                          note_options: !isMissing ? { ...prev.note_options, [posKey]: nextOptions } : prev.note_options,
-                                          correct_answers: !isMissing && !prev.correct_answers[posKey] ? { ...prev.correct_answers, [posKey]: note } : prev.correct_answers,
-                                        }));
+                                        if (melodyMarkingMissing) {
+                                          setMelodyDraft((prev) => ({ ...prev, missing_index: index, missing_positions: [index] }));
+                                          setMelodyMarkingMissing(false);
+                                        } else setSelectedMelodyIndex(index);
                                       }}
-                                      title={isMissing ? 'Bỏ đánh dấu khuyết' : `Đánh dấu nốt ${index + 1} (${note}) bị khuyết`}
-                                      className={`h-11 min-w-11 px-3 rounded-lg border text-sm font-bold transition-all duration-200 active:scale-95 flex items-center justify-center gap-1 ${
+                                      title={melodyMarkingMissing ? `Đặt nốt ${index + 1} làm nốt khuyết` : `Chọn nốt ${index + 1}`}
+                                      className={`h-11 min-w-11 rounded-lg border px-3 text-sm font-bold transition-all active:scale-95 ${
                                         isMissing
                                           ? 'border-2 border-dashed border-[#b45309] bg-amber-100 text-amber-900 shadow-sm'
-                                          : 'border-purple-200 bg-purple-50 text-purple-900 hover:bg-purple-100'
+                                          : isSelected ? 'border-purple-600 bg-purple-100 text-purple-950' : 'border-purple-200 bg-purple-50 text-purple-900 hover:bg-purple-100'
                                       }`}
                                     >
-                                      {isMissing ? `? (${note})` : note}
+                                      <span className="mr-1 text-[10px] opacity-60">{index + 1}</span>{isMissing ? `? · ${note}` : note}
                                     </button>
+                                    {isSelected && !melodyMarkingMissing && <>
+                                      <button type="button" disabled={index === 0} onClick={() => setMelodyDraft((prev) => { const melody = [...prev.melody]; [melody[index - 1], melody[index]] = [melody[index], melody[index - 1]]; const missing = prev.missing_index === index ? index - 1 : prev.missing_index === index - 1 ? index : prev.missing_index; return { ...prev, melody, missing_index: missing, missing_positions: missing === undefined ? [] : [missing] }; })} className="-ml-1 rounded p-1 text-purple-700 disabled:opacity-30" aria-label="Dịch nốt sang trái"><ArrowLeft className="h-3.5 w-3.5" /></button>
+                                      <button type="button" disabled={index === melodyDraft.melody.length - 1} onClick={() => setMelodyDraft((prev) => { const melody = [...prev.melody]; [melody[index], melody[index + 1]] = [melody[index + 1], melody[index]]; const missing = prev.missing_index === index ? index + 1 : prev.missing_index === index + 1 ? index : prev.missing_index; return { ...prev, melody, missing_index: missing, missing_positions: missing === undefined ? [] : [missing] }; })} className="-ml-1 rounded p-1 text-purple-700 disabled:opacity-30" aria-label="Dịch nốt sang phải"><ArrowRight className="h-3.5 w-3.5" /></button>
+                                    </>}
+                                    <button type="button" title={`Xóa nốt ${index + 1}`} onClick={() => setMelodyDraft((prev) => {
+                                      const nextMelody = prev.melody.filter((_, itemIndex) => itemIndex !== index);
+                                      const nextMissing = prev.missing_index === index ? undefined : (prev.missing_index !== undefined && prev.missing_index > index ? prev.missing_index - 1 : prev.missing_index);
+                                      return { ...prev, melody: nextMelody, missing_index: nextMissing, missing_positions: nextMissing === undefined ? [] : [nextMissing] };
+                                    })} className="-ml-1 rounded-full p-1 text-neutral-400 hover:bg-red-50 hover:text-red-600" aria-label={`Xóa nốt ${index + 1}`}><X className="h-3.5 w-3.5" /></button>
+                                    </div>
                                   );
                                 })}
                               </div>
                             </div>
                           )}
 
-                          {melodyDraft.missing_positions.length > 0 && (
+                          {false && melodyDraft.missing_positions.length > 0 && (
                             <div className="space-y-4">
                               {melodyDraft.missing_positions.map((position) => {
                                 const options = melodyDraft.note_options[String(position)] ?? ['', '', '', ''];
@@ -1331,7 +1333,7 @@ const InstructorLessonContent = () => {
                             </div>
                           )}
 
-                          <div className="grid grid-cols-2 gap-4">
+                          <div className="hidden grid-cols-2 gap-4">
                             <Field label="Tempo (BPM)">
                               <input
                                 type="number"
@@ -1343,7 +1345,7 @@ const InstructorLessonContent = () => {
                                 className="input font-semibold"
                               />
                             </Field>
-                            <Field label="Thời gian giới hạn (giây)">
+                            {false && <Field label="Thời gian giới hạn (giây)">
                               <input
                                 type="number"
                                 min="5"
@@ -1353,7 +1355,7 @@ const InstructorLessonContent = () => {
                                 onChange={(e) => setMelodyDraft((prev) => ({ ...prev, time_limit_sec: e.target.value ? Number(e.target.value) : undefined }))}
                                 className="input font-semibold"
                               />
-                            </Field>
+                            </Field>}
                           </div>
 
                           {/* MELODY PREVIEW: FIXED 0-BASED INDEX MATCH */}
