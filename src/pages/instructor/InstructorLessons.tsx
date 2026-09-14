@@ -17,9 +17,9 @@ import {
   Pencil,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { lessonsApi, lessonAssetsApi, lessonContentsApi, type LessonContent } from '../../api/services';
+import { lessonsApi, lessonAssetsApi, lessonContentsApi, masterDataApi, type LessonContent } from '../../api/services';
 import { lessonDetailApi } from '../../api/management';
-import type { Lesson as ApiLesson, LessonAsset } from '../../api/types';
+import type { Instrument, Lesson as ApiLesson, LessonAsset, SkillLevel } from '../../api/types';
 import { useAxiosRequest } from '../../hooks/useAxiosRequest';
 
 interface Lesson {
@@ -27,6 +27,8 @@ interface Lesson {
   title: string;
   module: string;
   instrument: string;
+  instrumentId?: number;
+  skillLevel?: ApiLesson['skillLevel'];
   difficulty: number;
   updatedAt: string;
   status: ApiLesson['status'];
@@ -38,6 +40,8 @@ interface Lesson {
 const mapLesson = (lesson: ApiLesson): Lesson => ({
   id: String(lesson.id),
   title: lesson.title,
+  instrumentId: lesson.instrument?.id,
+  skillLevel: lesson.skillLevel,
   module: lesson.skillLevel?.levelName ?? 'Chưa phân cấp',
   instrument: lesson.instrument?.name ?? 'Chưa chọn nhạc cụ',
   difficulty: lesson.skillLevel?.id ?? 1,
@@ -52,6 +56,23 @@ const mapLesson = (lesson: ApiLesson): Lesson => ({
 
 const MAX_REFERENCE_AUDIO_BYTES = 20 * 1024 * 1024;
 const MAX_SHEET_MUSIC_BYTES = 5 * 1024 * 1024;
+
+type CurriculumLevelKey = 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED';
+const CURRICULUM_LEVELS: Array<{ key: CurriculumLevelKey; number: number; label: string }> = [
+  { key: 'BEGINNER', number: 1, label: 'Cơ bản' },
+  { key: 'INTERMEDIATE', number: 2, label: 'Trung cấp' },
+  { key: 'ADVANCED', number: 3, label: 'Nâng cao' },
+];
+const normalizeLevelText = (value?: string) => (value ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+const getCurriculumLevelKey = (level?: Partial<SkillLevel> | null): CurriculumLevelKey => {
+  const code = level?.levelCode?.toUpperCase();
+  if (code === 'INTERMEDIATE') return 'INTERMEDIATE';
+  if (code === 'ADVANCED') return 'ADVANCED';
+  const name = normalizeLevelText(level?.levelName);
+  if (name.includes('trung cap') || name.includes('intermediate') || level?.orderIndex === 2) return 'INTERMEDIATE';
+  if (name.includes('nang cao') || name.includes('cao cap') || name.includes('advanced') || level?.orderIndex === 3) return 'ADVANCED';
+  return 'BEGINNER';
+};
 
 const getStatusMeta = (status: ApiLesson['status']) => {
   switch (status) {
@@ -91,11 +112,21 @@ const InstructorLessons = () => {
   const [savingDescription, setSavingDescription] = useState(false);
   const [editingContentId, setEditingContentId] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedInstrumentFilter, setSelectedInstrumentFilter] = useState('Tất cả');
+  const [selectedInstrumentId, setSelectedInstrumentId] = useState<number | null>(null);
+  const [selectedCurriculumLevel, setSelectedCurriculumLevel] = useState<CurriculumLevelKey>('BEGINNER');
   const [selectedStatusFilter, setSelectedStatusFilter] = useState('Tất cả');
   const [currentPage, setCurrentPage] = useState(1);
   const [perPage, setPerPage] = useState(5);
   const [openActionMenuLessonId, setOpenActionMenuLessonId] = useState<string | null>(null);
+
+  const { data: instruments = [] } = useAxiosRequest<Instrument[]>(
+    (signal) => masterDataApi.instruments({ signal }),
+    { auto: true, initialData: [] },
+  );
+
+  useEffect(() => {
+    if (selectedInstrumentId === null && instruments.length > 0) setSelectedInstrumentId(instruments[0].id);
+  }, [instruments, selectedInstrumentId]);
 
   const { execute: requestLessons } = useAxiosRequest<Lesson[]>(async (signal) => {
     const params = new URLSearchParams({ page: '1', size: '100' });
@@ -261,9 +292,8 @@ const InstructorLessons = () => {
       lesson.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
       lesson.instrument.toLowerCase().includes(searchQuery.toLowerCase()) ||
       lesson.updatedAt.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesInstrument =
-      selectedInstrumentFilter === 'Tất cả' ||
-      lesson.instrument.toLowerCase() === selectedInstrumentFilter.toLowerCase();
+    const matchesInstrument = selectedInstrumentId === null || Number(lesson.instrumentId) === selectedInstrumentId;
+    const matchesLevel = getCurriculumLevelKey(lesson.skillLevel) === selectedCurriculumLevel;
 
     let matchesStatus = true;
     if (selectedStatusFilter === 'Chờ duyệt') {
@@ -276,7 +306,7 @@ const InstructorLessons = () => {
       matchesStatus = lesson.status !== 'PENDING' && lesson.status !== 'APPROVED' && lesson.status !== 'REJECTED';
     }
 
-    return matchesSearch && matchesInstrument && matchesStatus;
+    return matchesSearch && matchesInstrument && matchesLevel && matchesStatus;
   });
 
   const parseDate = (dStr: string) => {
@@ -291,6 +321,8 @@ const InstructorLessons = () => {
   const sortedLessons = [...filteredLessons].sort((a, b) => parseDate(b.updatedAt) - parseDate(a.updatedAt));
   const totalPages = Math.max(1, Math.ceil(sortedLessons.length / perPage));
   const paginatedLessons = sortedLessons.slice((currentPage - 1) * perPage, currentPage * perPage);
+  const activeInstrument = instruments.find((instrument) => instrument.id === selectedInstrumentId);
+  const lessonsForActiveInstrument = selectedInstrumentId === null ? lessons : lessons.filter((lesson) => Number(lesson.instrumentId) === selectedInstrumentId);
 
   return (
     <div className="max-w-[1400px] mx-auto">
@@ -304,6 +336,42 @@ const InstructorLessons = () => {
             Tổ chức, đăng tải học liệu (âm thanh mẫu, bản ký âm sheet nhạc) và quản lý thông tin bài giảng của bạn.
           </p>
         </div>
+
+        <section aria-label="Phạm vi nhạc cụ" className="flex flex-col gap-3 rounded-2xl border border-[#d8eadf] bg-[#f7fbf8] p-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.12em] text-[#567364]">Nhạc cụ đang quản lý học liệu</p>
+            <p className="mt-1 text-lg font-bold text-[#1D4532]">{activeInstrument ? getInstrumentTranslation(activeInstrument.name) : 'Đang tải nhạc cụ…'}</p>
+            <p className="mt-1 text-xs text-on-surface-variant">Chọn nhạc cụ trước, sau đó chọn cấp để quản lý đúng học liệu của bài.</p>
+          </div>
+          <label className="flex min-w-[250px] flex-col gap-1 text-xs font-semibold text-[#52605a]">
+            Chuyển nhạc cụ
+            <select
+              value={selectedInstrumentId ?? ''}
+              onChange={(e) => { setSelectedInstrumentId(Number(e.target.value)); setCurrentPage(1); }}
+              className="rounded-lg border border-[#c9ddcf] bg-white px-3 py-2.5 text-sm font-bold text-[#1D4532] outline-none focus:ring-2 focus:ring-[#1D4532]/20"
+            >
+              {instruments.map((instrument) => <option key={instrument.id} value={instrument.id}>{getInstrumentTranslation(instrument.name)}</option>)}
+            </select>
+          </label>
+        </section>
+
+        <section aria-label="Ba cấp giáo trình cố định" className="flex flex-wrap gap-2 rounded-xl border border-outline-variant/15 bg-white p-2">
+          {CURRICULUM_LEVELS.map((level) => {
+            const isSelected = level.key === selectedCurriculumLevel;
+            const lessonCount = lessonsForActiveInstrument.filter((lesson) => getCurriculumLevelKey(lesson.skillLevel) === level.key).length;
+            return (
+              <button
+                key={level.key}
+                type="button"
+                onClick={() => { setSelectedCurriculumLevel(level.key); setCurrentPage(1); }}
+                className={`flex min-w-[175px] flex-1 items-center justify-between rounded-lg px-4 py-3 text-left transition-all ${isSelected ? 'bg-[#1D4532] text-white shadow-sm' : 'text-[#1D4532] hover:bg-[#edf7f2]'}`}
+              >
+                <span><span className={`mr-2 inline-flex rounded-full px-2 py-0.5 text-[11px] font-extrabold ${isSelected ? 'bg-white/20 text-white' : 'bg-[#f2eee1] text-[#665126]'}`}>Cấp {level.number}</span><span className="text-sm font-bold">{level.label}</span></span>
+                <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${isSelected ? 'bg-white/15 text-white' : 'bg-[#edf7f2] text-[#1D4532]'}`}>{lessonCount} bài</span>
+              </button>
+            );
+          })}
+        </section>
 
         {/* Controls Row: Search + Filter + Add Button */}
         <div className="flex flex-col md:flex-row md:items-center gap-sm w-full">
@@ -331,26 +399,6 @@ const InstructorLessons = () => {
                 <X className="w-4 h-4" />
               </button>
             )}
-          </div>
-
-          {/* Instrument Filter */}
-          <div className="flex items-center justify-between gap-xs px-md h-[42px] bg-white border border-[#d1e4fb] rounded-lg shadow-sm shrink-0 w-[260px]">
-            <span className="font-label-md text-[#5e5e5b] text-sm font-medium whitespace-nowrap">Nhạc cụ:</span>
-            <select
-              value={selectedInstrumentFilter}
-              onChange={(e) => {
-                setSelectedInstrumentFilter(e.target.value);
-                setCurrentPage(1);
-              }}
-              className="bg-transparent border-none text-label-md font-semibold text-[#1D4532] focus:ring-0 cursor-pointer outline-none text-sm pr-6 py-1 leading-normal w-[160px]"
-            >
-              <option value="Tất cả">Tất cả nhạc cụ</option>
-              {Array.from(new Set(lessons.map((l) => l.instrument))).filter(Boolean).map((ins) => (
-                <option key={ins} value={ins}>
-                  {getInstrumentTranslation(ins)}
-                </option>
-              ))}
-            </select>
           </div>
 
           {/* Status Filter */}
@@ -392,7 +440,7 @@ const InstructorLessons = () => {
         <div className="col-span-12 flex flex-col gap-gutter">
           <div className="bg-white rounded-xl border border-outline-variant/10 overflow-hidden shadow-sm">
             <div className="overflow-x-auto custom-scrollbar">
-              <table className="w-full min-w-[1080px] border-collapse">
+              <table className="w-full min-w-[930px] border-collapse">
                 <thead>
                   <tr className="bg-[#EDF7F2]/60">
                     <th className="text-center whitespace-nowrap py-md px-lg font-label-sm text-label-sm text-[#1D4532] font-semibold border-b border-outline-variant/10 w-16">
@@ -403,9 +451,6 @@ const InstructorLessons = () => {
                     </th>
                     <th className="text-center whitespace-nowrap py-md px-md font-label-sm text-label-sm text-[#1D4532] font-semibold border-b border-outline-variant/10">
                       Học liệu Media
-                    </th>
-                    <th className="text-center whitespace-nowrap py-md px-md font-label-sm text-label-sm text-[#1D4532] font-semibold border-b border-outline-variant/10">
-                      Nhạc cụ
                     </th>
                     <th className="text-center whitespace-nowrap py-md px-md font-label-sm text-label-sm text-[#1D4532] font-semibold border-b border-outline-variant/10">
                       Ngày cập nhật
@@ -421,14 +466,14 @@ const InstructorLessons = () => {
                 <tbody className="divide-y divide-outline-variant/10">
                   {isLoading ? (
                     <tr>
-                      <td colSpan={7} className="px-xl py-14 text-center">
+                      <td colSpan={6} className="px-xl py-14 text-center">
                         <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-2 border-[#1D4532]/20 border-t-[#1D4532]" />
                         <p className="text-on-surface-variant">Đang tải danh sách bài giảng...</p>
                       </td>
                     </tr>
                   ) : paginatedLessons.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="px-xl py-16 text-center">
+                      <td colSpan={6} className="px-xl py-16 text-center">
                         <div className="mx-auto flex max-w-md flex-col items-center">
                           <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#1D4532]/10 text-[#1D4532]">
                             <BookOpen className="h-7 w-7" />
@@ -439,9 +484,6 @@ const InstructorLessons = () => {
                       </td>
                     </tr>
                   ) : paginatedLessons.map((lesson, idx) => {
-                    const rawInst = lesson.instrument || '';
-                    const instFormatted = getInstrumentTranslation(rawInst) || 'Đàn Tranh';
-
                     return (
                       <tr
                         key={lesson.id}
@@ -469,11 +511,6 @@ const InstructorLessons = () => {
                               <FileText className="w-3 h-3 flex-shrink-0" /> Sheet
                             </span>
                           </div>
-                        </td>
-                        <td className="py-lg px-md whitespace-nowrap text-center">
-                          <span className="px-md py-xs bg-[#ffe088]/25 text-[#574500] rounded-full text-label-sm font-bold text-xs border border-[#ffe088]/40 whitespace-nowrap inline-block">
-                            {instFormatted}
-                          </span>
                         </td>
                         <td className="py-lg px-md text-on-surface-variant font-label-md text-xs text-center">
                           {lesson.updatedAt}

@@ -47,8 +47,6 @@ const getCurriculumLevelKey = (level?: Partial<SkillLevel> | null): CurriculumLe
   return 'BEGINNER';
 };
 
-const getCurriculumLevel = (key: CurriculumLevelKey) => CURRICULUM_LEVELS.find((item) => item.key === key) ?? CURRICULUM_LEVELS[0];
-
 
 
 const getInstrumentTranslation = (instName: string) => {
@@ -277,7 +275,6 @@ const InstructorMedia = () => {
 
   const totalPages = Math.ceil(sortedLessons.length / perPage);
   const paginatedLessons = sortedLessons.slice((currentPage - 1) * perPage, currentPage * perPage);
-  const activeCurriculumLevel = getCurriculumLevel(selectedCurriculumLevel);
   const activeInstrument = selectedInstrumentId === 'ALL' ? null : instruments.find((instrument) => instrument.id === selectedInstrumentId);
   const lessonsForActiveInstrument = selectedInstrumentId === 'ALL'
     ? lessons
@@ -368,16 +365,8 @@ const InstructorMedia = () => {
               className="bg-[#1D4532] text-white px-lg h-[42px] rounded-lg font-label-md hover:bg-[#1D4532]/95 transition-all flex items-center justify-center gap-xs shadow-md shrink-0 font-bold whitespace-nowrap"
             >
               <Plus className="w-[18px] h-[18px]" />
-              Tạo bài · {activeInstrument ? getInstrumentTranslation(activeInstrument.name) : 'Nhạc cụ'}
+              Tạo bài
             </button>
-          </div>
-
-          <div className="flex items-center justify-between rounded-xl border border-[#d8eadf] bg-[#f7fbf8] px-4 py-3">
-            <div>
-              <p className="text-sm font-bold text-[#1D4532]">{activeInstrument ? getInstrumentTranslation(activeInstrument.name) : 'Giáo trình'} · {activeCurriculumLevel.title}</p>
-              <p className="mt-0.5 text-xs text-on-surface-variant">{activeCurriculumLevel.description}</p>
-            </div>
-            <span className="rounded-full bg-white px-3 py-1.5 text-xs font-bold text-[#1D4532] shadow-sm">{sortedLessons.length} bài</span>
           </div>
 
           {/* Lesson List Table */}
