@@ -1,4 +1,4 @@
-import { useState, useCallback, type FormEvent } from 'react';
+import { useState, useCallback, useEffect, type FormEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -21,6 +21,33 @@ import { useAxiosRequest } from '../../hooks/useAxiosRequest';
 import { lessonsApi, exercisesApi, masterDataApi, type ExerciseInput } from '../../api/services';
 import type { Lesson, SkillLevel } from '../../api/types';
 import PracticeSheetComposer, { EMPTY_PRACTICE_SHEET, type PracticeSheetConfig } from '../../components/instructor/PracticeSheetComposer';
+
+type CurriculumLevelKey = 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED';
+
+// Ba cấp dùng chung cho mọi nhạc cụ. Không cung cấp CRUD ở web; API sau này
+// chỉ cần ánh xạ các mã cố định này sang skillLevelId.
+const CURRICULUM_LEVELS: Array<{ key: CurriculumLevelKey; number: number; label: string; title: string; description: string }> = [
+  { key: 'BEGINNER', number: 1, label: 'Cơ bản', title: 'Cấp 1 · Cơ bản', description: 'Nền tảng về nhạc cụ, nhạc lý và kỹ năng nhập môn.' },
+  { key: 'INTERMEDIATE', number: 2, label: 'Trung cấp', title: 'Cấp 2 · Trung cấp', description: 'Củng cố kỹ thuật, tiết tấu và bài thực hành.' },
+  { key: 'ADVANCED', number: 3, label: 'Nâng cao', title: 'Cấp 3 · Nâng cao', description: 'Hoàn thiện kỹ thuật, biểu cảm và tiết mục nâng cao.' },
+];
+
+const normalizeLevelText = (value?: string) => (value ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
+const getCurriculumLevelKey = (level?: Partial<SkillLevel> | null): CurriculumLevelKey => {
+  const code = level?.levelCode?.toUpperCase();
+  if (code === 'INTERMEDIATE') return 'INTERMEDIATE';
+  if (code === 'ADVANCED') return 'ADVANCED';
+  if (code === 'BEGINNER') return 'BEGINNER';
+  const name = normalizeLevelText(level?.levelName);
+  if (name.includes('trung cap') || name.includes('intermediate')) return 'INTERMEDIATE';
+  if (name.includes('cao cap') || name.includes('nang cao') || name.includes('advanced')) return 'ADVANCED';
+  if (level?.orderIndex === 2) return 'INTERMEDIATE';
+  if (level?.orderIndex === 3) return 'ADVANCED';
+  return 'BEGINNER';
+};
+
+const getCurriculumLevel = (key: CurriculumLevelKey) => CURRICULUM_LEVELS.find((item) => item.key === key) ?? CURRICULUM_LEVELS[0];
 
 
 
@@ -66,6 +93,7 @@ const InstructorMedia = () => {
   // ── Fetch instruments & skill levels ─────────────────────────────────
   const [selectedInstrumentId, setSelectedInstrumentId] = useState<number | 'ALL'>('ALL');
   const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
+  const [selectedCurriculumLevel, setSelectedCurriculumLevel] = useState<CurriculumLevelKey>('BEGINNER');
   const [currentPage, setCurrentPage] = useState(1);
   const [perPage, setPerPage] = useState(5);
 
@@ -79,6 +107,14 @@ const InstructorMedia = () => {
     { auto: true, initialData: [] }
   );
 
+  // Cấu hình luôn bắt đầu trong phạm vi một nhạc cụ, không trộn giáo trình
+  // của Đàn Tranh, Sáo, Đàn Bầu… vào cùng một danh sách.
+  useEffect(() => {
+    if (selectedInstrumentId === 'ALL' && instruments.length > 0) {
+      setSelectedInstrumentId(instruments[0].id);
+    }
+  }, [instruments, selectedInstrumentId]);
+
   // ── Create / Edit Lesson State ───────────────────────────────────────
   const [lessonModalOpen, setLessonModalOpen] = useState(false);
   const [editingLessonInfo, setEditingLessonInfo] = useState<Lesson | null>(null);
@@ -86,18 +122,23 @@ const InstructorMedia = () => {
   const [lessonDesc, setLessonDesc] = useState('');
   const [lessonInstrumentId, setLessonInstrumentId] = useState<number | null>(null);
   const [lessonSkillLevelId, setLessonSkillLevelId] = useState<number | undefined>();
+  const [lessonCurriculumLevel, setLessonCurriculumLevel] = useState<CurriculumLevelKey>('BEGINNER');
   const [lessonOrderIndex, setLessonOrderIndex] = useState<number>(1);
   const [lessonStatus, setLessonStatus] = useState<string>('DRAFT');
   const [isSavingLesson, setIsSavingLesson] = useState(false);
   const [practiceSheet, setPracticeSheet] = useState<PracticeSheetConfig>(EMPTY_PRACTICE_SHEET);
+
+  const getBackendSkillLevelId = (key: CurriculumLevelKey) =>
+    skillLevels.find((level) => getCurriculumLevelKey(level) === key)?.id;
 
   // Mở drawer tạo bài học mới với giá trị mặc định (nhạc cụ/trình độ đầu tiên, orderIndex tiếp theo)
   const handleOpenCreateLesson = () => {
     setEditingLessonInfo(null);
     setLessonTitle('');
     setLessonDesc('');
-    setLessonInstrumentId(instruments[0]?.id ?? null);
-    setLessonSkillLevelId(skillLevels[0]?.id);
+    setLessonInstrumentId(selectedInstrumentId === 'ALL' ? instruments[0]?.id ?? null : selectedInstrumentId);
+    setLessonCurriculumLevel(selectedCurriculumLevel);
+    setLessonSkillLevelId(getBackendSkillLevelId(selectedCurriculumLevel));
     setLessonOrderIndex(lessons.length > 0 ? Math.max(...lessons.map((l: any) => l.orderIndex ?? l.order_index ?? 0)) + 1 : 1);
     setLessonStatus('DRAFT');
     setPracticeSheet(EMPTY_PRACTICE_SHEET);
@@ -110,7 +151,10 @@ const InstructorMedia = () => {
     setLessonTitle(lesson.title);
     setLessonDesc(lesson.description || '');
     setLessonInstrumentId((lesson as any).instrument?.id ?? (lesson as any).instrument_id ?? instruments[0]?.id ?? null);
-    setLessonSkillLevelId((lesson as any).skillLevel?.id ?? (lesson as any).skill_level_id);
+    const lessonLevel = ((lesson as any).skillLevel ?? (lesson as any).skill_level) as Partial<SkillLevel> | undefined;
+    const curriculumLevel = getCurriculumLevelKey(lessonLevel);
+    setLessonCurriculumLevel(curriculumLevel);
+    setLessonSkillLevelId(lessonLevel?.id ?? getBackendSkillLevelId(curriculumLevel));
     setLessonOrderIndex((lesson as any).orderIndex ?? (lesson as any).order_index ?? 1);
     setLessonStatus(lesson.status || 'DRAFT');
     setPracticeSheet(EMPTY_PRACTICE_SHEET);
@@ -195,6 +239,8 @@ const InstructorMedia = () => {
   };
 
   const filteredLessons = lessons.filter((lesson) => {
+    // Tập trung đúng một trong ba cấp cố định để giảng viên chỉnh giáo trình.
+    if (getCurriculumLevelKey((lesson as any).skillLevel ?? (lesson as any).skill_level) !== selectedCurriculumLevel) return false;
     // 1. Instrument filter
     if (selectedInstrumentId !== 'ALL') {
       const instId = (lesson as any).instrument?.id ?? (lesson as any).instrument_id;
@@ -231,6 +277,11 @@ const InstructorMedia = () => {
 
   const totalPages = Math.ceil(sortedLessons.length / perPage);
   const paginatedLessons = sortedLessons.slice((currentPage - 1) * perPage, currentPage * perPage);
+  const activeCurriculumLevel = getCurriculumLevel(selectedCurriculumLevel);
+  const activeInstrument = selectedInstrumentId === 'ALL' ? null : instruments.find((instrument) => instrument.id === selectedInstrumentId);
+  const lessonsForActiveInstrument = selectedInstrumentId === 'ALL'
+    ? lessons
+    : lessons.filter((lesson) => Number((lesson as any).instrument?.id ?? (lesson as any).instrument_id) === Number(selectedInstrumentId));
 
   return (
     <div className="space-y-lg">
@@ -245,6 +296,42 @@ const InstructorMedia = () => {
       </div>
 
       <div className="space-y-md">
+          <section aria-label="Phạm vi nhạc cụ" className="flex flex-col gap-3 rounded-2xl border border-[#d8eadf] bg-[#f7fbf8] p-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.12em] text-[#567364]">Nhạc cụ đang cấu hình</p>
+              <p className="mt-1 text-lg font-bold text-[#1D4532]">{activeInstrument ? getInstrumentTranslation(activeInstrument.name) : 'Đang tải nhạc cụ…'}</p>
+              <p className="mt-1 text-xs text-on-surface-variant">Chọn nhạc cụ trước, sau đó chọn cấp để biên soạn đúng giáo trình.</p>
+            </div>
+            <label className="flex min-w-[250px] flex-col gap-1 text-xs font-semibold text-[#52605a]">
+              Chuyển nhạc cụ
+              <select
+                value={selectedInstrumentId === 'ALL' ? '' : selectedInstrumentId}
+                onChange={(e) => { setSelectedInstrumentId(Number(e.target.value)); setCurrentPage(1); }}
+                className="rounded-lg border border-[#c9ddcf] bg-white px-3 py-2.5 text-sm font-bold text-[#1D4532] outline-none focus:ring-2 focus:ring-[#1D4532]/20"
+              >
+                {instruments.map((instrument: any) => <option key={instrument.id} value={instrument.id}>{getInstrumentTranslation(instrument.name)}</option>)}
+              </select>
+            </label>
+          </section>
+
+          <section aria-label="Ba cấp giáo trình cố định" className="flex flex-wrap gap-2 rounded-xl border border-outline-variant/15 bg-white p-2">
+            {CURRICULUM_LEVELS.map((level) => {
+              const isSelected = level.key === selectedCurriculumLevel;
+              const lessonCount = lessonsForActiveInstrument.filter((lesson) => getCurriculumLevelKey((lesson as any).skillLevel ?? (lesson as any).skill_level) === level.key).length;
+              return (
+                <button
+                  key={level.key}
+                  type="button"
+                  onClick={() => { setSelectedCurriculumLevel(level.key); setCurrentPage(1); }}
+                  className={`flex min-w-[175px] flex-1 items-center justify-between rounded-lg px-4 py-3 text-left transition-all ${isSelected ? 'bg-[#1D4532] text-white shadow-sm' : 'text-[#1D4532] hover:bg-[#edf7f2]'}`}
+                >
+                  <span><span className={`mr-2 inline-flex rounded-full px-2 py-0.5 text-[11px] font-extrabold ${isSelected ? 'bg-white/20 text-white' : 'bg-[#f2eee1] text-[#665126]'}`}>Cấp {level.number}</span><span className="text-sm font-bold">{level.label}</span></span>
+                  <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${isSelected ? 'bg-white/15 text-white' : 'bg-[#edf7f2] text-[#1D4532]'}`}>{lessonCount} bài</span>
+                </button>
+              );
+            })}
+          </section>
+
           {/* Toolbar with Search Bar, Instrument Filter, Status Filter & Add Button */}
           <div className="flex flex-col md:flex-row md:items-center gap-sm w-full">
             {/* Search Bar */}
@@ -257,23 +344,6 @@ const InstructorMedia = () => {
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="bg-transparent border-none outline-none text-body-md w-full text-on-surface focus:ring-0 placeholder:text-[#5e5e5b]/50 py-1 leading-normal text-xs"
               />
-            </div>
-
-            {/* Instrument Filter */}
-            <div className="flex items-center justify-between gap-xs px-md h-[42px] bg-white border border-[#d1e4fb] rounded-lg shadow-sm shrink-0 w-[260px]">
-              <span className="font-label-md text-[#5e5e5b] text-xs font-medium whitespace-nowrap">Nhạc cụ:</span>
-              <select
-                value={selectedInstrumentId}
-                onChange={(e) => setSelectedInstrumentId(e.target.value === 'ALL' ? 'ALL' : Number(e.target.value))}
-                className="bg-transparent border-none text-label-md font-semibold text-[#1D4532] focus:ring-0 cursor-pointer outline-none text-xs pr-6 py-1 leading-normal w-[160px]"
-              >
-                <option value="ALL">Tất cả nhạc cụ</option>
-                {instruments.map((inst: any) => (
-                  <option key={inst.id} value={inst.id}>
-                    {getInstrumentTranslation(inst.name)}
-                  </option>
-                ))}
-              </select>
             </div>
 
             {/* Status Filter */}
@@ -298,8 +368,16 @@ const InstructorMedia = () => {
               className="bg-[#1D4532] text-white px-lg h-[42px] rounded-lg font-label-md hover:bg-[#1D4532]/95 transition-all flex items-center justify-center gap-xs shadow-md shrink-0 font-bold whitespace-nowrap"
             >
               <Plus className="w-[18px] h-[18px]" />
-              Tạo bài học mới
+              Tạo bài · {activeInstrument ? getInstrumentTranslation(activeInstrument.name) : 'Nhạc cụ'}
             </button>
+          </div>
+
+          <div className="flex items-center justify-between rounded-xl border border-[#d8eadf] bg-[#f7fbf8] px-4 py-3">
+            <div>
+              <p className="text-sm font-bold text-[#1D4532]">{activeInstrument ? getInstrumentTranslation(activeInstrument.name) : 'Giáo trình'} · {activeCurriculumLevel.title}</p>
+              <p className="mt-0.5 text-xs text-on-surface-variant">{activeCurriculumLevel.description}</p>
+            </div>
+            <span className="rounded-full bg-white px-3 py-1.5 text-xs font-bold text-[#1D4532] shadow-sm">{sortedLessons.length} bài</span>
           </div>
 
           {/* Lesson List Table */}
@@ -319,7 +397,6 @@ const InstructorMedia = () => {
                   <tr className="bg-[#EDF7F2]/60 border-b border-outline-variant/10 text-[#1D4532]">
                     <th className="py-md px-md text-center font-bold text-xs w-20">Vị trí bài</th>
                     <th className="py-md px-md font-bold text-xs">Tên bài giảng & Mô tả</th>
-                    <th className="py-md px-md text-center font-bold text-xs w-32">Nhạc cụ</th>
                     <th className="py-md px-md text-center font-bold text-xs w-32">Ngày cập nhật</th>
                     <th className="py-md px-md text-center font-bold text-xs w-32">Trạng thái</th>
                     <th className="py-md px-md text-right font-bold text-xs w-24 pr-6">Thao tác</th>
@@ -328,7 +405,6 @@ const InstructorMedia = () => {
                 <tbody className="divide-y divide-outline-variant/10">
                   {paginatedLessons.map((lesson, idx) => {
                     const order = (lesson as any).orderIndex ?? (lesson as any).order_index ?? idx + 1;
-                    const instName = (lesson as any).instrument?.name ?? (lesson as any).instrumentName ?? 'Chưa rõ';
                     const rawDate = (lesson as any).updatedAt ?? (lesson as any).updated_at ?? (lesson as any).createdAt ?? (lesson as any).created_at;
                     const formattedDate = rawDate
                       ? new Date(rawDate).toLocaleDateString('vi-VN')
@@ -349,13 +425,6 @@ const InstructorMedia = () => {
                           ) : (
                             <p className="text-xs text-[#9CA3AF] italic mt-0.5">Chưa có mô tả</p>
                           )}
-                        </td>
-
-                        {/* Instrument Badge */}
-                        <td className="py-md px-md text-center">
-                          <span className="bg-[#ffe088]/25 text-[#574500] border border-[#ffe088]/40 font-bold text-xs px-md py-xs rounded-full inline-block">
-                            {getInstrumentTranslation(instName)}
-                          </span>
                         </td>
 
                         {/* Date Created Column */}
@@ -737,20 +806,28 @@ const InstructorMedia = () => {
                       </div>
                       <div className="flex flex-col gap-xs">
                         <label className="text-xs font-semibold text-[#6B7280] uppercase tracking-wider">
-                          Trình độ
+                          Cấp giáo trình cố định
                         </label>
                         <select
-                          value={lessonSkillLevelId ?? ''}
-                          onChange={(e) => setLessonSkillLevelId(e.target.value ? Number(e.target.value) : undefined)}
+                          value={lessonCurriculumLevel}
+                          onChange={(e) => {
+                            const nextLevel = e.target.value as CurriculumLevelKey;
+                            setLessonCurriculumLevel(nextLevel);
+                            // Dùng ID API hiện có nếu có; mapping này là cầu nối tạm
+                            // trước khi backend chuẩn hóa ba level cố định.
+                            setLessonSkillLevelId(getBackendSkillLevelId(nextLevel));
+                          }}
                           className="bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl p-md text-sm focus:ring-1 focus:ring-[#1D4532] focus:border-[#1D4532] outline-none cursor-pointer"
                         >
-                          <option value="">Chưa phân cấp</option>
-                          {skillLevels.map((lvl: any) => (
-                            <option key={lvl.id} value={lvl.id}>
-                              {lvl.levelName}
+                          {CURRICULUM_LEVELS.map((level) => (
+                            <option key={level.key} value={level.key}>
+                              {level.label} — {level.title}
                             </option>
                           ))}
                         </select>
+                        {!getBackendSkillLevelId(lessonCurriculumLevel) && (
+                          <span className="text-[11px] text-amber-700">API hiện chưa có ID cho cấp này; cần chuẩn hóa backend trước khi lưu.</span>
+                        )}
                       </div>
                       <div className="flex flex-col gap-xs">
                         <label className="text-xs font-semibold text-[#6B7280] uppercase tracking-wider">
