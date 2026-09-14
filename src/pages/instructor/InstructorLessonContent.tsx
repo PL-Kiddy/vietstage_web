@@ -7,6 +7,7 @@ import {
   AudioLines,
   Check,
   ClipboardList,
+  Flame,
   Gamepad2,
   GraduationCap,
   HelpCircle,
@@ -16,31 +17,32 @@ import {
   Sparkles,
   Timer,
   Trash2,
-  X,
   Volume2,
-  Flame,
+  X,
 } from 'lucide-react';
 import { Link, useParams } from 'react-router-dom';
 import { lessonDetailApi } from '../../api/management';
 import { lessonAssetsApi } from '../../api/services';
-import type { LessonAsset } from '../../api/types';
+import type { LessonAsset, Lesson } from '../../api/types';
 import {
   exercisesApi,
   minigamesApi,
   quizzesApi,
   MELODY_COMPLETE_CONFIG,
   RHYTHM_MATCH_CONFIG,
+  getMeasureDurationBeats,
+  getTimeSignatureLabel,
   type Exercise,
   type ExerciseInput,
   type MelodyCompleteConfig,
   type RhythmMatchConfig,
   type RhythmRoundConfig,
+  type TimeSignature,
   type Minigame,
   type MinigameInput,
   type Quiz,
   type QuizInput,
 } from '../../api/lessonContent';
-import type { Lesson } from '../../api/types';
 import QuizEditor from '../../components/instructor/QuizEditor';
 
 const parseQuizOptions = (value: string): string[] => {
@@ -91,11 +93,14 @@ const newRhythmRound = (index: number, instrument?: { name?: string; instrumentC
   return {
     title: `Vòng ${index}`,
     tempo_bpm: 100,
+    time_signature: [4, 4],
     beats: [],
     notes: [],
     events: [
       { note: notes[0], mode: 'SAMPLE', duration_beats: 1 },
-      { note: notes[1] ?? notes[0], mode: 'TARGET', duration_beats: 1 },
+      { note: notes[1] ?? notes[0], mode: 'SAMPLE', duration_beats: 1 },
+      { note: notes[2] ?? notes[0], mode: 'TARGET', duration_beats: 1 },
+      { note: notes[3] ?? notes[1] ?? notes[0], mode: 'TARGET', duration_beats: 1 },
     ],
   };
 };
@@ -181,6 +186,17 @@ const NOTE_DURATIONS = [
   { value: 0.25, label: 'Móc đôi · ¼ phách' },
 ] as const;
 
+const parseTimeSig = (rawSig: unknown): TimeSignature => {
+  if (Array.isArray(rawSig) && rawSig.length >= 2) {
+    const num = Number(rawSig[0]);
+    const den = Number(rawSig[1]);
+    if ((num === 2 && den === 4) || (num === 3 && den === 4) || (num === 4 && den === 4) || (num === 6 && den === 8)) {
+      return [num, den];
+    }
+  }
+  return [4, 4];
+};
+
 const legacyEvents = (round: Record<string, unknown>, bpm: number) => {
   const notes = Array.isArray(round.notes) ? round.notes.map(String) : [];
   const beats = Array.isArray(round.beats) ? round.beats.map(Number) : [];
@@ -199,6 +215,7 @@ const parseRhythmConfig = (contentJson?: string): RhythmMatchConfig => {
     return {
       rounds: Array.isArray(raw.rounds) ? raw.rounds.map((round, index) => {
         const bpm = Number(round.tempo_bpm ?? round.tempoBpm ?? inheritedBpm) || 100;
+        const time_signature = parseTimeSig(round.time_signature ?? round.timeSignature);
         const events = Array.isArray(round.events)
           ? round.events.map((event) => {
               const item = event as Record<string, unknown>;
@@ -209,7 +226,7 @@ const parseRhythmConfig = (contentJson?: string): RhythmMatchConfig => {
               };
             })
           : legacyEvents(round, bpm);
-        return { title: String(round.title ?? `Vòng ${index + 1}`), tempo_bpm: bpm, events, beats: [], notes: [] };
+        return { title: String(round.title ?? `Vòng ${index + 1}`), tempo_bpm: bpm, time_signature, events, beats: [], notes: [] };
       }) : [],
       beats: [],
     };
@@ -228,7 +245,12 @@ const buildRhythmConfigJson = (config: RhythmMatchConfig): string => JSON.string
       elapsed += durationMs;
       return result;
     });
-    return { title: round.title, tempo_bpm: round.tempo_bpm, events };
+    return {
+      title: round.title,
+      tempo_bpm: round.tempo_bpm,
+      time_signature: round.time_signature ?? [4, 4],
+      events,
+    };
   }),
 });
 
@@ -237,13 +259,42 @@ const validateRhythmDraft = (config: RhythmMatchConfig): string | null => {
   for (let roundIndex = 0; roundIndex < config.rounds.length; roundIndex += 1) {
     const round = config.rounds[roundIndex];
     const label = `Vòng ${roundIndex + 1}`;
-    if (!Number.isFinite(round.tempo_bpm) || round.tempo_bpm < 30 || round.tempo_bpm > 300) return `${label}: BPM phải từ 30 đến 300.`;
-    if (round.events.length < 2 || round.events.length > 16) return `${label}: cần từ 2 đến 16 nốt.`;
-    if (!round.events.some((event) => event.mode === 'TARGET')) return `${label}: cần ít nhất 1 nốt học viên chơi.`;
+    const timeSig = round.time_signature ?? [4, 4];
+    const measureDuration = getMeasureDurationBeats(timeSig);
+
+    if (!Number.isFinite(round.tempo_bpm) || round.tempo_bpm < 30 || round.tempo_bpm > 300) {
+      return `${label}: BPM phải từ 30 đến 300.`;
+    }
+    if (round.events.length < 2 || round.events.length > 32) {
+      return `${label}: cần từ 2 đến 32 nốt.`;
+    }
+    if (!round.events.some((event) => event.mode === 'TARGET')) {
+      return `${label}: cần ít nhất 1 nốt học viên chơi (Cần chơi).`;
+    }
+
+    let elapsedBeats = 0;
     for (let index = 0; index < round.events.length; index += 1) {
       const event = round.events[index];
       if (!event.note.trim()) return `${label}, nốt ${index + 1}: vui lòng chọn nốt.`;
-      if (!NOTE_DURATIONS.some((duration) => duration.value === event.duration_beats)) return `${label}, nốt ${index + 1}: trường độ không hợp lệ.`;
+      if (!NOTE_DURATIONS.some((duration) => duration.value === event.duration_beats)) {
+        return `${label}, nốt ${index + 1}: trường độ không hợp lệ.`;
+      }
+
+      const currentMeasure = Math.floor(elapsedBeats / measureDuration + 0.0001) + 1;
+      const beatInMeasure = elapsedBeats - (currentMeasure - 1) * measureDuration;
+
+      if (beatInMeasure + event.duration_beats > measureDuration + 0.001) {
+        return `${label}, nốt ${index + 1} (${event.note}, ${event.duration_beats} phách) vượt qua vạch nhịp của ô ${currentMeasure}. Vui lòng chỉnh trường độ để vừa khít ô nhịp ${timeSig[0]}/${timeSig[1]}.`;
+      }
+
+      elapsedBeats += event.duration_beats;
+    }
+
+    const remainder = elapsedBeats % measureDuration;
+    if (Math.abs(remainder) > 0.001 && Math.abs(remainder - measureDuration) > 0.001) {
+      const needed = Number((measureDuration - remainder).toFixed(2));
+      const totalMeasures = Math.ceil(elapsedBeats / measureDuration);
+      return `${label}: Tổng trường độ là ${elapsedBeats} phách, chưa khép kín ô nhịp ${timeSig[0]}/${timeSig[1]} (mỗi ô ${measureDuration} phách). Ô nhịp ${totalMeasures} còn thiếu ${needed} phách.`;
     }
   }
   return null;
@@ -278,7 +329,6 @@ const InstructorLessonContent = () => {
 
   // Drafts cho 2 loại minigame (không bắt người dùng gõ JSON)
   const [rhythmDraft, setRhythmDraft] = useState<RhythmMatchConfig>(RHYTHM_MATCH_CONFIG);
-  const [rhythmBeatsInput, setRhythmBeatsInput] = useState(''); // retained for legacy editor markup
   const [melodyDraft, setMelodyDraft] = useState<MelodyCompleteConfig>(MELODY_COMPLETE_CONFIG);
   const [melodyMarkingMissing, setMelodyMarkingMissing] = useState(false);
   const [selectedMelodyIndex, setSelectedMelodyIndex] = useState<number | null>(null);
@@ -652,6 +702,11 @@ const InstructorLessonContent = () => {
                           <span className="inline-flex items-center gap-1 font-medium bg-emerald-50 px-2 py-1 rounded text-emerald-800">
                             <Flame className="w-3.5 h-3.5" /> {rhythmConfig.rounds.length} vòng luyện
                           </span>
+                          {rhythmConfig.rounds[0] && (
+                            <span className="inline-flex items-center gap-1 font-semibold bg-[#1D4532]/10 px-2 py-1 rounded text-[#1D4532]">
+                              Nhịp {getTimeSignatureLabel(rhythmConfig.rounds[0].time_signature)}
+                            </span>
+                          )}
                           <span className="inline-flex items-center gap-1 bg-neutral-100 px-2 py-1 rounded text-neutral-700">
                             <Timer className="w-3.5 h-3.5" /> {rhythmConfig.rounds.reduce((total, round) => total + round.events.length, 0)} sự kiện nốt
                           </span>
@@ -700,7 +755,7 @@ const InstructorLessonContent = () => {
 
       {editorOpen && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex justify-end animate-[fadeIn_0.25s_ease-out]" onMouseDown={() => setEditorOpen(false)}>
-          <div className="w-full max-w-xl h-full bg-white p-6 md:p-8 overflow-y-auto shadow-2xl custom-scrollbar animate-[slideIn_0.32s_cubic-bezier(0.22,1,0.36,1)]" onMouseDown={(event) => event.stopPropagation()}>
+          <div className="w-full max-w-xl md:max-w-2xl h-full bg-white p-6 md:p-8 overflow-y-auto shadow-2xl custom-scrollbar animate-[slideIn_0.32s_cubic-bezier(0.22,1,0.36,1)]" onMouseDown={(event) => event.stopPropagation()}>
             <div className="flex justify-between items-start mb-6">
               <div>
                 <p className="text-xs tracking-widest text-[#1D4532] font-bold uppercase">{editingId ? 'Chỉnh sửa' : 'Tạo mới'}</p>
@@ -856,15 +911,15 @@ const InstructorLessonContent = () => {
                       </div>}
 
                       {minigameForm.challengeType === 'RHYTHM_MATCH' && (
-                        <section className="rounded-2xl border border-[#1D4532]/20 bg-[#fbf9f4] p-4.5 space-y-5">
-                          <div className="flex flex-wrap items-center justify-between gap-2">
+                        <section className="rounded-2xl border border-[#1D4532]/20 bg-[#fbf9f4] p-4 sm:p-5 space-y-4">
+                          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#1D4532]/10 pb-3">
                             <div>
                               <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#1D4532]">
-                                Thêm Mini game 1:
+                                Thiết lập vòng chơi Mini game 1
                               </p>
                               <p className="mt-1 text-xs text-on-surface-variant">Mỗi nốt cần có cao độ và thời điểm để app hiển thị đúng trên khuông nhạc.</p>
                             </div>
-                            <span className="text-xs bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded">{rhythmDraft.rounds.length} vòng</span>
+                            <span className="text-xs bg-emerald-100 text-emerald-800 font-bold px-2.5 py-1 rounded-full">{rhythmDraft.rounds.length} vòng</span>
                           </div>
 
                           <div className="space-y-4">
@@ -872,269 +927,196 @@ const InstructorLessonContent = () => {
                               const noteOptions = notesForInstrument(lesson?.instrument);
                               const updateRound = (next: RhythmRoundConfig) => setRhythmDraft((prev) => ({ ...prev, rounds: prev.rounds.map((item, index) => index === roundIndex ? next : item) }));
                               return (
-                                <article key={roundIndex} className="rounded-xl border border-[#1D4532]/20 bg-white p-4 space-y-3">
-                                  <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-2">
-                                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#1D4532] text-xs font-bold text-white">{roundIndex + 1}</span>
-                                    <div className="flex min-w-0 flex-wrap items-center gap-2">
-                                      <input value={round.title ?? ''} onChange={(e) => updateRound({ ...round, title: e.target.value })} placeholder={`Vòng ${roundIndex + 1}`} className="input h-11 min-w-36 flex-1 py-2 font-semibold" />
-                                      <input type="number" min="30" max="300" value={round.tempo_bpm} onChange={(e) => updateRound({ ...round, tempo_bpm: Number(e.target.value) || 100 })} className="input h-11 w-32 shrink-0 py-2" aria-label={`BPM vòng ${roundIndex + 1}`} />
-                                      <button type="button" disabled={roundIndex === 0} onClick={() => setRhythmDraft((prev) => {
-                                      const rounds = [...prev.rounds];
-                                      [rounds[roundIndex - 1], rounds[roundIndex]] = [rounds[roundIndex], rounds[roundIndex - 1]];
-                                      return { ...prev, rounds };
-                                      })} className="p-2 text-[#1D4532] disabled:opacity-30" title="Đưa vòng lên"><ArrowUp className="h-4 w-4" /></button>
-                                      <button type="button" disabled={roundIndex === rhythmDraft.rounds.length - 1} onClick={() => setRhythmDraft((prev) => {
-                                      const rounds = [...prev.rounds];
-                                      [rounds[roundIndex], rounds[roundIndex + 1]] = [rounds[roundIndex + 1], rounds[roundIndex]];
-                                      return { ...prev, rounds };
-                                      })} className="p-2 text-[#1D4532] disabled:opacity-30" title="Đưa vòng xuống"><ArrowDown className="h-4 w-4" /></button>
-                                      <button type="button" disabled={rhythmDraft.rounds.length === 1} onClick={() => {
-                                      setRhythmDraft((prev) => ({ ...prev, rounds: prev.rounds.filter((_, index) => index !== roundIndex) }));
-                                      }} className="p-2 text-red-600 disabled:opacity-30" title="Xóa vòng"><Trash2 className="h-4 w-4" /></button>
+                                <article key={roundIndex} className="rounded-xl border border-[#1D4532]/15 bg-white p-3.5 sm:p-4 space-y-3.5 shadow-sm">
+                                  <div className="flex flex-wrap items-center justify-between gap-2.5">
+                                    <div className="flex items-center gap-2 flex-1 min-w-[180px]">
+                                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#1D4532] text-xs font-bold text-white shadow-sm">{roundIndex + 1}</span>
+                                      <input
+                                        value={round.title ?? ''}
+                                        onChange={(e) => updateRound({ ...round, title: e.target.value })}
+                                        placeholder={`Vòng ${roundIndex + 1}`}
+                                        className="input h-10 py-1.5 px-3 font-semibold text-sm flex-1 min-w-[120px]"
+                                      />
+                                    </div>
+                                    <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
+                                      <div className="flex items-center bg-[#fbf9f4] border border-outline-variant/30 rounded-xl px-2.5 h-10">
+                                        <span className="text-xs font-semibold text-on-surface-variant mr-1.5">Nhịp:</span>
+                                        <select
+                                          value={round.time_signature ? `${round.time_signature[0]}/${round.time_signature[1]}` : '4/4'}
+                                          onChange={(e) => {
+                                            const [num, den] = e.target.value.split('/').map(Number);
+                                            updateRound({ ...round, time_signature: [num, den] as TimeSignature });
+                                          }}
+                                          className="bg-transparent text-xs font-bold text-[#1D4532] outline-none cursor-pointer"
+                                          aria-label={`Chỉ số nhịp vòng ${roundIndex + 1}`}
+                                        >
+                                          <option value="2/4">2/4 (2 phách/ô)</option>
+                                          <option value="3/4">3/4 (3 phách/ô)</option>
+                                          <option value="4/4">4/4 (4 phách/ô)</option>
+                                          <option value="6/8">6/8 (3 phách/ô · 6 móc đơn)</option>
+                                        </select>
+                                      </div>
+                                      <div className="flex items-center bg-[#fbf9f4] border border-outline-variant/30 rounded-xl px-2.5 h-10">
+                                        <span className="text-xs font-semibold text-on-surface-variant mr-1.5">BPM:</span>
+                                        <input
+                                          type="number"
+                                          min="30"
+                                          max="300"
+                                          value={round.tempo_bpm}
+                                          onChange={(e) => updateRound({ ...round, tempo_bpm: Number(e.target.value) || 100 })}
+                                          className="w-12 bg-transparent text-sm font-bold text-center outline-none"
+                                          aria-label={`BPM vòng ${roundIndex + 1}`}
+                                        />
+                                      </div>
+                                      <div className="flex items-center border border-outline-variant/20 rounded-xl p-0.5 bg-[#fbf9f4]">
+                                        <button
+                                          type="button"
+                                          disabled={roundIndex === 0}
+                                          onClick={() => setRhythmDraft((prev) => {
+                                            const rounds = [...prev.rounds];
+                                            [rounds[roundIndex - 1], rounds[roundIndex]] = [rounds[roundIndex], rounds[roundIndex - 1]];
+                                            return { ...prev, rounds };
+                                          })}
+                                          className="p-1.5 rounded-lg text-[#1D4532] hover:bg-white disabled:opacity-30 transition-colors"
+                                          title="Đưa vòng lên"
+                                        >
+                                          <ArrowUp className="h-4 w-4" />
+                                        </button>
+                                        <button
+                                          type="button"
+                                          disabled={roundIndex === rhythmDraft.rounds.length - 1}
+                                          onClick={() => setRhythmDraft((prev) => {
+                                            const rounds = [...prev.rounds];
+                                            [rounds[roundIndex], rounds[roundIndex + 1]] = [rounds[roundIndex + 1], rounds[roundIndex]];
+                                            return { ...prev, rounds };
+                                          })}
+                                          className="p-1.5 rounded-lg text-[#1D4532] hover:bg-white disabled:opacity-30 transition-colors"
+                                          title="Đưa vòng xuống"
+                                        >
+                                          <ArrowDown className="h-4 w-4" />
+                                        </button>
+                                        <button
+                                          type="button"
+                                          disabled={rhythmDraft.rounds.length === 1}
+                                          onClick={() => {
+                                            setRhythmDraft((prev) => ({ ...prev, rounds: prev.rounds.filter((_, index) => index !== roundIndex) }));
+                                          }}
+                                          className="p-1.5 rounded-lg text-red-600 hover:bg-white disabled:opacity-30 transition-colors"
+                                          title="Xóa vòng"
+                                        >
+                                          <Trash2 className="h-4 w-4" />
+                                        </button>
+                                      </div>
                                     </div>
                                   </div>
-                                  <div className="grid grid-cols-[2rem_8.5rem_minmax(0,1fr)_10rem_2rem] gap-2 items-center px-1 text-[11px] font-bold uppercase tracking-wide text-on-surface-variant">
-                                    <span>#</span><span>Loại</span><span>Nốt</span><span>Trường độ</span><span />
-                                  </div>
-                                  {round.events.map((event, noteIndex) => {
-                                    return <div key={noteIndex} className="grid grid-cols-[2rem_8.5rem_minmax(0,1fr)_10rem_2rem] gap-2 items-center">
-                                      <span className="text-center text-sm font-bold text-[#1D4532]">{noteIndex + 1}</span>
-                                      <select value={event.mode} onChange={(e) => { const events = [...round.events]; events[noteIndex] = { ...event, mode: e.target.value === 'SAMPLE' ? 'SAMPLE' : 'TARGET' }; updateRound({ ...round, events }); }} className="input h-11 px-2 py-2 text-xs font-semibold cursor-pointer">
-                                        <option value="SAMPLE">Nghe mẫu</option><option value="TARGET">Cần chơi</option>
-                                      </select>
-                                      <select value={event.note} onChange={(e) => { const events = [...round.events]; events[noteIndex] = { ...event, note: e.target.value }; updateRound({ ...round, events }); }} className="input h-11 cursor-pointer py-2">
-                                        <option value="">Chọn nốt</option>
-                                        {noteOptions.map((note) => <option key={note} value={note}>{noteOptionLabel(lesson?.instrument, note)}</option>)}
-                                      </select>
-                                      <select value={event.duration_beats} onChange={(e) => { const events = [...round.events]; events[noteIndex] = { ...event, duration_beats: Number(e.target.value) }; updateRound({ ...round, events }); }} className="input h-11 px-2 py-2 text-xs cursor-pointer">{NOTE_DURATIONS.map((duration) => <option key={duration.value} value={duration.value}>{duration.label}</option>)}</select>
-                                      <button type="button" disabled={round.events.length <= 2} onClick={() => updateRound({ ...round, events: round.events.filter((_, index) => index !== noteIndex) })} className="p-2 text-red-600 disabled:opacity-30" title="Xóa nốt"><X className="h-4 w-4" /></button>
+
+                                  {(() => {
+                                    const timeSig = round.time_signature ?? [4, 4];
+                                    const measureDuration = getMeasureDurationBeats(timeSig);
+                                    const totalBeats = round.events.reduce((sum, ev) => sum + ev.duration_beats, 0);
+                                    const fullMeasures = totalBeats / measureDuration;
+                                    const isClosed = totalBeats > 0 && (Math.abs(totalBeats % measureDuration) < 0.001 || Math.abs((totalBeats % measureDuration) - measureDuration) < 0.001);
+                                    return (
+                                      <div className="flex items-center justify-between rounded-lg bg-[#fbf9f4] border border-outline-variant/20 px-3 py-1.5 text-xs">
+                                        <span className="text-on-surface-variant">
+                                          Nhịp <strong>{timeSig[0]}/{timeSig[1]}</strong> · {measureDuration} phách nốt đen/ô nhịp
+                                        </span>
+                                        <span className={`px-2 py-0.5 rounded font-semibold text-[11px] ${isClosed ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
+                                          {totalBeats} phách · {fullMeasures.toFixed(1)} ô {isClosed ? '✓ Khép kín' : '⚠️ Chưa đủ ô nhịp'}
+                                        </span>
+                                      </div>
+                                    );
+                                  })()}
+
+                                  <div className="space-y-2">
+                                    <div className="grid grid-cols-[1.5rem_6.5rem_minmax(0,1fr)_7.5rem_1.75rem] sm:grid-cols-[1.5rem_7.5rem_minmax(0,1fr)_8.5rem_1.75rem] gap-2 items-center px-1 text-[11px] font-bold uppercase tracking-wider text-on-surface-variant">
+                                      <span className="text-center">#</span>
+                                      <span>Loại</span>
+                                      <span>Nốt</span>
+                                      <span>Trường độ</span>
+                                      <span />
                                     </div>
-                                  })}
-                                  <button type="button" disabled={round.events.length >= 16} onClick={() => {
-                                    updateRound({ ...round, events: [...round.events, { note: noteOptions[0], mode: 'TARGET', duration_beats: 1 }] });
-                                  }} className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-800 disabled:opacity-40"><Plus className="h-3.5 w-3.5" /> Thêm nốt</button>
+                                    {round.events.map((event, noteIndex) => (
+                                      <div key={noteIndex} className="grid grid-cols-[1.5rem_6.5rem_minmax(0,1fr)_7.5rem_1.75rem] sm:grid-cols-[1.5rem_7.5rem_minmax(0,1fr)_8.5rem_1.75rem] gap-2 items-center">
+                                        <span className="text-center text-xs font-bold text-[#1D4532]">{noteIndex + 1}</span>
+                                        <select
+                                          value={event.mode}
+                                          onChange={(e) => {
+                                            const events = [...round.events];
+                                            events[noteIndex] = { ...event, mode: e.target.value === 'SAMPLE' ? 'SAMPLE' : 'TARGET' };
+                                            updateRound({ ...round, events });
+                                          }}
+                                          className="input h-10 px-2 py-1.5 text-xs font-semibold cursor-pointer"
+                                        >
+                                          <option value="SAMPLE">Nghe mẫu</option>
+                                          <option value="TARGET">Cần chơi</option>
+                                        </select>
+                                        <select
+                                          value={event.note}
+                                          onChange={(e) => {
+                                            const events = [...round.events];
+                                            events[noteIndex] = { ...event, note: e.target.value };
+                                            updateRound({ ...round, events });
+                                          }}
+                                          className="input h-10 px-2.5 py-1.5 text-xs cursor-pointer truncate font-medium"
+                                        >
+                                          <option value="">Chọn nốt</option>
+                                          {noteOptions.map((note) => (
+                                            <option key={note} value={note}>
+                                              {noteOptionLabel(lesson?.instrument, note)}
+                                            </option>
+                                          ))}
+                                        </select>
+                                        <select
+                                          value={event.duration_beats}
+                                          onChange={(e) => {
+                                            const events = [...round.events];
+                                            events[noteIndex] = { ...event, duration_beats: Number(e.target.value) };
+                                            updateRound({ ...round, events });
+                                          }}
+                                          className="input h-10 px-2 py-1.5 text-xs cursor-pointer truncate"
+                                        >
+                                          {NOTE_DURATIONS.map((duration) => (
+                                            <option key={duration.value} value={duration.value}>
+                                              {duration.label}
+                                            </option>
+                                          ))}
+                                        </select>
+                                        <button
+                                          type="button"
+                                          disabled={round.events.length <= 2}
+                                          onClick={() => updateRound({ ...round, events: round.events.filter((_, index) => index !== noteIndex) })}
+                                          className="p-1.5 text-neutral-400 hover:text-red-600 disabled:opacity-20 transition-colors flex justify-center"
+                                          title="Xóa nốt"
+                                        >
+                                          <X className="h-4 w-4" />
+                                        </button>
+                                      </div>
+                                    ))}
+                                  </div>
+
+                                  <button
+                                    type="button"
+                                    disabled={round.events.length >= 16}
+                                    onClick={() => {
+                                      updateRound({ ...round, events: [...round.events, { note: noteOptions[0], mode: 'TARGET', duration_beats: 1 }] });
+                                    }}
+                                    className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-800 hover:bg-emerald-100 disabled:opacity-40 transition-colors"
+                                  >
+                                    <Plus className="h-3.5 w-3.5" /> Thêm nốt
+                                  </button>
                                 </article>
                               );
                             })}
                           </div>
 
-                          <button type="button" onClick={() => setRhythmDraft((prev) => ({ ...prev, rounds: [...prev.rounds, newRhythmRound(prev.rounds.length + 1, lesson?.instrument)] }))} className="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-[#1D4532]/40 px-3 py-2 text-xs font-bold text-[#1D4532] hover:bg-emerald-50"><Plus className="h-3.5 w-3.5" /> Thêm vòng</button>
-
-                        </section>
-                      )}
-
-                      {/* FORM 1: THỬ THÁCH NHỊP ĐIỆU (RHYTHM_MATCH) */}
-                      {minigameForm.challengeType === 'RHYTHM_MATCH' && false && (
-                        <section className="rounded-2xl border border-[#1D4532]/20 bg-[#fbf9f4] p-4.5 space-y-5">
-                          <div className="flex items-center justify-between">
-                            <p className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-[0.18em] text-[#1D4532]">
-                              <Sparkles className="w-3.5 h-3.5" /> Thiết lập phách nhịp
-                            </p>
-                            <span className="text-xs bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded">RHYTHM_MATCH</span>
-                          </div>
-
-                          <div className="grid grid-cols-2 gap-4">
-                            <Field label="Tempo (BPM - Nhịp/phút)">
-                              <input
-                                type="number"
-                                min="30"
-                                max="300"
-                                required
-                                value={rhythmDraft.tempo_bpm ?? 100}
-                                onChange={(e) => setRhythmDraft((prev) => ({ ...prev, tempo_bpm: Number(e.target.value) || 100 }))}
-                                className="input font-semibold"
-                              />
-                              <span className="mt-1 block text-[11px] text-on-surface-variant">Tốc độ tiếng gõ metronome đếm nhịp cho học viên.</span>
-                            </Field>
-                            <Field label="Thời lượng ước tính (Tự động)">
-                              <input
-                                disabled
-                                value={rhythmDraft.beats.length > 0 ? `~ ${(Math.max(...rhythmDraft.beats, 0) + 1.0).toFixed(1)} giây` : '0 giây'}
-                                className="input bg-neutral-100 text-neutral-600 font-medium"
-                              />
-                              <span className="mt-1 block text-[11px] text-on-surface-variant">Tự tính từ mốc phách cuối + 1 giây chuẩn bị.</span>
-                            </Field>
-                          </div>
-
-                          <Field label="Danh sách mốc phách (giây)">
-                            <div className="flex items-center justify-between mb-1">
-                              <span className="text-xs text-on-surface-variant">Phân cách bằng khoảng trắng hoặc dấu phẩy</span>
-                              <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-                                rhythmDraft.beats.length > 16
-                                  ? 'bg-red-100 text-red-700'
-                                  : rhythmDraft.beats.length >= 2
-                                  ? 'bg-emerald-100 text-emerald-800'
-                                  : 'bg-neutral-100 text-neutral-600'
-                              }`}>
-                                {rhythmDraft.beats.length} / 16 phách tối đa
-                              </span>
-                            </div>
-                            <input
-                              value={rhythmBeatsInput}
-                              onChange={(e) => {
-                                const val = e.target.value;
-                                setRhythmBeatsInput(val);
-                                const parsedBeats = val
-                                  .split(/[\s,]+/)
-                                  .map((s) => parseFloat(s.trim()))
-                                  .filter((n) => !isNaN(n) && n >= 0)
-                                  .sort((a, b) => a - b);
-                                setRhythmDraft((prev) => ({ ...prev, beats: parsedBeats }));
-                              }}
-                              placeholder="Ví dụ: 1.0 2.0 3.0 4.0"
-                              className="input font-mono"
-                            />
-                            {rhythmDraft.beats.length > 16 && (
-                              <p className="mt-1.5 text-xs text-red-600 font-medium">
-                                * Số lượng phách quá dài ({rhythmDraft.beats.length} phách). Khuyến nghị tối đa 16 phách (khoảng 5-15s) để học viên kịp nhìn và thao tác trên điện thoại.
-                              </p>
-                            )}
-                            <div className="mt-2.5 flex flex-wrap gap-2 items-center">
-                              <button
-                                type="button"
-                                disabled={rhythmDraft.beats.length >= 16}
-                                onClick={() => {
-                                  const last = rhythmDraft.beats.length > 0 ? rhythmDraft.beats[rhythmDraft.beats.length - 1] : 0;
-                                  const next = Number((last + 1.0).toFixed(2));
-                                  const nextBeats = [...rhythmDraft.beats, next];
-                                  setRhythmDraft((prev) => ({ ...prev, beats: nextBeats }));
-                                  setRhythmBeatsInput(nextBeats.join(' '));
-                                }}
-                                className="text-xs bg-emerald-50 hover:bg-emerald-100 disabled:opacity-40 disabled:hover:bg-emerald-50 text-emerald-800 px-2.5 py-1.5 rounded-md font-medium border border-emerald-200 transition-colors"
-                              >
-                                + Thêm 1 phách (+1.0s)
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const preset = [1.0, 2.0, 3.0, 4.0];
-                                  setRhythmDraft((prev) => ({ ...prev, beats: preset }));
-                                  setRhythmBeatsInput(preset.join(' '));
-                                }}
-                                className="text-xs bg-neutral-100 hover:bg-neutral-200 text-neutral-700 px-2.5 py-1.5 rounded-md font-medium transition-colors"
-                              >
-                                Mẫu: 4 phách đều
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const preset = [0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0];
-                                  setRhythmDraft((prev) => ({ ...prev, beats: preset }));
-                                  setRhythmBeatsInput(preset.join(' '));
-                                }}
-                                className="text-xs bg-neutral-100 hover:bg-neutral-200 text-neutral-700 px-2.5 py-1.5 rounded-md font-medium transition-colors"
-                              >
-                                Mẫu: 8 phách nhanh
-                              </button>
-                              {rhythmDraft.beats.length > 0 && (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setRhythmDraft((prev) => ({ ...prev, beats: [] }));
-                                    setRhythmBeatsInput('');
-                                  }}
-                                  className="text-xs text-red-600 hover:text-red-800 px-2 py-1 font-medium ml-auto"
-                                >
-                                  Xóa hết
-                                </button>
-                              )}
-                            </div>
-                          </Field>
-
-                          {/* TÙY CHỌN NÂNG CAO CHO AUDIO */}
-                          <details className="group rounded-xl border border-dashed border-[#1D4532]/25 bg-white/60 p-3.5 transition-all">
-                            <summary className="flex cursor-pointer items-center justify-between text-xs font-bold text-[#1D4532] select-none">
-                              <span>⚙️ Tùy chọn nâng cao: File audio nhạc đệm (không bắt buộc)</span>
-                              <span className="text-neutral-400 group-open:rotate-180 transition-transform">▼</span>
-                            </summary>
-                            <div className="mt-3 pt-3 border-t border-outline-variant/15 space-y-2">
-                              <select
-                                value={rhythmDraft.audio_asset_id ?? ''}
-                                onChange={(e) => {
-                                  const assetId = e.target.value ? Number(e.target.value) : undefined;
-                                  const asset = audioAssets.find((item) => item.id === assetId);
-                                  setRhythmDraft((prev) => ({
-                                    ...prev,
-                                    audio_asset_id: assetId,
-                                    referenceAudioUrl: asset?.url,
-                                    tempo_bpm: asset?.tempo_bpm ?? prev.tempo_bpm,
-                                  }));
-                                }}
-                                className="input cursor-pointer"
-                              >
-                                <option value="">-- Mặc định: Dùng tiếng gõ Metronome tự động của ứng dụng --</option>
-                                {audioAssets.map((asset) => (
-                                  <option key={asset.id} value={asset.id}>
-                                    Asset #{asset.id} · {asset.title || 'Audio tham chiếu'}{asset.tempo_bpm ? ` (${asset.tempo_bpm} BPM)` : ''}
-                                  </option>
-                                ))}
-                              </select>
-                              <span className="block text-[11px] text-on-surface-variant">
-                                Ứng dụng Godot đã tích hợp sẵn máy đếm nhịp. Chỉ chọn file audio này nếu bạn muốn phát một đoạn nhạc nền riêng.
-                              </span>
-                            </div>
-                          </details>
-
-                          {/* TIMELINE PREVIEW CHO RHYTHM */}
-                          <div>
-                            <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-[#1D4532]">
-                              Xem trước dòng thời gian nhịp ({rhythmDraft.beats.length} phách)
-                            </p>
-                            <div className="rounded-xl border border-[#1D4532]/15 bg-white p-3.5 space-y-2">
-                              {rhythmDraft.beats.length === 0 ? (
-                                <p className="text-xs text-on-surface-variant text-center py-2">Chưa có mốc phách nào — hãy nhập hoặc bấm mẫu phía trên.</p>
-                              ) : (
-                                <>
-                                  <div className="relative h-9 bg-neutral-100 rounded-lg overflow-hidden flex items-center px-3 border border-neutral-200">
-                                    <div className="absolute inset-x-0 h-0.5 bg-neutral-300" />
-                                    {rhythmDraft.beats.map((beat, idx) => {
-                                      const maxTime = Math.max(...rhythmDraft.beats, 1);
-                                      const leftPercent = Math.min(95, Math.max(5, (beat / (maxTime + 0.8)) * 100));
-                                      return (
-                                        <div
-                                          key={`${beat}-${idx}`}
-                                          style={{ left: `${leftPercent}%` }}
-                                          className="absolute -translate-x-1/2 flex flex-col items-center group cursor-pointer"
-                                          title={`Phách #${idx + 1} tại ${beat}s (Bấm để xóa)`}
-                                          onClick={() => {
-                                            const filtered = rhythmDraft.beats.filter((_, i) => i !== idx);
-                                            setRhythmDraft((prev) => ({ ...prev, beats: filtered }));
-                                            setRhythmBeatsInput(filtered.join(' '));
-                                          }}
-                                        >
-                                          <span className="w-4 h-4 rounded-full bg-[#1D4532] text-white text-[10px] font-bold flex items-center justify-center shadow-sm group-hover:bg-red-600 transition-colors">
-                                            {idx + 1}
-                                          </span>
-                                        </div>
-                                      );
-                                    })}
-                                  </div>
-                                  <div className="flex flex-wrap gap-1.5 pt-1">
-                                    {rhythmDraft.beats.map((beat, idx) => (
-                                      <span
-                                        key={idx}
-                                        className="inline-flex items-center gap-1 text-xs bg-emerald-50 border border-emerald-200 text-emerald-900 px-2 py-0.5 rounded font-mono"
-                                      >
-                                        Phách {idx + 1}: <strong>{beat}s</strong>
-                                        <button
-                                          type="button"
-                                          onClick={() => {
-                                            const filtered = rhythmDraft.beats.filter((_, i) => i !== idx);
-                                            setRhythmDraft((prev) => ({ ...prev, beats: filtered }));
-                                            setRhythmBeatsInput(filtered.join(' '));
-                                          }}
-                                          className="text-red-500 hover:text-red-700 font-bold ml-0.5"
-                                          title="Xóa phách này"
-                                        >
-                                          ×
-                                        </button>
-                                      </span>
-                                    ))}
-                                  </div>
-                                </>
-                              )}
-                            </div>
-                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setRhythmDraft((prev) => ({ ...prev, rounds: [...prev.rounds, newRhythmRound(prev.rounds.length + 1, lesson?.instrument)] }))}
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-[#1D4532]/40 bg-white/70 px-3.5 py-2 text-xs font-bold text-[#1D4532] hover:bg-emerald-50 transition-colors"
+                          >
+                            <Plus className="h-3.5 w-3.5" /> Thêm vòng
+                          </button>
                         </section>
                       )}
 

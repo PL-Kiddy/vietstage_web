@@ -78,9 +78,32 @@ export interface RhythmEventConfig {
   duration_ms?: number;
 }
 
+export type TimeSignature = [number, number];
+
+export const SUPPORTED_TIME_SIGNATURES: TimeSignature[] = [
+  [2, 4],
+  [3, 4],
+  [4, 4],
+  [6, 8],
+];
+
+export const getTimeSignatureLabel = (ts?: TimeSignature): string => {
+  if (!ts || !Array.isArray(ts) || ts.length < 2) return '4/4';
+  return `${ts[0]}/${ts[1]}`;
+};
+
+/** Measure duration in quarter-note beats. 2/4->2, 3/4->3, 4/4->4, 6/8->3 (6 * 0.5 beats). */
+export const getMeasureDurationBeats = (ts?: TimeSignature): number => {
+  if (!ts || !Array.isArray(ts) || ts.length < 2) return 4.0;
+  if (ts[0] === 6 && ts[1] === 8) return 3.0;
+  if (ts[1] === 4) return ts[0];
+  return 4.0;
+};
+
 export interface RhythmRoundConfig {
   title?: string;
   tempo_bpm: number;
+  time_signature?: TimeSignature;
   events: RhythmEventConfig[];
   /** Legacy editor fields retained only while old saved drafts are supported. */
   beats: number[];
@@ -101,11 +124,14 @@ export const RHYTHM_MATCH_CONFIG: RhythmMatchConfig = {
     {
       title: 'Vòng 1',
       tempo_bpm: 100,
+      time_signature: [4, 4],
       beats: [],
       notes: [],
       events: [
         { note: 'Sol1', mode: 'SAMPLE', duration_beats: 1 },
-        { note: 'La1', mode: 'TARGET', duration_beats: 1 },
+        { note: 'La1', mode: 'SAMPLE', duration_beats: 1 },
+        { note: 'Đô2', mode: 'TARGET', duration_beats: 1 },
+        { note: 'Rê2', mode: 'TARGET', duration_beats: 1 },
       ],
     },
   ],
