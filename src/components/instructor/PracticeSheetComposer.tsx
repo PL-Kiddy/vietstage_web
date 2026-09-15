@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ChevronDown, ChevronUp, Music4, Plus, Trash2 } from 'lucide-react';
 import PracticeStaffPreview from './PracticeStaffPreview';
+import PracticeNotePicker from './PracticeNotePicker';
 
 export type PracticeTechnique = 'none' | 'rung' | 'nhan' | 've' | 'a';
 
@@ -160,10 +161,10 @@ const PracticeSheetComposer = ({ value, onChange, instrument = 'dan_tranh' }: Pr
                 </select>
               </label>}
               {event.kind === 'chord' && event.chordPreset === 'custom' && <label className="text-[11px] font-semibold text-on-surface-variant sm:col-span-2">Tên hợp âm<input value={event.chordName || ''} placeholder="Nhập tên hợp âm" onChange={e => updateEvent(lineIndex, eventIndex, { ...event, chordName: e.target.value })} className="mt-1 block w-full rounded-md border border-[#d8d2c3] bg-white p-1.5 text-xs" /></label>}
-              {(event.kind !== 'chord' || event.chordPreset === 'custom') && event.notes.map((note, noteIndex) => <label key={noteIndex} className="text-[11px] font-semibold text-on-surface-variant">{event.notes.length === 1 ? 'Nốt nhạc' : `Nốt ${noteIndex + 1}`}
-                <div className="mt-1 flex items-center gap-2"><select value={note} onChange={e => updateEvent(lineIndex, eventIndex, { ...event, notes: event.notes.map((n, i) => i === noteIndex ? e.target.value : n) })} className="block min-w-0 w-full rounded-md border border-[#d8d2c3] bg-white p-1.5 text-xs">{noteOptions.map(n => <option key={n} value={n}>{n === 'REST' ? 'Dấu lặng (lấy hơi)' : n.replace('Sib', 'Si♭')}</option>)}</select>
+              {(event.kind !== 'chord' || event.chordPreset === 'custom') && event.notes.map((note, noteIndex) => <div key={noteIndex} className="text-[11px] font-semibold text-on-surface-variant">{event.notes.length === 1 ? 'Nốt nhạc' : `Nốt ${noteIndex + 1}`}
+                <div className="mt-1 flex items-center gap-2"><PracticeNotePicker value={note} options={noteOptions} isFlute={isFlute} label={event.notes.length === 1 ? 'Nốt nhạc' : `Nốt ${noteIndex + 1}`} onChange={next => updateEvent(lineIndex, eventIndex, { ...event, notes: event.notes.map((n, i) => i === noteIndex ? next : n) })} />
                 {event.kind === 'chord' && event.notes.length > 3 && <button type="button" aria-label={`Xóa thành phần ${noteIndex + 1}`} onClick={() => updateEvent(lineIndex, eventIndex, { ...event, notes: event.notes.filter((_, i) => i !== noteIndex), fingering: [] })} className="shrink-0 p-1 text-red-700"><Trash2 className="h-4 w-4" /></button>}</div>
-              </label>)}
+              </div>)}
               {event.kind === 'chord' && event.chordPreset === 'custom' && <button type="button" disabled={event.notes.length >= 6} onClick={() => updateEvent(lineIndex, eventIndex, { ...event, notes: [...event.notes, NOTES.find(n => !event.notes.includes(n)) || 'Do2'], fingering: [] })} className="self-end rounded-md border p-2 text-xs text-[#1D4532] disabled:opacity-45">+ Thêm nốt hợp âm (tối đa 6)</button>}
               {!isFlute && <label className="text-[11px] font-semibold text-on-surface-variant">Ngón gảy · Tay phải
                 <select value={event.fingering.join('/')} onChange={e => updateEvent(lineIndex, eventIndex, { ...event, fingering: e.target.value ? e.target.value.split('/') : [] })} className="mt-1 block w-full rounded-md border border-[#d8d2c3] bg-white p-1.5 text-xs">
