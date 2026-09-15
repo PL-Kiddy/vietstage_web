@@ -1,4 +1,5 @@
 import { Music4, Plus, Trash2 } from 'lucide-react';
+import PracticeStaffPreview from './PracticeStaffPreview';
 
 export type PracticeTechnique = 'none' | 'rung' | 'nhan' | 've' | 'a';
 
@@ -21,17 +22,12 @@ export interface PracticeSheetConfig {
 
 export const EMPTY_PRACTICE_SHEET: PracticeSheetConfig = { version: 1, staffLines: [] };
 
-const NOTES = ['Do1', 'Re1', 'Mi1', 'Fa1', 'Sol1', 'La1', 'Si1', 'Do2', 'Re2', 'Mi2', 'Fa2', 'Sol2', 'La2', 'Si2', 'Do3', 'Re3', 'Mi3', 'Fa3', 'Sol3', 'La3'];
+const NOTES = [1, 2, 3, 4].flatMap(octave => ['Do', 'Re', 'Mi', 'Fa', 'Sol', 'La', 'Si'].map(note => `${note}${octave}`));
 const TECHNIQUE_LABELS: Record<PracticeTechnique, string> = {
   none: 'Không có', rung: 'Rung', nhan: 'Nhấn', ve: 'Vê', a: 'Á',
 };
 
 const newEvent = (): PracticeSheetEvent => ({ notes: ['Mi2'], duration: 'quarter', fingering: ['2'], technique: 'none' });
-
-const notePosition = (note: string) => {
-  const index = Math.max(0, NOTES.indexOf(note));
-  return 83 - Math.min(68, index * 3.6);
-};
 
 interface Props {
   value: PracticeSheetConfig;
@@ -87,20 +83,7 @@ const PracticeSheetComposer = ({ value, onChange }: Props) => {
           </div>
 
           <div className="overflow-x-auto rounded-lg border border-[#eadfc2] bg-[#fffef9] p-2 min-w-0">
-            <div className="relative h-28 min-w-[620px]">
-              {[22, 37, 52, 67, 82].map((top) => <span key={top} className="absolute left-1 right-1 border-t border-[#514b40]" style={{ top }} />)}
-              <span className="absolute left-4 top-[35px] text-4xl leading-none text-[#302d29]" aria-hidden>𝄞</span>
-              {line.events.map((event, eventIndex) => {
-                const left = 100 + eventIndex * 56;
-                return <div key={eventIndex} className="absolute text-center" style={{ left, top: 0, width: 52 }} title={`${event.notes.join(' + ')} · ${TECHNIQUE_LABELS[event.technique]}`}>
-                  {event.technique !== 'none' && <span className="absolute -top-1 left-0 right-0 text-[11px] font-bold text-[#1D4532]">{event.technique === 'nhan' ? '*' : TECHNIQUE_LABELS[event.technique]}</span>}
-                  {event.notes.map((note, noteIndex) => <span key={noteIndex} className="absolute left-[20px] h-3.5 w-5 -translate-y-1/2 rounded-full bg-[#151515]" style={{ top: notePosition(note) + noteIndex * 2 }} />)}
-                  <span className="absolute left-[29px] h-11 border-l-2 border-[#151515]" style={{ top: Math.min(...event.notes.map(notePosition)) - 40 }} />
-                  <span className="absolute top-[92px] left-0 right-0 text-xs font-bold text-[#1D4532]">{event.fingering.join('/')}</span>
-                </div>;
-              })}
-              {line.events.length === 0 && <span className="absolute left-28 top-12 text-xs text-on-surface-variant">Nốt được thêm sẽ hiển thị ở đây.</span>}
-            </div>
+            <PracticeStaffPreview events={line.events} />
           </div>
 
           <div className="flex flex-wrap gap-2">
