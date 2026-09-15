@@ -18,7 +18,7 @@ import {
   Layers,
 } from 'lucide-react';
 import { useAxiosRequest } from '../../hooks/useAxiosRequest';
-import { lessonsApi, exercisesApi, masterDataApi, type ExerciseInput } from '../../api/services';
+import { lessonsApi, exercisesApi, masterDataApi, lessonContentsApi, type LessonContent, type ExerciseInput } from '../../api/services';
 import type { Lesson, SkillLevel } from '../../api/types';
 import PracticeSheetComposer, { EMPTY_PRACTICE_SHEET, type PracticeSheetConfig } from '../../components/instructor/PracticeSheetComposer';
 
@@ -117,10 +117,9 @@ const InstructorMedia = () => {
   const [lessonModalOpen, setLessonModalOpen] = useState(false);
   const [editingLessonInfo, setEditingLessonInfo] = useState<Lesson | null>(null);
   const [lessonTitle, setLessonTitle] = useState('');
-  const [lessonDesc, setLessonDesc] = useState('');
+  const [lessonNarration, setLessonNarration] = useState<Array<Omit<LessonContent, 'id'> & { id?: number }>>([{ content_text: '', order_index: 1 }]);
   const [lessonInstrumentId, setLessonInstrumentId] = useState<number | null>(null);
   const [lessonSkillLevelId, setLessonSkillLevelId] = useState<number | undefined>();
-  const [lessonCurriculumLevel, setLessonCurriculumLevel] = useState<CurriculumLevelKey>('BEGINNER');
   const [lessonOrderIndex, setLessonOrderIndex] = useState<number>(1);
   const [lessonStatus, setLessonStatus] = useState<string>('DRAFT');
   const [isSavingLesson, setIsSavingLesson] = useState(false);
@@ -133,9 +132,8 @@ const InstructorMedia = () => {
   const handleOpenCreateLesson = () => {
     setEditingLessonInfo(null);
     setLessonTitle('');
-    setLessonDesc('');
+    setLessonNarration([{ content_text: '', order_index: 1 }]);
     setLessonInstrumentId(selectedInstrumentId === 'ALL' ? instruments[0]?.id ?? null : selectedInstrumentId);
-    setLessonCurriculumLevel(selectedCurriculumLevel);
     setLessonSkillLevelId(getBackendSkillLevelId(selectedCurriculumLevel));
     setLessonOrderIndex(lessons.length > 0 ? Math.max(...lessons.map((l: any) => l.orderIndex ?? l.order_index ?? 0)) + 1 : 1);
     setLessonStatus('DRAFT');
@@ -144,14 +142,20 @@ const InstructorMedia = () => {
   };
 
   // Mở drawer sửa bài học: nạp thông tin hiện tại vào form
-  const handleOpenEditLesson = (lesson: Lesson) => {
+  const handleOpenEditLesson = async (lesson: Lesson) => {
+    let narration: LessonContent[];
+    try {
+      narration = await lessonContentsApi.list(lesson.id);
+    } catch {
+      alert('Không thể tải lời hướng dẫn của bài học. Vui lòng thử lại.');
+      return;
+    }
     setEditingLessonInfo(lesson);
     setLessonTitle(lesson.title);
-    setLessonDesc(lesson.description || '');
+    setLessonNarration(narration.length ? [...narration].sort((a, b) => a.order_index - b.order_index) : [{ content_text: '', order_index: 1 }]);
     setLessonInstrumentId((lesson as any).instrument?.id ?? (lesson as any).instrument_id ?? instruments[0]?.id ?? null);
     const lessonLevel = ((lesson as any).skillLevel ?? (lesson as any).skill_level) as Partial<SkillLevel> | undefined;
     const curriculumLevel = getCurriculumLevelKey(lessonLevel);
-    setLessonCurriculumLevel(curriculumLevel);
     setLessonSkillLevelId(lessonLevel?.id ?? getBackendSkillLevelId(curriculumLevel));
     setLessonOrderIndex((lesson as any).orderIndex ?? (lesson as any).order_index ?? 1);
     setLessonStatus(lesson.status || 'DRAFT');
@@ -164,12 +168,17 @@ const InstructorMedia = () => {
   const handleSaveLesson = async (e: FormEvent) => {
     e.preventDefault();
     if (!lessonTitle.trim() || !lessonInstrumentId) return;
+    if (lessonSkillLevelId === undefined) {
+      alert('Chưa tải được cấp giáo trình đang chọn. Vui lòng tải lại danh sách trước khi lưu.');
+      return;
+    }
     setIsSavingLesson(true);
     try {
+      let savedLessonId = editingLessonInfo?.id;
       if (editingLessonInfo) {
         await lessonsApi.update(editingLessonInfo.id, {
           title: lessonTitle.trim(),
-          description: lessonDesc.trim(),
+          description: editingLessonInfo.description,
           skillLevelId: lessonSkillLevelId,
           orderIndex: lessonOrderIndex,
         });
@@ -177,14 +186,26 @@ const InstructorMedia = () => {
           await lessonsApi.updateStatus(editingLessonInfo.id, lessonStatus as any);
         }
       } else {
-        await lessonsApi.create({
+        const created = await lessonsApi.create({
           title: lessonTitle.trim(),
-          description: lessonDesc.trim(),
           instrumentId: lessonInstrumentId,
           skillLevelId: lessonSkillLevelId,
           status: lessonStatus as any,
           orderIndex: lessonOrderIndex,
         });
+        savedLessonId = created.id;
+        // If saving narration fails, retry updates this lesson instead of creating a duplicate.
+        setEditingLessonInfo(created);
+      }
+      if (savedLessonId === undefined) throw new Error('Không xác định được bài học để lưu lời hướng dẫn.');
+      for (let index = 0; index < lessonNarration.length; index++) {
+        const section = lessonNarration[index];
+        if (!section.id && !section.content_text.trim()) continue;
+        const body = { content_text: section.content_text.trim(), order_index: section.order_index };
+        const saved = section.id
+          ? await lessonContentsApi.update(savedLessonId, section.id, body)
+          : await lessonContentsApi.create(savedLessonId, body);
+        setLessonNarration(current => current.map((item, i) => i === index ? { ...item, id: saved.id } : item));
       }
       setLessonModalOpen(false);
       await reloadLessons();
@@ -780,7 +801,7 @@ const InstructorMedia = () => {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-md">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-md">
                       <div className="flex flex-col gap-xs">
                         <label className="text-xs font-semibold text-[#6B7280] uppercase tracking-wider">
                           Thứ tự (orderIndex)
@@ -792,31 +813,6 @@ const InstructorMedia = () => {
                           onChange={(e) => setLessonOrderIndex(Math.max(1, parseInt(e.target.value) || 1))}
                           className="bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl p-md text-sm focus:ring-1 focus:ring-[#1D4532] focus:border-[#1D4532] outline-none"
                         />
-                      </div>
-                      <div className="flex flex-col gap-xs">
-                        <label className="text-xs font-semibold text-[#6B7280] uppercase tracking-wider">
-                          Cấp giáo trình cố định
-                        </label>
-                        <select
-                          value={lessonCurriculumLevel}
-                          onChange={(e) => {
-                            const nextLevel = e.target.value as CurriculumLevelKey;
-                            setLessonCurriculumLevel(nextLevel);
-                            // Dùng ID API hiện có nếu có; mapping này là cầu nối tạm
-                            // trước khi backend chuẩn hóa ba level cố định.
-                            setLessonSkillLevelId(getBackendSkillLevelId(nextLevel));
-                          }}
-                          className="bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl p-md text-sm focus:ring-1 focus:ring-[#1D4532] focus:border-[#1D4532] outline-none cursor-pointer"
-                        >
-                          {CURRICULUM_LEVELS.map((level) => (
-                            <option key={level.key} value={level.key}>
-                              {level.label} — {level.title}
-                            </option>
-                          ))}
-                        </select>
-                        {!getBackendSkillLevelId(lessonCurriculumLevel) && (
-                          <span className="text-[11px] text-amber-700">API hiện chưa có ID cho cấp này; cần chuẩn hóa backend trước khi lưu.</span>
-                        )}
                       </div>
                       <div className="flex flex-col gap-xs">
                         <label className="text-xs font-semibold text-[#6B7280] uppercase tracking-wider">
@@ -836,15 +832,20 @@ const InstructorMedia = () => {
 
                     <div className="flex flex-col gap-xs">
                       <label className="text-xs font-semibold text-[#6B7280] uppercase tracking-wider">
-                        Mô tả tóm tắt bài học
+                        Nội dung cô Mai nói và hướng dẫn
                       </label>
-                      <textarea
-                        rows={3}
-                        value={lessonDesc}
-                        onChange={(e) => setLessonDesc(e.target.value)}
-                        placeholder="Mô tả mục tiêu bài học..."
-                        className="bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl p-md text-sm focus:ring-1 focus:ring-[#1D4532] focus:border-[#1D4532] outline-none resize-none"
-                      />
+                      <p className="text-xs text-on-surface-variant">Viết lời cô Mai nói trực tiếp với học viên: giới thiệu bài, hướng dẫn thao tác và lưu ý khi thực hành.</p>
+                      {lessonNarration.map((section, index) => <div key={index} className="flex flex-col gap-xs">
+                        {lessonNarration.length > 1 && <span className="text-xs font-semibold text-on-surface-variant">Đoạn hướng dẫn {index + 1}</span>}
+                        <textarea
+                          rows={6}
+                          aria-label={`Lời hướng dẫn cô Mai, đoạn ${index + 1}`}
+                          value={section.content_text}
+                          onChange={(e) => setLessonNarration(current => current.map((item, i) => i === index ? { ...item, content_text: e.target.value } : item))}
+                          placeholder="Chào em! Trong bài học này, cô sẽ hướng dẫn em…"
+                          className="bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl p-md text-sm focus:ring-1 focus:ring-[#1D4532] focus:border-[#1D4532] outline-none resize-y"
+                        />
+                      </div>)}
                     </div>
 
                     <PracticeSheetComposer value={practiceSheet} onChange={setPracticeSheet} instrument={/sao|flute/.test(String(instruments.find(inst => Number(inst.id) === Number(lessonInstrumentId))?.name ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()) ? 'sao_truc' : 'dan_tranh'} />
