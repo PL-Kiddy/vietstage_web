@@ -5,7 +5,7 @@ export type PracticeTechnique = 'none' | 'rung' | 'nhan' | 've' | 'a';
 
 export interface PracticeSheetEvent {
   notes: string[];
-  duration: 'quarter' | 'half';
+  duration: 'whole' | 'half' | 'quarter' | 'eighth' | 'sixteenth';
   fingering: string[];
   technique: PracticeTechnique;
 }
@@ -30,12 +30,15 @@ const TECHNIQUE_LABELS: Record<PracticeTechnique, string> = {
 const newEvent = (): PracticeSheetEvent => ({ notes: ['Mi2'], duration: 'quarter', fingering: ['2'], technique: 'none' });
 
 interface Props {
+  instrument?: 'dan_tranh' | 'sao_truc';
   value: PracticeSheetConfig;
   onChange: (value: PracticeSheetConfig) => void;
 }
 
 /** Soạn dữ liệu khuông nhạc, dùng chung JSON với renderer Godot. */
-const PracticeSheetComposer = ({ value, onChange }: Props) => {
+const PracticeSheetComposer = ({ value, onChange, instrument = 'dan_tranh' }: Props) => {
+  const isFlute = instrument === 'sao_truc';
+  const noteOptions = isFlute ? ['Đô', 'Rê', 'Mi', 'Fa', 'Sol', 'La', 'Sib', 'Si', 'Đô2', 'Rê2', 'Mi2', 'Fa2', 'Sol2', 'La2', 'Sib2', 'Si2', 'REST'] : NOTES;
   const changeLine = (lineIndex: number, next: PracticeSheetLine) => {
     onChange({ ...value, staffLines: value.staffLines.map((line, index) => index === lineIndex ? next : line) });
   };
@@ -49,6 +52,7 @@ const PracticeSheetComposer = ({ value, onChange }: Props) => {
     const line = value.staffLines[lineIndex];
     if (line.events.length >= 10) return;
     const event = newEvent();
+    if (isFlute) { event.notes = ['Đô']; event.fingering = []; }
     if (chord) {
       event.notes = ['Do2', 'Mi2'];
       event.fingering = ['2', '1'];
@@ -66,7 +70,7 @@ const PracticeSheetComposer = ({ value, onChange }: Props) => {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h5 className="flex items-center gap-2 text-sm font-bold text-[#1D4532]"><Music4 className="h-4 w-4" /> Khuông nhạc thực hành</h5>
-          <p className="mt-1 text-xs text-on-surface-variant">Thêm dòng khuông trước, rồi thêm tối đa 10 nốt hoặc hợp âm cho mỗi dòng. Bản xem trước cập nhật ngay.</p>
+          <p className="mt-1 text-xs text-on-surface-variant">{isFlute ? 'Sáo trúc: tối đa 10 nốt hoặc dấu lặng mỗi dòng. Chọn trường độ để luyện giữ hơi, chuyển nốt và lấy hơi.' : 'Thêm dòng khuông trước, rồi thêm tối đa 10 nốt hoặc hợp âm cho mỗi dòng. Bản xem trước cập nhật ngay.'}</p>
         </div>
         <button type="button" onClick={addLine} className="inline-flex items-center gap-1.5 rounded-lg bg-[#1D4532] px-3 py-2 text-xs font-bold text-white hover:bg-[#163827]">
           <Plus className="h-4 w-4" /> Thêm dòng khuông
@@ -83,21 +87,22 @@ const PracticeSheetComposer = ({ value, onChange }: Props) => {
           </div>
 
           <div className="overflow-x-auto rounded-lg border border-[#eadfc2] bg-[#fffef9] p-2 min-w-0">
-            <PracticeStaffPreview events={line.events} />
+            <PracticeStaffPreview events={line.events} instrument={instrument} />
           </div>
 
           <div className="flex flex-wrap gap-2">
             <button type="button" disabled={line.events.length >= 10} onClick={() => addEvent(lineIndex)} className="inline-flex items-center gap-1 rounded-lg border border-[#1D4532]/30 px-2.5 py-1.5 text-xs font-bold text-[#1D4532] hover:bg-[#edf7f2] disabled:opacity-45"><Plus className="h-3.5 w-3.5" /> Nốt đơn</button>
-            <button type="button" disabled={line.events.length >= 10} onClick={() => addEvent(lineIndex, true)} className="inline-flex items-center gap-1 rounded-lg border border-[#1D4532]/30 px-2.5 py-1.5 text-xs font-bold text-[#1D4532] hover:bg-[#edf7f2] disabled:opacity-45"><Plus className="h-3.5 w-3.5" /> Hợp âm / Song thanh</button>
+            {!isFlute && <button type="button" disabled={line.events.length >= 10} onClick={() => addEvent(lineIndex, true)} className="inline-flex items-center gap-1 rounded-lg border border-[#1D4532]/30 px-2.5 py-1.5 text-xs font-bold text-[#1D4532] hover:bg-[#edf7f2] disabled:opacity-45"><Plus className="h-3.5 w-3.5" /> Hợp âm / Song thanh</button>}
           </div>
 
           {line.events.map((event, eventIndex) => (
             <div key={eventIndex} className="grid grid-cols-1 gap-2 rounded-lg bg-[#f8f5eb] p-2.5 sm:grid-cols-[auto_1fr_1fr_1fr_1fr_auto] sm:items-end">
               <span className="text-xs font-bold text-[#1D4532]">#{eventIndex + 1}</span>
-              <label className="text-[11px] font-semibold text-on-surface-variant">Nốt chính<select value={event.notes[0]} onChange={(e) => updateEvent(lineIndex, eventIndex, { ...event, notes: [e.target.value, ...event.notes.slice(1)] })} className="mt-1 block w-full rounded-md border border-[#d8d2c3] bg-white p-1.5 text-xs">{NOTES.map((note) => <option key={note}>{note}</option>)}</select></label>
-              {event.notes.length > 1 ? <label className="text-[11px] font-semibold text-on-surface-variant">Nốt thứ hai<select value={event.notes[1]} onChange={(e) => updateEvent(lineIndex, eventIndex, { ...event, notes: [event.notes[0], e.target.value] })} className="mt-1 block w-full rounded-md border border-[#d8d2c3] bg-white p-1.5 text-xs">{NOTES.map((note) => <option key={note}>{note}</option>)}</select></label> : <span />}
-              <label className="text-[11px] font-semibold text-on-surface-variant">Ngón<input value={event.fingering.join('/')} onChange={(e) => updateEvent(lineIndex, eventIndex, { ...event, fingering: e.target.value.split('/').map((item) => item.trim()).filter(Boolean) })} className="mt-1 block w-full rounded-md border border-[#d8d2c3] bg-white p-1.5 text-xs" /></label>
-              <label className="text-[11px] font-semibold text-on-surface-variant">Kỹ thuật<select value={event.technique} onChange={(e) => updateEvent(lineIndex, eventIndex, { ...event, technique: e.target.value as PracticeTechnique })} className="mt-1 block w-full rounded-md border border-[#d8d2c3] bg-white p-1.5 text-xs">{Object.entries(TECHNIQUE_LABELS).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
+              <label className="text-[11px] font-semibold text-on-surface-variant">Nốt chính<select value={event.notes[0]} onChange={(e) => updateEvent(lineIndex, eventIndex, { ...event, notes: [e.target.value, ...event.notes.slice(1)] })} className="mt-1 block w-full rounded-md border border-[#d8d2c3] bg-white p-1.5 text-xs">{noteOptions.map((note) => <option key={note} value={note}>{note === 'REST' ? 'Dấu lặng (lấy hơi)' : note.replace('Sib', 'Si♭')}</option>)}</select></label>
+              {!isFlute && event.notes.length > 1 ? <label className="text-[11px] font-semibold text-on-surface-variant">Nốt thứ hai<select value={event.notes[1]} onChange={(e) => updateEvent(lineIndex, eventIndex, { ...event, notes: [event.notes[0], e.target.value] })} className="mt-1 block w-full rounded-md border border-[#d8d2c3] bg-white p-1.5 text-xs">{noteOptions.map((note) => <option key={note} value={note}>{note === 'REST' ? 'Dấu lặng (lấy hơi)' : note.replace('Sib', 'Si♭')}</option>)}</select></label> : <span />}
+              {!isFlute && <label className="text-[11px] font-semibold text-on-surface-variant">Ngón<input value={event.fingering.join('/')} onChange={(e) => updateEvent(lineIndex, eventIndex, { ...event, fingering: e.target.value.split('/').map((item) => item.trim()).filter(Boolean) })} className="mt-1 block w-full rounded-md border border-[#d8d2c3] bg-white p-1.5 text-xs" /></label>}
+              {!isFlute && <label className="text-[11px] font-semibold text-on-surface-variant">Kỹ thuật<select value={event.technique} onChange={(e) => updateEvent(lineIndex, eventIndex, { ...event, technique: e.target.value as PracticeTechnique })} className="mt-1 block w-full rounded-md border border-[#d8d2c3] bg-white p-1.5 text-xs">{Object.entries(TECHNIQUE_LABELS).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>}
+              <label className="text-[11px] font-semibold text-on-surface-variant">Trường độ<select value={event.duration} onChange={(e) => updateEvent(lineIndex, eventIndex, { ...event, duration: e.target.value as PracticeSheetEvent['duration'] })} className="mt-1 block w-full rounded-md border border-[#d8d2c3] bg-white p-1.5 text-xs">{Object.entries({ whole: 'Tròn · 4 phách', half: 'Trắng · 2 phách', quarter: 'Đen · 1 phách', eighth: 'Móc đơn · ½ phách', sixteenth: 'Móc kép · ¼ phách' }).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
               <button type="button" onClick={() => changeLine(lineIndex, { ...line, events: line.events.filter((_, index) => index !== eventIndex) })} className="rounded-md p-2 text-red-700 hover:bg-red-50" title="Xóa nốt"><Trash2 className="h-4 w-4" /></button>
             </div>
           ))}

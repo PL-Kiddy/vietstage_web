@@ -767,7 +767,7 @@ const InstructorMedia = () => {
                         <select
                           required
                           value={lessonInstrumentId ?? ''}
-                          onChange={(e) => setLessonInstrumentId(Number(e.target.value))}
+                          onChange={(e) => { setLessonInstrumentId(Number(e.target.value)); setPracticeSheet(EMPTY_PRACTICE_SHEET); }}
                           disabled={editingLessonInfo !== null}
                           className="bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl p-md text-sm focus:ring-1 focus:ring-[#1D4532] focus:border-[#1D4532] outline-none cursor-pointer"
                         >
@@ -847,7 +847,7 @@ const InstructorMedia = () => {
                       />
                     </div>
 
-                    <PracticeSheetComposer value={practiceSheet} onChange={setPracticeSheet} />
+                    <PracticeSheetComposer value={practiceSheet} onChange={setPracticeSheet} instrument={/sao|flute/.test(String(instruments.find(inst => Number(inst.id) === Number(lessonInstrumentId))?.name ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()) ? 'sao_truc' : 'dan_tranh'} />
                   </div>
 
                   <div className="flex items-center justify-end gap-md pt-md">
