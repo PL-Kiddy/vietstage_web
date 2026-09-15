@@ -1,4 +1,5 @@
-import { Music4, Plus, Trash2 } from 'lucide-react';
+import { useState } from 'react';
+import { ChevronDown, ChevronUp, Music4, Plus, Trash2 } from 'lucide-react';
 import PracticeStaffPreview from './PracticeStaffPreview';
 
 export type PracticeTechnique = 'none' | 'rung' | 'nhan' | 've' | 'a';
@@ -17,6 +18,7 @@ export interface PracticeSheetLine {
 
 export interface PracticeSheetConfig {
   version: 1;
+  timeSignature?: { numerator: number; denominator: number };
   staffLines: PracticeSheetLine[];
 }
 
@@ -35,8 +37,9 @@ interface Props {
   onChange: (value: PracticeSheetConfig) => void;
 }
 
-/** Soạn dữ liệu khuông nhạc, dùng chung JSON với renderer Godot. */
+/** Local authoring draft; API persistence and Godot mapping are integrated separately. */
 const PracticeSheetComposer = ({ value, onChange, instrument = 'dan_tranh' }: Props) => {
+  const [activeEvent, setActiveEvent] = useState<string | null>(null);
   const isFlute = instrument === 'sao_truc';
   const noteOptions = isFlute ? ['Đô', 'Rê', 'Mi', 'Fa', 'Sol', 'La', 'Sib', 'Si', 'Đô2', 'Rê2', 'Mi2', 'Fa2', 'Sol2', 'La2', 'Sib2', 'Si2', 'REST'] : NOTES;
   const changeLine = (lineIndex: number, next: PracticeSheetLine) => {
@@ -58,6 +61,7 @@ const PracticeSheetComposer = ({ value, onChange, instrument = 'dan_tranh' }: Pr
       event.fingering = ['2', '1'];
     }
     changeLine(lineIndex, { ...line, events: [...line.events, event] });
+    setActiveEvent(`${lineIndex}:${line.events.length}`);
   };
 
   const updateEvent = (lineIndex: number, eventIndex: number, next: PracticeSheetEvent) => {
@@ -77,17 +81,30 @@ const PracticeSheetComposer = ({ value, onChange, instrument = 'dan_tranh' }: Pr
         </button>
       </div>
 
+      <div className="flex flex-wrap items-center gap-3 rounded-lg bg-white border border-[#e4e9e5] px-3 py-2">
+        <label className="flex items-center gap-2 text-xs font-semibold text-[#1D4532]">Số chỉ nhịp
+          <select aria-label="Số chỉ nhịp" value={value.timeSignature ? `${value.timeSignature.numerator}/${value.timeSignature.denominator}` : ''} onChange={e => {
+            const [numerator, denominator] = e.target.value.split('/').map(Number);
+            onChange({ ...value, timeSignature: e.target.value ? { numerator, denominator } : undefined });
+          }} className="rounded-md border border-[#d8d2c3] bg-white px-2 py-1.5 text-sm">
+            <option value="">Chưa thêm</option>
+            {['2/4', '3/4', '4/4', '3/8', '6/8', '9/8', '12/8', ...(value.timeSignature && !['2/4', '3/4', '4/4', '3/8', '6/8', '9/8', '12/8'].includes(`${value.timeSignature.numerator}/${value.timeSignature.denominator}`) ? [`${value.timeSignature.numerator}/${value.timeSignature.denominator}`] : [])].map(meter => <option key={meter}>{meter}</option>)}
+          </select>
+        </label>
+        <span className="text-xs text-on-surface-variant">Chọn nhịp để thêm vào khuông; chọn “Chưa thêm” để bỏ.</span>
+      </div>
+
       {value.staffLines.length === 0 && <p className="rounded-xl border border-dashed border-[#d8b45a]/60 bg-white px-4 py-5 text-center text-sm text-on-surface-variant">Chưa có dòng khuông. Bấm “Thêm dòng khuông” để bắt đầu biên soạn.</p>}
 
       {value.staffLines.map((line, lineIndex) => (
         <div key={line.order} className="rounded-xl border border-[#e9d9a8] bg-white p-3 space-y-3">
           <div className="flex items-center justify-between gap-3">
-            <p className="text-xs font-bold uppercase tracking-wide text-[#1D4532]">Dòng khuông {lineIndex + 1} · {line.events.length}/10 sự kiện</p>
-            <button type="button" onClick={() => onChange({ ...value, staffLines: value.staffLines.filter((_, index) => index !== lineIndex).map((item, index) => ({ ...item, order: index + 1 })) })} className="rounded-md p-1.5 text-red-700 hover:bg-red-50" title="Xóa dòng khuông"><Trash2 className="h-4 w-4" /></button>
+            <p className="text-xs font-bold uppercase tracking-wide text-[#1D4532]">Dòng khuông {lineIndex + 1} · {line.events.length}/10 vị trí</p>
+            <button type="button" onClick={() => { setActiveEvent(null); onChange({ ...value, staffLines: value.staffLines.filter((_, index) => index !== lineIndex).map((item, index) => ({ ...item, order: index + 1 })) }); }} className="rounded-md p-1.5 text-red-700 hover:bg-red-50" title="Xóa dòng khuông"><Trash2 className="h-4 w-4" /></button>
           </div>
 
           <div className="overflow-x-auto rounded-lg border border-[#eadfc2] bg-[#fffef9] p-2 min-w-0">
-            <PracticeStaffPreview events={line.events} instrument={instrument} />
+            <PracticeStaffPreview events={line.events} instrument={instrument} timeSignature={value.timeSignature} />
           </div>
 
           <div className="flex flex-wrap gap-2">
@@ -96,14 +113,22 @@ const PracticeSheetComposer = ({ value, onChange, instrument = 'dan_tranh' }: Pr
           </div>
 
           {line.events.map((event, eventIndex) => (
-            <div key={eventIndex} className="grid grid-cols-1 gap-2 rounded-lg bg-[#f8f5eb] p-2.5 sm:grid-cols-[auto_1fr_1fr_1fr_1fr_auto] sm:items-end">
-              <span className="text-xs font-bold text-[#1D4532]">#{eventIndex + 1}</span>
+            <div key={eventIndex} className="overflow-hidden rounded-lg border border-[#e4e9e5] bg-white">
+              <div className="flex items-center gap-2 px-3 py-2">
+                <button type="button" aria-expanded={activeEvent === `${lineIndex}:${eventIndex}`} onClick={() => setActiveEvent(activeEvent === `${lineIndex}:${eventIndex}` ? null : `${lineIndex}:${eventIndex}`)} className="flex min-w-0 flex-1 items-center gap-3 text-left py-1">
+                  <span className="text-xs font-bold text-[#1D4532]">#{eventIndex + 1}</span>
+                  <span className="min-w-0 flex-1 text-sm font-semibold text-[#1D4532]">{event.notes.map(note => note === 'REST' ? 'Dấu lặng' : note.replace('Sib', 'Si♭')).join(' + ')}<span className="ml-2 text-xs font-normal text-on-surface-variant">· {({ whole: 'Tròn', half: 'Trắng', quarter: 'Đen', eighth: 'Móc đơn', sixteenth: 'Móc kép' })[event.duration]}{event.technique !== 'none' ? ` · ${TECHNIQUE_LABELS[event.technique]}` : ''}</span></span>
+                  {activeEvent === `${lineIndex}:${eventIndex}` ? <ChevronUp className="h-4 w-4 shrink-0" /> : <ChevronDown className="h-4 w-4 shrink-0" />}
+                </button>
+                <button type="button" onClick={() => { setActiveEvent(null); changeLine(lineIndex, { ...line, events: line.events.filter((_, index) => index !== eventIndex) }); }} className="shrink-0 rounded-md p-2 text-red-700 hover:bg-red-50" aria-label={`Xóa nốt ${eventIndex + 1}`}><Trash2 className="h-4 w-4" /></button>
+              </div>
+              {activeEvent === `${lineIndex}:${eventIndex}` && <div className="grid grid-cols-1 gap-3 border-t border-[#e4e9e5] bg-[#f8faf8] p-3 sm:grid-cols-2">
               <label className="text-[11px] font-semibold text-on-surface-variant">Nốt chính<select value={event.notes[0]} onChange={(e) => updateEvent(lineIndex, eventIndex, { ...event, notes: [e.target.value, ...event.notes.slice(1)] })} className="mt-1 block w-full rounded-md border border-[#d8d2c3] bg-white p-1.5 text-xs">{noteOptions.map((note) => <option key={note} value={note}>{note === 'REST' ? 'Dấu lặng (lấy hơi)' : note.replace('Sib', 'Si♭')}</option>)}</select></label>
-              {!isFlute && event.notes.length > 1 ? <label className="text-[11px] font-semibold text-on-surface-variant">Nốt thứ hai<select value={event.notes[1]} onChange={(e) => updateEvent(lineIndex, eventIndex, { ...event, notes: [event.notes[0], e.target.value] })} className="mt-1 block w-full rounded-md border border-[#d8d2c3] bg-white p-1.5 text-xs">{noteOptions.map((note) => <option key={note} value={note}>{note === 'REST' ? 'Dấu lặng (lấy hơi)' : note.replace('Sib', 'Si♭')}</option>)}</select></label> : <span />}
+              {!isFlute && event.notes.length > 1 ? <label className="text-[11px] font-semibold text-on-surface-variant">Nốt thứ hai<select value={event.notes[1]} onChange={(e) => updateEvent(lineIndex, eventIndex, { ...event, notes: [event.notes[0], e.target.value] })} className="mt-1 block w-full rounded-md border border-[#d8d2c3] bg-white p-1.5 text-xs">{noteOptions.map((note) => <option key={note} value={note}>{note === 'REST' ? 'Dấu lặng (lấy hơi)' : note.replace('Sib', 'Si♭')}</option>)}</select></label> : null}
               {!isFlute && <label className="text-[11px] font-semibold text-on-surface-variant">Ngón<input value={event.fingering.join('/')} onChange={(e) => updateEvent(lineIndex, eventIndex, { ...event, fingering: e.target.value.split('/').map((item) => item.trim()).filter(Boolean) })} className="mt-1 block w-full rounded-md border border-[#d8d2c3] bg-white p-1.5 text-xs" /></label>}
               {!isFlute && <label className="text-[11px] font-semibold text-on-surface-variant">Kỹ thuật<select value={event.technique} onChange={(e) => updateEvent(lineIndex, eventIndex, { ...event, technique: e.target.value as PracticeTechnique })} className="mt-1 block w-full rounded-md border border-[#d8d2c3] bg-white p-1.5 text-xs">{Object.entries(TECHNIQUE_LABELS).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>}
-              <label className="text-[11px] font-semibold text-on-surface-variant">Trường độ<select value={event.duration} onChange={(e) => updateEvent(lineIndex, eventIndex, { ...event, duration: e.target.value as PracticeSheetEvent['duration'] })} className="mt-1 block w-full rounded-md border border-[#d8d2c3] bg-white p-1.5 text-xs">{Object.entries({ whole: 'Tròn · 4 phách', half: 'Trắng · 2 phách', quarter: 'Đen · 1 phách', eighth: 'Móc đơn · ½ phách', sixteenth: 'Móc kép · ¼ phách' }).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
-              <button type="button" onClick={() => changeLine(lineIndex, { ...line, events: line.events.filter((_, index) => index !== eventIndex) })} className="rounded-md p-2 text-red-700 hover:bg-red-50" title="Xóa nốt"><Trash2 className="h-4 w-4" /></button>
+              <label className="text-[11px] font-semibold text-on-surface-variant">Trường độ<select value={event.duration} onChange={(e) => updateEvent(lineIndex, eventIndex, { ...event, duration: e.target.value as PracticeSheetEvent['duration'] })} className="mt-1 block w-full rounded-md border border-[#d8d2c3] bg-white p-1.5 text-xs">{Object.entries({ whole: 'Tròn', half: 'Trắng', quarter: 'Đen', eighth: 'Móc đơn', sixteenth: 'Móc kép' }).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
+              </div>}
             </div>
           ))}
         </div>
