@@ -462,18 +462,19 @@ const InstructorLessonContent = () => {
 
   return (
     <div className="max-w-[1200px] mx-auto">
-      <Link to="/instructor/lessons" className="inline-flex items-center gap-2 text-sm font-semibold text-on-surface-variant hover:text-[#1D4532] mb-5">
-        <ArrowLeft className="w-4 h-4" /> Quay lại danh sách bài giảng
+      <Link to="/instructor/media" className="inline-flex items-center gap-2 text-sm font-semibold text-on-surface-variant hover:text-[#1D4532] mb-5">
+        <ArrowLeft className="w-4 h-4" /> Quay lại Cấu hình Giáo trình
       </Link>
 
       <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#1D4532] via-[#22523b] to-[#2e684d] text-white p-5 md:p-6 shadow-md mb-6">
         <div className="absolute -right-12 -top-16 w-56 h-56 rounded-full border-[34px] border-white/5" />
         <GraduationCap className="w-7 h-7 mb-2 text-[#ffe088]" />
-        <p className="text-[10px] uppercase tracking-[0.22em] text-white/65 mb-1">Không gian biên soạn</p>
+        <p className="text-[10px] uppercase tracking-[0.22em] text-white/65 mb-1">Cấu hình Giáo trình · Bài tập & Đánh giá</p>
         <h1 className="text-xl md:text-2xl font-bold max-w-3xl">{lesson?.title ?? 'Nội dung bài giảng'}</h1>
         <p className="mt-1.5 text-white/70 max-w-2xl text-xs md:text-sm">
-          Xây dựng bài tập thực hành, câu hỏi kiểm tra và các trò chơi tương tác (Nhịp điệu & Giai điệu) bằng giao diện trực quan.
+          Quản lý bài tập, ngưỡng đạt, thứ tự, Quiz và Minigame. Lời cô Mai và khuông thực hành được biên soạn tại Nội dung & Học liệu.
         </p>
+        <Link to={`/instructor/lessons?editLesson=${lessonId}`} className="mt-3 inline-block text-sm text-white underline">Mở nội dung & học liệu của bài này →</Link>
       </section>
 
       {error && <div className="mb-5 rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-red-800">{error}</div>}

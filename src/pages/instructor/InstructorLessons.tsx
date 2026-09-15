@@ -1,3 +1,5 @@
+import { useSearchParams, Link } from 'react-router-dom';
+import PracticeSheetComposer, { EMPTY_PRACTICE_SHEET, type PracticeSheetConfig } from '../../components/instructor/PracticeSheetComposer';
 import { useState, useEffect, useCallback, type FormEvent } from 'react';
 import {
   Music,
@@ -15,6 +17,8 @@ import {
   Trash2,
   ExternalLink,
   Pencil,
+  ArrowUp,
+  ArrowDown,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { lessonsApi, lessonAssetsApi, lessonContentsApi, masterDataApi, type LessonContent } from '../../api/services';
@@ -99,6 +103,10 @@ const getInstrumentTranslation = (instName: string) => {
 
 // Trang Nội dung & Học liệu: danh sách bài giảng, quản lý học liệu (upload âm thanh/sheet, lưu ghi chú)
 const InstructorLessons = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
+  // Local draft only: never send notation through the narration API.
+  const [sheetDrafts, setSheetDrafts] = useState<Record<string, PracticeSheetConfig>>({});
+
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
@@ -183,6 +191,31 @@ const InstructorLessons = () => {
     }
   };
 
+  const requestedLessonId = searchParams.get('editLesson');
+  useEffect(() => {
+    if (!requestedLessonId || !/^\\d+$/.test(requestedLessonId)) return;
+    let cancelled = false;
+    setMaterialsLoading(true);
+    setMaterialsError('');
+    Promise.all([
+      lessonDetailApi.get(Number(requestedLessonId)),
+      lessonAssetsApi.getAssets(Number(requestedLessonId)),
+      lessonContentsApi.list(Number(requestedLessonId)),
+    ]).then(([detail, loadedAssets, loadedContents]) => {
+      if (cancelled) return;
+      const mapped = mapLesson(detail);
+      setEditingLesson(mapped);
+      setSelectedInstrumentId(mapped.instrumentId ?? null);
+      setSelectedCurriculumLevel(getCurriculumLevelKey(mapped.skillLevel));
+      setNewDescription('');
+      setEditingContentId(null);
+      setAssets(loadedAssets);
+      setContents(loadedContents.sort((a, b) => a.order_index - b.order_index));
+    }).catch(error => { if (!cancelled) setLoadError(error instanceof Error ? error.message : 'Không thể mở bài học.'); })
+      .finally(() => { if (!cancelled) setMaterialsLoading(false); });
+    return () => { cancelled = true; };
+  }, [requestedLessonId]);
+
   // Đóng drawer và reset mô tả
   const handleCloseModal = () => {
     setNewDescription('');
@@ -191,6 +224,7 @@ const InstructorLessons = () => {
     setContents([]);
     setMaterialsError('');
     setEditingLesson(null);
+    if (requestedLessonId) setSearchParams({}, { replace: true });
   };
 
   const reloadMaterials = async () => {
@@ -201,6 +235,25 @@ const InstructorLessons = () => {
     ]);
     setAssets(lessonAssets);
     setContents(lessonContents.sort((a, b) => a.order_index - b.order_index));
+  };
+
+  const moveContent = async (index: number, direction: number) => {
+    if (!editingLesson || savingDescription) return;
+    const next = [...contents];
+    const target = index + direction;
+    if (target < 0 || target >= next.length) return;
+    [next[index], next[target]] = [next[target], next[index]];
+    setSavingDescription(true);
+    setMaterialsError('');
+    try {
+      for (let i = 0; i < next.length; i++) {
+        await lessonContentsApi.update(Number(editingLesson.id), next[i].id, { content_text: next[i].content_text, order_index: i + 1 });
+      }
+      await reloadMaterials();
+    } catch (error) {
+      setMaterialsError(error instanceof Error ? error.message : 'Không thể đổi thứ tự đoạn.');
+      await reloadMaterials().catch(() => {});
+    } finally { setSavingDescription(false); }
   };
 
   const handleSaveAssets = async (event: FormEvent) => {
@@ -220,7 +273,7 @@ const InstructorLessons = () => {
       setEditingContentId(null);
       await reloadMaterials();
     } catch (error) {
-      setMaterialsError(error instanceof Error ? error.message : 'Không thể lưu hướng dẫn kỹ thuật.');
+      setMaterialsError(error instanceof Error ? error.message : 'Không thể lưu đoạn lời cô Mai.');
     } finally {
       setSavingDescription(false);
     }
@@ -265,7 +318,7 @@ const InstructorLessons = () => {
   };
 
   const removeContent = async (contentId: number) => {
-    if (!editingLesson || !window.confirm('Xóa hướng dẫn kỹ thuật này?')) return;
+    if (!editingLesson || !window.confirm('Xóa đoạn lời cô Mai này?')) return;
     setMaterialsError('');
     try {
       await lessonContentsApi.remove(Number(editingLesson.id), contentId);
@@ -275,7 +328,7 @@ const InstructorLessons = () => {
       }
       await reloadMaterials();
     } catch (error) {
-      setMaterialsError(error instanceof Error ? error.message : 'Không thể xóa hướng dẫn kỹ thuật.');
+      setMaterialsError(error instanceof Error ? error.message : 'Không thể xóa đoạn lời cô Mai.');
     }
   };
 
@@ -621,7 +674,7 @@ const InstructorLessons = () => {
 
       {/* Drawer Form Overlay - Slide from right */}
       <AnimatePresence>
-        {Boolean(editingLesson) && (
+        {editingLesson && (
           <>
             {/* Backdrop Blur Overlay */}
             <motion.div
@@ -644,7 +697,7 @@ const InstructorLessons = () => {
               <div className="px-xl py-lg border-b border-outline-variant/10 flex justify-between items-center bg-[#EDF7F2]">
                 <div>
                   <h4 className="text-headline-md font-bold text-[#1D4532] font-sans">
-                    Quản lý Học liệu
+                    Biên soạn nội dung bài học
                   </h4>
                   <p className="text-label-sm text-on-surface-variant text-[13px] mt-xs">
                     Đăng tải file âm thanh, sheet nhạc và mô tả kỹ thuật.
@@ -671,12 +724,12 @@ const InstructorLessons = () => {
                   {/* Description */}
                   <div className="flex flex-col gap-xs border-t border-outline-variant/10 pt-md">
                     <label className="font-label-sm text-on-surface-variant font-semibold uppercase tracking-wider text-xs">
-                      {editingContentId ? 'Chỉnh sửa hướng dẫn kỹ thuật' : 'Thêm hướng dẫn kỹ thuật'}
+                      {editingContentId ? 'Chỉnh sửa đoạn lời cô Mai' : 'Thêm đoạn lời cô Mai'}
                     </label>
                     <textarea
                       value={newDescription}
                       onChange={(e) => setNewDescription(e.target.value)}
-                      placeholder="Mô tả kỹ thuật rung dây, nhấn vuốt, gảy ngón..."
+                      placeholder="Nhập một đoạn cô Mai nói: giới thiệu, hướng dẫn thao tác hoặc lưu ý thực hành…"
                       className="w-full bg-[#fbf9f4] border border-outline-variant/30 rounded-xl p-md text-body-md focus:border-primary focus:ring-1 focus:ring-primary transition-all outline-none text-on-surface h-24"
                     />
                     {editingContentId && (
@@ -775,17 +828,19 @@ const InstructorLessons = () => {
                     </div>
                   </section>
 
-                  <section className="space-y-3 border-t border-outline-variant/10 pt-md" aria-label="Hướng dẫn kỹ thuật">
+                  <section className="space-y-3 border-t border-outline-variant/10 pt-md" aria-label="Lời cô Mai hướng dẫn">
                     <div className="flex items-center justify-between gap-3">
-                      <h5 className="text-sm font-bold text-[#1D4532]">Hướng dẫn kỹ thuật</h5>
+                      <h5 className="text-sm font-bold text-[#1D4532]">Lời cô Mai hướng dẫn</h5>
                       <span className="text-xs text-on-surface-variant">{contents.length} nội dung</span>
                     </div>
                     {contents.length > 0 && (
                       <div className="space-y-2">
-                        {contents.map((content) => (
+                        {contents.map((content, index) => (
                           <div key={content.id} className="flex items-start justify-between gap-3 rounded-xl border border-outline-variant/15 bg-[#fbf9f4] p-3">
                             <p className="whitespace-pre-wrap text-sm leading-6 text-on-surface">{content.content_text}</p>
                             <div className="flex shrink-0 gap-1">
+                              <button type="button" disabled={savingDescription || index === 0} onClick={() => void moveContent(index, -1)} className="rounded-lg p-2 text-[#1D4532] disabled:opacity-30" aria-label="Đưa đoạn lên"><ArrowUp className="h-4 w-4" /></button>
+                              <button type="button" disabled={savingDescription || index === contents.length - 1} onClick={() => void moveContent(index, 1)} className="rounded-lg p-2 text-[#1D4532] disabled:opacity-30" aria-label="Đưa đoạn xuống"><ArrowDown className="h-4 w-4" /></button>
                               <button type="button" onClick={() => editContent(content)} className="rounded-lg p-2 text-[#1D4532] hover:bg-[#edf5f1]" title="Sửa hướng dẫn" aria-label="Sửa hướng dẫn">
                                 <Pencil className="h-4 w-4" />
                               </button>
@@ -797,9 +852,16 @@ const InstructorLessons = () => {
                         ))}
                       </div>
                     )}
-                    {contents.length === 0 && !materialsLoading && <p className="text-sm text-on-surface-variant">Chưa có hướng dẫn kỹ thuật.</p>}
+                    {contents.length === 0 && !materialsLoading && <p className="text-sm text-on-surface-variant">Chưa có đoạn lời cô Mai.</p>}
                   </section>
                 </div>
+
+                <section className="mt-5 space-y-3 border-t border-outline-variant/10 pt-4">
+                  <h5 className="text-sm font-bold text-[#1D4532]">Thực hành sau phần hướng dẫn</h5>
+                  <p className="rounded-lg bg-amber-50 p-3 text-xs text-amber-900">Bản soạn thử trên trang này, chưa lưu API và chưa đồng bộ Godot. Tải lại hoặc rời trang sẽ mất khuông. Lời cô Mai và học liệu được lưu riêng qua API hiện có.</p>
+                  {/tranh|sao|flute/.test(normalizeLevelText(editingLesson.instrument)) ? <PracticeSheetComposer value={sheetDrafts[editingLesson.id] ?? EMPTY_PRACTICE_SHEET} onChange={next => setSheetDrafts(current => ({ ...current, [editingLesson.id]: next }))} instrument={/sao|flute/.test(normalizeLevelText(editingLesson.instrument)) ? 'sao_truc' : 'dan_tranh'} /> : <p className="text-sm text-on-surface-variant">Chưa hỗ trợ soạn khuông cho nhạc cụ này.</p>}
+                  <Link to={`/instructor/lessons/${editingLesson.id}/content`} className="inline-block text-sm font-semibold text-[#1D4532] underline">Cấu hình bài tập & ngưỡng đạt →</Link>
+                </section>
 
                 {/* Drawer Footer Actions */}
                 <div className="px-xl py-lg border-t border-outline-variant/10 bg-[#f5f3ee]/40 flex gap-md -mx-xl -mb-xl mt-xl">
@@ -816,7 +878,7 @@ const InstructorLessons = () => {
                     className="flex-1 flex items-center justify-center gap-sm bg-[#1b5e20] text-white py-lg rounded-xl font-bold hover:bg-[#154618] active:scale-[0.98] transition-all shadow-sm"
                   >
                     <Check className="w-5 h-5" />
-                    {savingDescription ? 'Đang lưu…' : editingContentId ? 'Cập nhật hướng dẫn' : 'Thêm hướng dẫn'}
+                    {savingDescription ? 'Đang lưu…' : editingContentId ? 'Lưu đoạn lời cô Mai' : 'Thêm đoạn lời cô Mai'}
                   </button>
                 </div>
               </form>

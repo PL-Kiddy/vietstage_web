@@ -37,7 +37,8 @@ const InstructorSidebar = () => {
       {/* Navigation Links */}
       <nav className="flex-1 px-3 space-y-1 overflow-y-auto">
         {navItems.map((item) => {
-          const isActive = location.pathname === item.href;
+          const isExerciseConfig = /^\/instructor\/lessons\/\d+\/content$/.test(location.pathname);
+          const isActive = location.pathname === item.href || (item.href === '/instructor/media' && isExerciseConfig);
           return (
             <Link
               key={item.href}

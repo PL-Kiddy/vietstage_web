@@ -1,19 +1,14 @@
 import { useState, useCallback, useEffect, type FormEvent } from 'react';
 import { createPortal } from 'react-dom';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plus,
-  ArrowUp,
-  ArrowDown,
-  Trash2,
   ChevronLeft,
   ChevronRight,
   Check,
   X,
-  Target,
   BookOpen,
-  AlertCircle,
   Loader2,
   Search,
   MoreVertical,
@@ -21,9 +16,8 @@ import {
   Layers,
 } from 'lucide-react';
 import { useAxiosRequest } from '../../hooks/useAxiosRequest';
-import { lessonsApi, exercisesApi, masterDataApi, lessonContentsApi, type LessonContent, type ExerciseInput } from '../../api/services';
+import { lessonsApi, masterDataApi } from '../../api/services';
 import type { Lesson, SkillLevel } from '../../api/types';
-import PracticeSheetComposer, { EMPTY_PRACTICE_SHEET, type PracticeSheetConfig } from '../../components/instructor/PracticeSheetComposer';
 
 type CurriculumLevelKey = 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED';
 
@@ -65,19 +59,10 @@ const getInstrumentTranslation = (instName: string) => {
 
 // Trang Cấu hình Giáo trình: tạo/sửa bài học, cập nhật trạng thái, cấu hình bài tập & ngưỡng điểm
 const InstructorMedia = () => {
+  const navigate = useNavigate();
   // ── Curriculum List State ─────────────────────────────────────────────
   const [searchQuery, setSearchQuery] = useState('');
   const [openActionMenuId, setOpenActionMenuId] = useState<number | null>(null);
-
-  // ── Exercise & Pass Threshold Modal State ─────────────────────────────
-  const [configuringLesson, setConfiguringLesson] = useState<Lesson | null>(null);
-  const [exTitle, setExTitle] = useState('');
-  const [exDesc, setExDesc] = useState('');
-  const [exPassThreshold, setExPassThreshold] = useState<number>(80);
-  const [exOrderIndex, setExOrderIndex] = useState<number>(1);
-  const [isSavingEx, setIsSavingEx] = useState(false);
-  const [exError, setExError] = useState<string | null>(null);
-  const [exSuccess, setExSuccess] = useState<string | null>(null);
 
   // ── Fetch lessons ─────────────────────────────────────────────────────
   // Tải danh sách bài học (size 100, sort theo orderIndex)
@@ -120,28 +105,11 @@ const InstructorMedia = () => {
   const [lessonModalOpen, setLessonModalOpen] = useState(false);
   const [editingLessonInfo, setEditingLessonInfo] = useState<Lesson | null>(null);
   const [lessonTitle, setLessonTitle] = useState('');
-  const [lessonNarration, setLessonNarration] = useState<Array<Omit<LessonContent, 'id'> & { id?: number }>>([{ content_text: '', order_index: 1 }]);
-  const [removedNarrationIds, setRemovedNarrationIds] = useState<number[]>([]);
-  const moveNarration = (index: number, direction: number) => {
-    setLessonNarration(current => {
-      const target = index + direction;
-      if (target < 0 || target >= current.length) return current;
-      const next = [...current];
-      [next[index], next[target]] = [next[target], next[index]];
-      return next.map((item, i) => ({ ...item, order_index: i + 1 }));
-    });
-  };
-  const removeNarration = (index: number) => {
-    const id = lessonNarration[index].id;
-    if (id !== undefined) setRemovedNarrationIds(current => [...current, id]);
-    setLessonNarration(current => current.filter((_, i) => i !== index).map((item, i) => ({ ...item, order_index: i + 1 })));
-  };
   const [lessonInstrumentId, setLessonInstrumentId] = useState<number | null>(null);
   const [lessonSkillLevelId, setLessonSkillLevelId] = useState<number | undefined>();
   const [lessonOrderIndex, setLessonOrderIndex] = useState<number>(1);
   const [lessonStatus, setLessonStatus] = useState<string>('DRAFT');
   const [isSavingLesson, setIsSavingLesson] = useState(false);
-  const [practiceSheet, setPracticeSheet] = useState<PracticeSheetConfig>(EMPTY_PRACTICE_SHEET);
 
   const getBackendSkillLevelId = (key: CurriculumLevelKey) =>
     skillLevels.find((level) => getCurriculumLevelKey(level) === key)?.id;
@@ -149,38 +117,25 @@ const InstructorMedia = () => {
   // Mở drawer tạo bài học mới với giá trị mặc định (nhạc cụ/trình độ đầu tiên, orderIndex tiếp theo)
   const handleOpenCreateLesson = () => {
     if (selectedInstrumentId === 'ALL') { alert('Vui lòng chọn nhạc cụ trước khi tạo bài học.'); return; }
-    setRemovedNarrationIds([]);
     setEditingLessonInfo(null);
     setLessonTitle('');
-    setLessonNarration([{ content_text: '', order_index: 1 }]);
     setLessonInstrumentId(selectedInstrumentId);
     setLessonSkillLevelId(getBackendSkillLevelId(selectedCurriculumLevel));
     setLessonOrderIndex(lessons.length > 0 ? Math.max(...lessons.map((l: any) => l.orderIndex ?? l.order_index ?? 0)) + 1 : 1);
     setLessonStatus('DRAFT');
-    setPracticeSheet(EMPTY_PRACTICE_SHEET);
     setLessonModalOpen(true);
   };
 
   // Mở drawer sửa bài học: nạp thông tin hiện tại vào form
   const handleOpenEditLesson = async (lesson: Lesson) => {
-    let narration: LessonContent[];
-    try {
-      narration = await lessonContentsApi.list(lesson.id);
-    } catch {
-      alert('Không thể tải lời hướng dẫn của bài học. Vui lòng thử lại.');
-      return;
-    }
     setEditingLessonInfo(lesson);
-    setRemovedNarrationIds([]);
     setLessonTitle(lesson.title);
-    setLessonNarration(narration.length ? [...narration].sort((a, b) => a.order_index - b.order_index) : [{ content_text: '', order_index: 1 }]);
     setLessonInstrumentId((lesson as any).instrument?.id ?? (lesson as any).instrument_id ?? instruments[0]?.id ?? null);
     const lessonLevel = ((lesson as any).skillLevel ?? (lesson as any).skill_level) as Partial<SkillLevel> | undefined;
     const curriculumLevel = getCurriculumLevelKey(lessonLevel);
     setLessonSkillLevelId(lessonLevel?.id ?? getBackendSkillLevelId(curriculumLevel));
     setLessonOrderIndex((lesson as any).orderIndex ?? (lesson as any).order_index ?? 1);
     setLessonStatus(lesson.status || 'DRAFT');
-    setPracticeSheet(EMPTY_PRACTICE_SHEET);
     setOpenActionMenuId(null);
     setLessonModalOpen(true);
   };
@@ -189,10 +144,6 @@ const InstructorMedia = () => {
   const handleSaveLesson = async (e: FormEvent) => {
     e.preventDefault();
     if (!lessonTitle.trim() || !lessonInstrumentId) return;
-    if (lessonNarration.some(section => !section.content_text.trim()) && (lessonNarration.length > 1 || lessonNarration.some(section => section.id !== undefined))) {
-      alert('Vui lòng nhập nội dung hoặc xóa đoạn hướng dẫn đang để trống.');
-      return;
-    }
     if (lessonSkillLevelId === undefined) {
       alert('Chưa tải được cấp giáo trình đang chọn. Vui lòng tải lại danh sách trước khi lưu.');
       return;
@@ -215,30 +166,16 @@ const InstructorMedia = () => {
           title: lessonTitle.trim(),
           instrumentId: lessonInstrumentId,
           skillLevelId: lessonSkillLevelId,
-          status: lessonStatus as any,
+          status: 'DRAFT',
           orderIndex: lessonOrderIndex,
         });
         savedLessonId = created.id;
-        // If saving narration fails, retry updates this lesson instead of creating a duplicate.
         setEditingLessonInfo(created);
       }
-      if (savedLessonId === undefined) throw new Error('Không xác định được bài học để lưu lời hướng dẫn.');
-      for (let index = 0; index < lessonNarration.length; index++) {
-        const section = lessonNarration[index];
-        if (!section.id && !section.content_text.trim()) continue;
-        const body = { content_text: section.content_text.trim(), order_index: index + 1 };
-        const saved = section.id
-          ? await lessonContentsApi.update(savedLessonId, section.id, body)
-          : await lessonContentsApi.create(savedLessonId, body);
-        setLessonNarration(current => current.map((item, i) => i === index ? { ...item, id: saved.id } : item));
-      }
-      // Deletions are deferred until Save, so closing the form never deletes server content.
-      for (const id of removedNarrationIds) {
-        await lessonContentsApi.remove(savedLessonId, id);
-        setRemovedNarrationIds(current => current.filter(item => item !== id));
-      }
       setLessonModalOpen(false);
-      await reloadLessons();
+      if (!editingLessonInfo && savedLessonId !== undefined) {
+        navigate(`/instructor/lessons?editLesson=${savedLessonId}`);
+      } else await reloadLessons();
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Không thể lưu bài học.');
     } finally {
@@ -246,46 +183,6 @@ const InstructorMedia = () => {
     }
   };
 
-
-  // ── Handler: Open Config Modal ───────────────────────────────────────
-  // Mở modal cấu hình bài tập & ngưỡng điểm cho một bài học
-  const handleOpenConfigModal = (lesson: Lesson) => {
-    setConfiguringLesson(lesson);
-    setExTitle('');
-    setExDesc('');
-    setExPassThreshold(80);
-    setExOrderIndex(1);
-    setExError(null);
-    setExSuccess(null);
-    setOpenActionMenuId(null);
-  };
-
-  // ── Handler: Create exercise ──────────────────────────────────────────
-  // Tạo bài tập mới cho bài học (POST /api/lessons/{id}/exercises)
-  const handleCreateExercise = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!configuringLesson || !exTitle.trim()) return;
-    setIsSavingEx(true);
-    setExError(null);
-    setExSuccess(null);
-    const body: ExerciseInput = {
-      title: exTitle.trim(),
-      description: exDesc.trim() || undefined,
-      passThreshold: exPassThreshold,
-      orderIndex: exOrderIndex,
-    };
-    try {
-      await exercisesApi.create(configuringLesson.id, body);
-      setExSuccess(`Đã cấu hình bài tập "${exTitle}" (Ngưỡng điểm: ${exPassThreshold}) thành công!`);
-      setExTitle('');
-      setExDesc('');
-      setExOrderIndex((prev) => prev + 1);
-    } catch (err) {
-      setExError(err instanceof Error ? err.message : 'Không thể lưu cấu hình bài tập.');
-    } finally {
-      setIsSavingEx(false);
-    }
-  };
 
   const filteredLessons = lessons.filter((lesson) => {
     // Tập trung đúng một trong ba cấp cố định để giảng viên chỉnh giáo trình.
@@ -339,7 +236,7 @@ const InstructorMedia = () => {
           Cấu hình Giáo trình
         </h2>
         <p className="text-on-surface-variant mt-1">
-          Tạo bài học, sắp xếp lộ trình và biên soạn Bài tập, Quiz, Minigame cùng ngưỡng điểm đạt.
+          Tạo bài học, sắp xếp lộ trình và cấu hình bài tập, thứ tự hoạt động, ngưỡng điểm đạt.
         </p>
       </div>
 
@@ -511,20 +408,15 @@ const InstructorMedia = () => {
                                   <Pencil className="w-4 h-4 text-[#1D4532] flex-shrink-0" />
                                   Sửa thông tin bài học
                                 </button>
-                                <button
-                                  onClick={() => handleOpenConfigModal(lesson)}
-                                  className="w-full flex items-center gap-2.5 px-4 py-2.5 hover:bg-[#EDF7F2] text-[13px] font-medium text-[#1D4532] transition-colors border-t border-[#d1e4fb]/30 whitespace-nowrap"
-                                >
-                                  <Target className="w-4 h-4 text-[#1D4532] flex-shrink-0" />
-                                  Cấu hình Bài tập & Ngưỡng đạt
-                                </button>
+                                
+                                <Link to={`/instructor/lessons?editLesson=${lesson.id}`} className="w-full flex items-center gap-2.5 px-4 py-2.5 hover:bg-[#EDF7F2] text-[13px] font-medium whitespace-nowrap"><BookOpen className="w-4 h-4" /> Biên soạn nội dung & học liệu</Link>
                                 <Link
                                   to={`/instructor/lessons/${lesson.id}/content`}
                                   onClick={() => setOpenActionMenuId(null)}
                                   className="w-full flex items-center gap-2.5 px-4 py-2.5 hover:bg-[#EDF7F2] text-[13px] font-medium text-on-surface transition-colors border-t border-[#d1e4fb]/30 whitespace-nowrap"
                                 >
                                   <Layers className="w-4 h-4 text-[#1D4532] flex-shrink-0" />
-                                  Biên soạn Quiz & Minigame
+                                  Bài tập, Quiz & Ngưỡng đạt
                                 </Link>
                               </div>
                             </>
@@ -599,160 +491,6 @@ const InstructorMedia = () => {
           )}
         </div>
 
-      {/* ── Modal Cấu hình Bài tập & Điểm chuẩn ────────────────────────────── */}
-      {createPortal(
-        <AnimatePresence>
-          {configuringLesson && (
-            <>
-              {/* Backdrop */}
-              <motion.div
-                className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9998]"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                onClick={() => setConfiguringLesson(null)}
-              />
-
-              {/* Drawer Modal */}
-              <motion.div
-                className="fixed top-0 right-0 h-full w-[100%] sm:w-[75%] md:w-[60%] lg:w-[45%] bg-[#fbf9f4] border-l border-outline-variant/15 shadow-2xl overflow-hidden flex flex-col z-[9999]"
-                initial={{ x: '100%' }}
-                animate={{ x: 0 }}
-                exit={{ x: '100%' }}
-                transition={{ type: 'spring', damping: 25, stiffness: 220 }}
-              >
-                {/* Header */}
-                <div className="px-xl py-lg border-b border-outline-variant/10 flex justify-between items-center bg-[#EDF7F2]">
-                  <div>
-                    <h4 className="text-headline-sm font-bold text-[#1D4532]">
-                      Cấu hình Bài tập & Ngưỡng điểm
-                    </h4>
-                    <p className="text-xs text-on-surface-variant mt-0.5 font-medium">
-                      Bài học: <span className="text-[#1D4532] font-bold">{configuringLesson.title}</span>
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setConfiguringLesson(null)}
-                    className="p-md hover:bg-[#1D4532]/10 rounded-full text-on-surface-variant hover:text-on-surface transition-colors"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
-                </div>
-
-                {/* Form Body */}
-                <form onSubmit={handleCreateExercise} className="flex-1 overflow-y-auto p-xl space-y-lg custom-scrollbar">
-                  <div className="bg-white border border-outline-variant/10 rounded-2xl p-lg shadow-sm space-y-md">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-md">
-                      <div className="flex flex-col gap-xs">
-                        <label className="text-xs font-semibold text-[#6B7280] uppercase tracking-wider">
-                          Tên bài tập (title) *
-                        </label>
-                        <input
-                          type="text"
-                          required
-                          value={exTitle}
-                          onChange={(e) => setExTitle(e.target.value)}
-                          placeholder="Ví dụ: Luyện tập âm cơ bản..."
-                          className="bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl p-md text-sm focus:ring-1 focus:ring-[#1D4532] focus:border-[#1D4532] outline-none"
-                        />
-                      </div>
-                      <div className="flex flex-col gap-xs">
-                        <label className="text-xs font-semibold text-[#6B7280] uppercase tracking-wider">
-                          Thứ tự chặng (orderIndex)
-                        </label>
-                        <input
-                          type="number"
-                          min={1}
-                          value={exOrderIndex}
-                          onChange={(e) => setExOrderIndex(Math.max(1, parseInt(e.target.value) || 1))}
-                          className="bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl p-md text-sm focus:ring-1 focus:ring-[#1D4532] focus:border-[#1D4532] outline-none"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="flex flex-col gap-xs">
-                      <label className="text-xs font-semibold text-[#6B7280] uppercase tracking-wider">
-                        Mô tả bài tập thực hành
-                      </label>
-                      <textarea
-                        rows={2}
-                        value={exDesc}
-                        onChange={(e) => setExDesc(e.target.value)}
-                        placeholder="Hướng dẫn học viên luyện tập..."
-                        className="bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl p-md text-sm focus:ring-1 focus:ring-[#1D4532] focus:border-[#1D4532] outline-none resize-none"
-                      />
-                    </div>
-
-                    {/* Pass Threshold Range */}
-                    <div className="flex flex-col gap-xs border-t border-outline-variant/10 pt-md">
-                      <label className="text-xs font-semibold text-[#6B7280] uppercase tracking-wider flex justify-between items-center">
-                        <span>Điểm chuẩn tối thiểu để qua bài (passThreshold)</span>
-                        <span className="bg-[#1D4532] text-white px-md py-xs rounded-full font-bold text-xs">
-                          {exPassThreshold} / 100 điểm
-                        </span>
-                      </label>
-                      <input
-                        type="range"
-                        min={0}
-                        max={100}
-                        step={5}
-                        value={exPassThreshold}
-                        onChange={(e) => setExPassThreshold(parseInt(e.target.value))}
-                        className="accent-[#1D4532] w-full cursor-pointer mt-2"
-                      />
-                      <div className="flex justify-between text-xs text-[#9CA3AF] mt-1">
-                        <span>0 (Tối thiểu)</span>
-                        <span>50 (Trung bình)</span>
-                        <span>100 (Hoàn hảo)</span>
-                      </div>
-                      <p className="text-xs text-[#5e5e5b] italic mt-1">
-                        * Học viên cần đạt từ {exPassThreshold} điểm trở lên khi chấm mic/âm thanh để mở khóa bài học tiếp theo.
-                      </p>
-                    </div>
-
-                    {/* Feedback Messages */}
-                    {exError && (
-                      <div className="flex items-center gap-xs bg-red-50 border border-red-200 rounded-xl p-md text-red-700 text-xs">
-                        <AlertCircle className="w-4 h-4 flex-shrink-0" /> {exError}
-                      </div>
-                    )}
-                    {exSuccess && (
-                      <div className="flex items-center gap-xs bg-emerald-50 border border-emerald-200 rounded-xl p-md text-emerald-700 text-xs">
-                        <Check className="w-4 h-4 flex-shrink-0" /> {exSuccess}
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="flex items-center justify-end gap-md pt-md">
-                    <button
-                      type="button"
-                      onClick={() => setConfiguringLesson(null)}
-                      className="px-xl py-md rounded-xl border border-outline-variant/30 text-on-surface-variant text-sm font-bold hover:bg-black/5 transition-all"
-                    >
-                      Đóng
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={isSavingEx || !exTitle.trim()}
-                      className="px-xl py-md rounded-xl bg-[#1D4532] text-white text-sm font-bold hover:bg-[#1D4532]/90 transition-all disabled:opacity-50 flex items-center gap-xs shadow-md"
-                    >
-                      {isSavingEx ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <Plus className="w-4 h-4" />
-                      )}
-                      Lưu bài tập & Điểm chuẩn
-                    </button>
-                  </div>
-                </form>
-              </motion.div>
-            </>
-          )}
-        </AnimatePresence>,
-        document.body
-      )}
-
       {/* ── Modal Tạo / Sửa Bài học ────────────────────────────────────────── */}
       {createPortal(
         <AnimatePresence>
@@ -779,10 +517,10 @@ const InstructorMedia = () => {
                 <div className="px-xl py-lg border-b border-outline-variant/10 flex justify-between items-center bg-[#EDF7F2]">
                   <div>
                     <h4 className="text-headline-sm font-bold text-[#1D4532]">
-                      {editingLessonInfo ? 'Chỉnh sửa Cấu trúc Bài học' : 'Tạo Bài học Mới'}
+                      {editingLessonInfo ? 'Thông tin bài trong giáo trình' : 'Tạo Bài học Mới'}
                     </h4>
                     <p className="text-xs text-on-surface-variant mt-0.5 font-medium">
-                      Đặt tên bài học, biên soạn từng đoạn lời cô Mai và khuông nhạc thực hành.
+                      Đặt tên và vị trí bài trong lộ trình. Nội dung được biên soạn ở bước tiếp theo.
                     </p>
                   </div>
                   <button
@@ -797,78 +535,10 @@ const InstructorMedia = () => {
                 {/* Form Body */}
                 <form onSubmit={handleSaveLesson} className="flex-1 overflow-y-auto p-xl space-y-lg custom-scrollbar">
                   <fieldset disabled={isSavingLesson} className="bg-white border border-outline-variant/10 rounded-2xl p-lg shadow-sm space-y-md min-w-0">
-                    <div className="grid grid-cols-1 gap-md">
-                      <div className="flex flex-col gap-xs">
-                        <label className="text-xs font-semibold text-[#6B7280] uppercase tracking-wider">
-                          Tên bài học *
-                        </label>
-                        <input
-                          type="text"
-                          required
-                          value={lessonTitle}
-                          onChange={(e) => setLessonTitle(e.target.value)}
-                          placeholder="Nhập tên bài học..."
-                          className="bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl p-md text-sm focus:ring-1 focus:ring-[#1D4532] focus:border-[#1D4532] outline-none"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-md">
-                      <div className="flex flex-col gap-xs">
-                        <label className="text-xs font-semibold text-[#6B7280] uppercase tracking-wider">
-                          Thứ tự (orderIndex)
-                        </label>
-                        <input
-                          type="number"
-                          min={1}
-                          value={lessonOrderIndex}
-                          onChange={(e) => setLessonOrderIndex(Math.max(1, parseInt(e.target.value) || 1))}
-                          className="bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl p-md text-sm focus:ring-1 focus:ring-[#1D4532] focus:border-[#1D4532] outline-none"
-                        />
-                      </div>
-                      <div className="flex flex-col gap-xs">
-                        <label className="text-xs font-semibold text-[#6B7280] uppercase tracking-wider">
-                          Trạng thái
-                        </label>
-                        <select
-                          value={lessonStatus}
-                          onChange={(e) => setLessonStatus(e.target.value)}
-                          className="bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl p-md text-sm focus:ring-1 focus:ring-[#1D4532] focus:border-[#1D4532] outline-none cursor-pointer"
-                        >
-                          <option value="DRAFT">Bản nháp</option>
-                          <option value="PENDING">Chờ duyệt</option>
-                          <option value="APPROVED" disabled>Đã duyệt</option>
-                        </select>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-col gap-xs">
-                      <label className="text-xs font-semibold text-[#6B7280] uppercase tracking-wider">
-                        Nội dung cô Mai nói và hướng dẫn
-                      </label>
-                      <p className="text-xs text-on-surface-variant">Mỗi ô là một đoạn lời hướng dẫn riêng. Chia nội dung theo từng bước ngắn: giới thiệu, thao tác, rồi lưu ý thực hành. Các đoạn được lưu theo thứ tự bên dưới.</p>
-                      {lessonNarration.map((section, index) => <div key={index} className="flex flex-col gap-xs">
-                        <div className="flex items-center justify-between gap-2 mt-3">
-                          <span className="text-xs font-semibold text-on-surface-variant">Đoạn hướng dẫn {index + 1}</span>
-                          <div className="flex items-center gap-1">
-                            <button type="button" disabled={index === 0} onClick={() => moveNarration(index, -1)} aria-label={`Đưa đoạn ${index + 1} lên`} className="p-2 rounded hover:bg-[#EDF7F2] disabled:opacity-30"><ArrowUp className="w-4 h-4" /></button>
-                            <button type="button" disabled={index === lessonNarration.length - 1} onClick={() => moveNarration(index, 1)} aria-label={`Đưa đoạn ${index + 1} xuống`} className="p-2 rounded hover:bg-[#EDF7F2] disabled:opacity-30"><ArrowDown className="w-4 h-4" /></button>
-                            <button type="button" onClick={() => removeNarration(index)} aria-label={`Xóa đoạn ${index + 1}`} className="p-2 rounded text-red-700 hover:bg-red-50"><Trash2 className="w-4 h-4" /></button>
-                          </div>
-                        </div>
-                        <textarea
-                          rows={3}
-                          aria-label={`Lời hướng dẫn cô Mai, đoạn ${index + 1}`}
-                          value={section.content_text}
-                          onChange={(e) => setLessonNarration(current => current.map((item, i) => i === index ? { ...item, content_text: e.target.value } : item))}
-                          placeholder="Chào em! Trong bài học này, cô sẽ hướng dẫn em…"
-                          className="bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl p-md text-sm focus:ring-1 focus:ring-[#1D4532] focus:border-[#1D4532] outline-none resize-y"
-                        />
-                      </div>)}
-                      <button type="button" onClick={() => setLessonNarration(current => [...current, { content_text: '', order_index: current.length + 1 }])} className="mt-3 inline-flex items-center gap-2 self-start rounded-lg border border-[#1D4532]/30 px-3 py-2 text-sm font-bold text-[#1D4532] hover:bg-[#EDF7F2]"><Plus className="w-4 h-4" /> Thêm đoạn hướng dẫn</button>
-                    </div>
-
-                    <PracticeSheetComposer value={practiceSheet} onChange={setPracticeSheet} instrument={/sao|flute/.test(String(instruments.find(inst => Number(inst.id) === Number(lessonInstrumentId))?.name ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()) ? 'sao_truc' : 'dan_tranh'} />
+                    <label className="block text-sm font-semibold">Tên bài học *<input required value={lessonTitle} onChange={e => setLessonTitle(e.target.value)} placeholder="Nhập tên bài học…" className="mt-2 block w-full rounded-xl border bg-white p-3" /></label>
+                    <label className="block text-sm font-semibold">Vị trí trong giáo trình<input type="number" min={1} required value={lessonOrderIndex} onChange={e => setLessonOrderIndex(Math.max(1, Number(e.target.value) || 1))} className="mt-2 block w-full rounded-xl border bg-white p-3" /></label>
+                    {editingLessonInfo ? <label className="block text-sm font-semibold">Trạng thái<select value={lessonStatus} onChange={e => setLessonStatus(e.target.value)} className="mt-2 block w-full rounded-xl border bg-white p-3"><option value="DRAFT">Bản nháp</option><option value="PENDING">Gửi duyệt</option><option value="APPROVED" disabled>Đã duyệt</option><option value="REJECTED" disabled>Bị từ chối</option></select></label> : <p className="text-sm text-on-surface-variant">Bài mới được tạo ở trạng thái nháp.</p>}
+                      <p className="text-sm text-on-surface-variant">Lời cô Mai, audio và khuông thực hành được biên soạn tại Nội dung & Học liệu sau khi tạo bài.</p>
                   </fieldset>
 
                   <div className="flex items-center justify-end gap-md pt-md">
@@ -889,7 +559,7 @@ const InstructorMedia = () => {
                       ) : (
                         <Check className="w-4 h-4" />
                       )}
-                      Lưu Bài Học
+                      {editingLessonInfo ? 'Lưu thông tin bài' : 'Tạo và biên soạn'}
                     </button>
                   </div>
                 </form>
