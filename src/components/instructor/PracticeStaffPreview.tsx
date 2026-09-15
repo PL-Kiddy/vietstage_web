@@ -21,7 +21,7 @@ export default function PracticeStaffPreview({ events, instrument = 'dan_tranh',
   const positions = events.flatMap(event => event.notes.filter(note => note !== 'REST').map(positionOf));
   const highest = Math.max(4, ...positions);
   const lowest = Math.min(0, ...positions);
-  const bottom = 48 + highest * spacing;
+  const bottom = 64 + highest * spacing;
   const y = (position: number) => bottom - position * spacing;
   const fingerY = y(lowest) + 54;
   const height = fingerY + Math.max(1, ...events.map(event => event.fingering.length)) * 18 + 12;
@@ -62,9 +62,18 @@ export default function PracticeStaffPreview({ events, instrument = 'dan_tranh',
             return <ellipse key={noteIndex} cx={headX} cy={y(position)} rx="10" ry="6.3" transform={`rotate(-18 ${headX} ${y(position)})`} fill={event.duration === 'half' || event.duration === 'whole' ? '#fffef9' : '#151515'} stroke="#151515" strokeWidth="1.8" />;
           })}
           {event.technique === 'nhan' && <text x={x} y={markY} textAnchor="middle" fontSize="21">*</text>}
-          {event.technique === 'rung' && <path d={`M ${x - 15} ${markY} q 5 -8 10 0 t 10 0 t 10 0`} fill="none" stroke="#151515" strokeWidth="1.5" />}
+          {event.technique === 'rung' && <polyline points={Array.from({ length: 33 }, (_, i) => `${x - spacing * 0.625 + spacing * 1.25 * i / 32},${markY + Math.sin(i / 32 * Math.PI * 6) * Math.max(3.5, spacing * 0.1)}`).join(' ')} fill="none" stroke="#151515" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />}
           {event.technique === 've' && [0, 1, 2].map(i => <line key={i} x1={stemX - 6} x2={stemX + 6} y1={tip + (up ? 12 : -12) + i * 5} y2={tip + (up ? 6 : -18) + i * 5} stroke="#151515" strokeWidth="2" />)}
-          {event.technique === 'a' && <text x={x} y={markY} fontSize="14" textAnchor="middle">Á ↗</text>}
+          {event.technique === 'a' && <g stroke="#151515" strokeWidth="1.6">
+            {(event.glissandoDirection === 'round' ? ['down', 'up'] : [event.glissandoDirection || 'up']).map((direction, i) => {
+              const cueX = x - 30 + i * 10;
+              const top = y(4) - spacing * 0.45;
+              const base = y(0);
+              const tipY = direction === 'up' ? top : base;
+              const arrowBase = tipY + (direction === 'up' ? 7 : -7);
+              return <g key={direction}><line x1={cueX} x2={cueX} y1={direction === 'up' ? base : top} y2={arrowBase} /><path d={`M ${cueX} ${tipY} L ${cueX - 3.5} ${arrowBase} L ${cueX + 3.5} ${arrowBase} Z`} stroke="none" /></g>;
+            })}
+          </g>}
           {!isFlute && event.fingering.map((finger, i) => <text key={i} x={x} y={fingerY + i * 18} textAnchor="middle" fontSize="15" fontWeight="bold">{finger}</text>)}
         </g>;
       })}
