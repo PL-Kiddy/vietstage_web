@@ -1,11 +1,8 @@
-import { useSearchParams, Link } from 'react-router-dom';
-import PracticeSheetComposer, { EMPTY_PRACTICE_SHEET, type PracticeSheetConfig } from '../../components/instructor/PracticeSheetComposer';
-import { useState, useEffect, useCallback, useRef, type FormEvent } from 'react';
+import LessonBodyEditor from '../../components/instructor/LessonBodyEditor';
+import { useSearchParams } from 'react-router-dom';
+import { EMPTY_PRACTICE_SHEET, type PracticeSheetConfig } from '../../components/instructor/PracticeSheetComposer';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
-  Music,
-  FileText,
-  X,
-  Check,
   BookOpen,
   RefreshCw,
   AlertCircle,
@@ -13,17 +10,12 @@ import {
   MoreVertical,
   ChevronLeft,
   ChevronRight,
-  UploadCloud,
-  Trash2,
-  ExternalLink,
   Pencil,
-  ArrowUp,
-  ArrowDown,
+  Eye,
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { lessonsApi, lessonAssetsApi, lessonContentsApi, masterDataApi, type LessonContent } from '../../api/services';
+import { lessonsApi, masterDataApi } from '../../api/services';
 import { lessonDetailApi } from '../../api/management';
-import type { Instrument, Lesson as ApiLesson, LessonAsset, SkillLevel } from '../../api/types';
+import type { Instrument, Lesson as ApiLesson, SkillLevel } from '../../api/types';
 import { useAxiosRequest } from '../../hooks/useAxiosRequest';
 
 interface Lesson {
@@ -58,8 +50,6 @@ const mapLesson = (lesson: ApiLesson): Lesson => ({
   orderIndex: lesson.orderIndex ?? 0,
 });
 
-const MAX_REFERENCE_AUDIO_BYTES = 20 * 1024 * 1024;
-const MAX_SHEET_MUSIC_BYTES = 5 * 1024 * 1024;
 
 type CurriculumLevelKey = 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED';
 const CURRICULUM_LEVELS: Array<{ key: CurriculumLevelKey; number: number; label: string }> = [
@@ -110,16 +100,9 @@ const InstructorLessons = () => {
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
-  const [newDescription, setNewDescription] = useState('');
   const [editingLesson, setEditingLesson] = useState<Lesson | null>(null);
-  const [assets, setAssets] = useState<LessonAsset[]>([]);
-  const [contents, setContents] = useState<LessonContent[]>([]);
+  const [readOnly, setReadOnly] = useState(false);
   const materialRequest = useRef(0);
-  const [materialsLoading, setMaterialsLoading] = useState(false);
-  const [materialsError, setMaterialsError] = useState('');
-  const [uploadingType, setUploadingType] = useState<'REFERENCE_AUDIO' | 'SHEET_MUSIC' | null>(null);
-  const [savingDescription, setSavingDescription] = useState(false);
-  const [editingContentId, setEditingContentId] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedInstrumentId, setSelectedInstrumentId] = useState<number | null>(null);
   const [selectedCurriculumLevel, setSelectedCurriculumLevel] = useState<CurriculumLevelKey>('BEGINNER');
@@ -169,181 +152,31 @@ const InstructorLessons = () => {
     };
   }, [loadLessons]);
 
-  // Show the editor immediately; fetch independent resources concurrently.
-  const handleEditClick = async (lesson: Lesson) => {
-    const requestId = ++materialRequest.current;
+  const handleEditClick = (lesson: Lesson, viewOnly = false) => {
+    materialRequest.current++;
+    setReadOnly(viewOnly);
     setEditingLesson(lesson);
-    setNewDescription('');
-    setEditingContentId(null);
-    setAssets([]);
-    setContents([]);
-    setMaterialsLoading(true);
-    setMaterialsError('');
-    try {
-      const [detail, lessonAssets, lessonContents] = await Promise.all([
-        lessonDetailApi.get(Number(lesson.id)),
-        lessonAssetsApi.getAssets(Number(lesson.id)),
-        lessonContentsApi.list(Number(lesson.id)),
-      ]);
-      if (requestId !== materialRequest.current) return;
-      setEditingLesson(mapLesson(detail));
-      setAssets(lessonAssets);
-      setContents(lessonContents.sort((a, b) => a.order_index - b.order_index));
-    } catch (error) {
-      if (requestId === materialRequest.current) setMaterialsError(error instanceof Error ? error.message : 'Không thể tải nội dung bài học.');
-    } finally {
-      if (requestId === materialRequest.current) setMaterialsLoading(false);
-    }
   };
-
   const requestedLessonId = searchParams.get('editLesson');
   useEffect(() => {
     if (!requestedLessonId || !/^\d+$/.test(requestedLessonId)) return;
     let cancelled = false;
     const requestId = ++materialRequest.current;
-    setMaterialsLoading(true);
-    setMaterialsError('');
-    Promise.all([
-      lessonDetailApi.get(Number(requestedLessonId)),
-      lessonAssetsApi.getAssets(Number(requestedLessonId)),
-      lessonContentsApi.list(Number(requestedLessonId)),
-    ]).then(([detail, loadedAssets, loadedContents]) => {
+    lessonDetailApi.get(Number(requestedLessonId)).then(detail => {
       if (cancelled || requestId !== materialRequest.current) return;
       const mapped = mapLesson(detail);
+      setReadOnly(false);
       setEditingLesson(mapped);
       setSelectedInstrumentId(mapped.instrumentId ?? null);
       setSelectedCurriculumLevel(getCurriculumLevelKey(mapped.skillLevel));
-      setNewDescription('');
-      setEditingContentId(null);
-      setAssets(loadedAssets);
-      setContents(loadedContents.sort((a, b) => a.order_index - b.order_index));
-    }).catch(error => { if (!cancelled && requestId === materialRequest.current) setLoadError(error instanceof Error ? error.message : 'Không thể mở bài học.'); })
-      .finally(() => { if (!cancelled && requestId === materialRequest.current) setMaterialsLoading(false); });
+    }).catch(error => { if (!cancelled && requestId === materialRequest.current) setLoadError(error instanceof Error ? error.message : 'Không thể mở bài học.'); });
     return () => { cancelled = true; };
   }, [requestedLessonId]);
 
-  // Đóng drawer và reset mô tả
   const handleCloseModal = () => {
     materialRequest.current++;
-    setMaterialsLoading(false);
-    setNewDescription('');
-    setEditingContentId(null);
-    setAssets([]);
-    setContents([]);
-    setMaterialsError('');
     setEditingLesson(null);
     if (requestedLessonId) setSearchParams({}, { replace: true });
-  };
-
-  const reloadMaterials = async () => {
-    if (!editingLesson) return;
-    const [lessonAssets, lessonContents] = await Promise.all([
-      lessonAssetsApi.getAssets(Number(editingLesson.id)),
-      lessonContentsApi.list(Number(editingLesson.id)),
-    ]);
-    setAssets(lessonAssets);
-    setContents(lessonContents.sort((a, b) => a.order_index - b.order_index));
-  };
-
-  const moveContent = async (index: number, direction: number) => {
-    if (!editingLesson || savingDescription) return;
-    const next = [...contents];
-    const target = index + direction;
-    if (target < 0 || target >= next.length) return;
-    [next[index], next[target]] = [next[target], next[index]];
-    setSavingDescription(true);
-    setMaterialsError('');
-    try {
-      for (let i = 0; i < next.length; i++) {
-        await lessonContentsApi.update(Number(editingLesson.id), next[i].id, { content_text: next[i].content_text, order_index: i + 1 });
-      }
-      await reloadMaterials();
-    } catch (error) {
-      setMaterialsError(error instanceof Error ? error.message : 'Không thể đổi thứ tự đoạn.');
-      await reloadMaterials().catch(() => {});
-    } finally { setSavingDescription(false); }
-  };
-
-  const handleSaveAssets = async (event: FormEvent) => {
-    event.preventDefault();
-    if (!editingLesson || !newDescription.trim()) return;
-    setSavingDescription(true);
-    setMaterialsError('');
-    try {
-      const currentContent = contents.find((content) => content.id === editingContentId);
-      const payload = {
-        content_text: newDescription.trim(),
-        order_index: currentContent?.order_index ?? Math.max(0, ...contents.map((content) => content.order_index)) + 1,
-      };
-      if (editingContentId) await lessonContentsApi.update(Number(editingLesson.id), editingContentId, payload);
-      else await lessonContentsApi.create(Number(editingLesson.id), payload);
-      setNewDescription('');
-      setEditingContentId(null);
-      await reloadMaterials();
-    } catch (error) {
-      setMaterialsError(error instanceof Error ? error.message : 'Không thể lưu đoạn lời cô Mai.');
-    } finally {
-      setSavingDescription(false);
-    }
-  };
-
-  const uploadMaterial = async (file: File, type: 'REFERENCE_AUDIO' | 'SHEET_MUSIC') => {
-    if (!editingLesson) return;
-    const extension = file.name.split('.').pop()?.toLowerCase();
-    const valid = type === 'REFERENCE_AUDIO'
-      ? ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-wav'].includes(file.type) || ['mp3', 'wav'].includes(extension ?? '')
-      : ['image/png', 'image/jpeg', 'image/webp'].includes(file.type) || ['png', 'jpg', 'jpeg', 'webp'].includes(extension ?? '');
-    if (!valid) {
-      setMaterialsError(type === 'REFERENCE_AUDIO' ? 'Chỉ hỗ trợ file MP3 hoặc WAV.' : 'Chỉ hỗ trợ file ảnh cho bản ký âm.');
-      return;
-    }
-    const maximumSize = type === 'REFERENCE_AUDIO' ? MAX_REFERENCE_AUDIO_BYTES : MAX_SHEET_MUSIC_BYTES;
-    if (file.size > maximumSize) {
-      setMaterialsError(type === 'REFERENCE_AUDIO' ? 'File âm thanh không được vượt quá 20 MB.' : 'Ảnh bản ký âm không được vượt quá 5 MB.');
-      return;
-    }
-    setUploadingType(type);
-    setMaterialsError('');
-    try {
-      await lessonAssetsApi.uploadAsset(Number(editingLesson.id), file, type);
-      await reloadMaterials();
-    } catch (error) {
-      setMaterialsError(error instanceof Error ? error.message : 'Không thể tải học liệu lên.');
-    } finally {
-      setUploadingType(null);
-    }
-  };
-
-  const removeMaterial = async (assetId: number) => {
-    if (!editingLesson || !window.confirm('Xóa học liệu này khỏi bài học?')) return;
-    setMaterialsError('');
-    try {
-      await lessonAssetsApi.deleteAsset(Number(editingLesson.id), assetId);
-      await reloadMaterials();
-    } catch (error) {
-      setMaterialsError(error instanceof Error ? error.message : 'Không thể xóa học liệu.');
-    }
-  };
-
-  const removeContent = async (contentId: number) => {
-    if (!editingLesson || !window.confirm('Xóa đoạn lời cô Mai này?')) return;
-    setMaterialsError('');
-    try {
-      await lessonContentsApi.remove(Number(editingLesson.id), contentId);
-      if (editingContentId === contentId) {
-        setEditingContentId(null);
-        setNewDescription('');
-      }
-      await reloadMaterials();
-    } catch (error) {
-      setMaterialsError(error instanceof Error ? error.message : 'Không thể xóa đoạn lời cô Mai.');
-    }
-  };
-
-  const editContent = (content: LessonContent) => {
-    setEditingContentId(content.id);
-    setNewDescription(content.content_text);
-    setMaterialsError('');
   };
 
   // Filter and arrange curriculum order
@@ -394,15 +227,15 @@ const InstructorLessons = () => {
             Nội dung & Học liệu
           </h1>
           <p className="text-body-md text-on-surface-variant mt-xs">
-            Tổ chức, đăng tải học liệu (âm thanh mẫu, bản ký âm sheet nhạc) và quản lý thông tin bài giảng của bạn.
+            Xem và chỉnh sửa lời cô Mai hướng dẫn cùng khuông thực hành của từng bài học.
           </p>
         </div>
 
         <section aria-label="Phạm vi nhạc cụ" className="flex flex-col gap-3 rounded-2xl border border-[#d8eadf] bg-[#f7fbf8] p-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <p className="text-xs font-bold uppercase tracking-[0.12em] text-[#567364]">Nhạc cụ đang quản lý học liệu</p>
+            <p className="text-xs font-bold uppercase tracking-[0.12em] text-[#567364]">Nhạc cụ</p>
             <p className="mt-1 text-lg font-bold text-[#1D4532]">{activeInstrument ? getInstrumentTranslation(activeInstrument.name) : 'Đang tải nhạc cụ…'}</p>
-            <p className="mt-1 text-xs text-on-surface-variant">Chọn nhạc cụ trước, sau đó chọn cấp để quản lý đúng học liệu của bài.</p>
+            <p className="mt-1 text-xs text-on-surface-variant">Chọn nhạc cụ và cấp độ để tìm bài học cần biên soạn.</p>
           </div>
           <label className="flex min-w-[250px] flex-col gap-1 text-xs font-semibold text-[#52605a]">
             Chuyển nhạc cụ
@@ -596,6 +429,7 @@ const InstructorLessons = () => {
                               <div className={`absolute right-4 w-52 bg-white border border-[#d1e4fb] rounded-xl shadow-lg py-1 z-20 text-left ${
                                 idx >= paginatedLessons.length - 2 && paginatedLessons.length > 2 ? 'bottom-[85%] mb-1' : 'top-full mt-1'
                               }`}>
+                                <button type="button" onClick={() => { setOpenActionMenuLessonId(null); handleEditClick(lesson, true); }} className="flex w-full items-center gap-2 px-4 py-2 text-left text-[13px] font-medium text-[#1D4532] hover:bg-[#EDF7F2]"><Eye className="h-4 w-4" /> Xem bài học</button>
                                 <button
                                   onClick={() => {
                                     setOpenActionMenuLessonId(null);
@@ -603,8 +437,8 @@ const InstructorLessons = () => {
                                   }}
                                   className="w-full flex items-center gap-2 px-4 py-2 hover:bg-[#EDF7F2] text-[13px] text-on-surface transition-colors font-medium text-[#1D4532]"
                                 >
-                                  <UploadCloud className="w-4 h-4 text-[#1D4532]" />
-                                  Biên soạn bài học
+                                  <Pencil className="w-4 h-4 text-[#1D4532]" />
+                                  Chỉnh sửa bài học
                                 </button>
                               </div>
                             </>
@@ -680,225 +514,7 @@ const InstructorLessons = () => {
         </div>
       )}
 
-      {/* Drawer Form Overlay - Slide from right */}
-      <AnimatePresence>
-        {editingLesson && (
-          <>
-            {/* Backdrop Blur Overlay */}
-            <motion.div
-              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={handleCloseModal}
-            />
-
-            {/* Slide-in Drawer */}
-            <motion.div
-              className="fixed top-0 right-0 h-full w-[100%] sm:w-[75%] md:w-[65%] lg:w-[50%] bg-[#fbf9f4] border-l border-outline-variant/15 shadow-2xl z-50 overflow-hidden flex flex-col"
-              initial={{ x: '100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: '100%' }}
-              transition={{ type: 'spring', damping: 25, stiffness: 220 }}
-            >
-              {/* Drawer Header */}
-              <div className="px-xl py-lg border-b border-outline-variant/10 flex justify-between items-center bg-[#EDF7F2]">
-                <div>
-                  <h4 className="text-headline-md font-bold text-[#1D4532] font-sans">
-                    Biên soạn bài học
-                  </h4>
-                  <p className="text-label-sm text-on-surface-variant text-[13px] mt-xs">
-                    Đăng tải file âm thanh, sheet nhạc và mô tả kỹ thuật.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleCloseModal}
-                  className="p-md hover:bg-[#1D4532]/10 rounded-full text-on-surface-variant hover:text-on-surface transition-colors"
-                >
-                  <X className="w-6 h-6" />
-                </button>
-              </div>
-
-              {/* Drawer Body */}
-              <form onSubmit={handleSaveAssets} className="flex-1 overflow-y-auto p-xl space-y-xl custom-scrollbar flex flex-col justify-between">
-                {materialsLoading && <p role="status" className="rounded-xl bg-[#EDF7F2] p-4 text-sm text-[#1D4532]">Đang tải nội dung bài học…</p>}
-                {materialsError && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{materialsError}<button type="button" onClick={() => void handleEditClick(editingLesson)} className="ml-3 font-semibold underline">Thử lại</button></div>}
-                <fieldset disabled={materialsLoading || !!materialsError || savingDescription} aria-busy={materialsLoading} className="min-w-0 space-y-5 disabled:opacity-50">
-
-                <div className="bg-white/95 backdrop-blur-md border border-outline-variant/10 rounded-2xl p-lg shadow-sm space-y-lg">
-                  {/* Context Info */}
-                  <div className="bg-[#f8f9fa] rounded-xl p-4 border border-outline-variant/10">
-                     <p className="text-sm font-semibold text-[#1D4532] mb-1">Bài học: <span className="text-on-surface ml-1">{editingLesson?.title}</span></p>
-                     <p className="text-sm font-semibold text-[#1D4532]">Nhạc cụ: <span className="text-on-surface ml-1">{editingLesson?.instrument}</span></p>
-                  </div>
-
-                  {/* Description */}
-                  <div className="flex flex-col gap-xs border-t border-outline-variant/10 pt-md">
-                    <label className="font-label-sm text-on-surface-variant font-semibold uppercase tracking-wider text-xs">
-                      {editingContentId ? 'Chỉnh sửa đoạn lời cô Mai' : 'Thêm đoạn lời cô Mai'}
-                    </label>
-                    <textarea
-                      value={newDescription}
-                      onChange={(e) => setNewDescription(e.target.value)}
-                      placeholder="Nhập một đoạn cô Mai nói: giới thiệu, hướng dẫn thao tác hoặc lưu ý thực hành…"
-                      className="w-full bg-[#fbf9f4] border border-outline-variant/30 rounded-xl p-md text-body-md focus:border-primary focus:ring-1 focus:ring-primary transition-all outline-none text-on-surface h-24"
-                    />
-                    {editingContentId && (
-                      <button type="button" onClick={() => { setEditingContentId(null); setNewDescription(''); }} className="w-fit text-xs font-semibold text-on-surface-variant hover:text-[#1D4532]">
-                        Hủy chỉnh sửa
-                      </button>
-                    )}
-                  </div>
-
-                  {/* Upload Section */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-md border-t border-outline-variant/10 pt-md">
-                    <div className="flex flex-col gap-xs">
-                      <label className="font-label-sm text-on-surface-variant font-semibold uppercase tracking-wider text-xs">
-                        Âm thanh (.wav/.mp3)
-                      </label>
-                      <label className="border border-dashed border-outline-variant/40 rounded-xl p-md flex flex-col items-center justify-center bg-[#fbf9f4] hover:bg-[#ffe088]/10 transition-all cursor-pointer relative">
-                        <input
-                          type="file"
-                          accept="audio/mpeg,audio/mp3,audio/wav,audio/x-wav,.mp3,.wav"
-                          className="hidden"
-                          disabled={uploadingType !== null}
-                          onChange={async (e) => {
-                            const file = e.target.files?.[0];
-                            if (file) {
-                              try {
-                                if (editingLesson) {
-                                  await uploadMaterial(file, 'REFERENCE_AUDIO');
-                                }
-                              } catch (err) {
-                                alert(`Tải âm thanh thất bại: ${err instanceof Error ? err.message : 'Lỗi không xác định'}`);
-                              }
-                            }
-                          }}
-                        />
-                        <Music className="w-8 h-8 text-primary mb-xs" />
-                        <span className="font-label-sm text-primary font-bold text-xs">{uploadingType === 'REFERENCE_AUDIO' ? 'Đang tải lên…' : 'Tải lên file âm thanh'}</span>
-                      </label>
-                    </div>
-                    <div className="flex flex-col gap-xs">
-                      <label className="font-label-sm text-on-surface-variant font-semibold uppercase tracking-wider text-xs">
-                        Ký âm / Sheet nhạc
-                      </label>
-                      <label className="border border-dashed border-outline-variant/40 rounded-xl p-md flex flex-col items-center justify-center bg-[#fbf9f4] hover:bg-[#ffe088]/10 transition-all cursor-pointer relative">
-                        <input
-                          type="file"
-                          accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp"
-                          className="hidden"
-                          disabled={uploadingType !== null}
-                          onChange={async (e) => {
-                            const file = e.target.files?.[0];
-                            if (file) {
-                              try {
-                                if (editingLesson) {
-                                  await uploadMaterial(file, 'SHEET_MUSIC');
-                                }
-                              } catch (err) {
-                                alert(`Tải ký âm thất bại: ${err instanceof Error ? err.message : 'Lỗi không xác định'}`);
-                              }
-                            }
-                          }}
-                        />
-                        <FileText className="w-8 h-8 text-primary mb-xs" />
-                        <span className="font-label-sm text-primary font-bold text-xs">{uploadingType === 'SHEET_MUSIC' ? 'Đang tải lên…' : 'Tải lên bản ký âm'}</span>
-                      </label>
-                    </div>
-                  </div>
-
-
-
-                  <section className="space-y-3 border-t border-outline-variant/10 pt-md" aria-label="Học liệu đã tải lên">
-                    <div className="flex items-center justify-between">
-                      <h5 className="text-sm font-bold text-[#1D4532]">Học liệu đã tải lên</h5>
-                      {materialsLoading && <span className="text-xs text-on-surface-variant">Đang tải…</span>}
-                    </div>
-                    {!materialsLoading && assets.length === 0 && (
-                      <p className="text-sm text-on-surface-variant">Chưa có audio tham chiếu hoặc bản ký âm.</p>
-                    )}
-                    <div className="space-y-2">
-                      {assets.map((asset) => (
-                        <div key={asset.id} className="rounded-xl border border-outline-variant/15 bg-[#fbf9f4] p-3">
-                          <div className="flex items-center justify-between gap-3">
-                            <div className="min-w-0">
-                              <p className="truncate text-sm font-semibold text-[#1D4532]">{asset.title?.trim() || (asset.type === 'REFERENCE_AUDIO' ? 'Âm thanh tham chiếu' : 'Bản ký âm')}</p>
-                              {asset.mime_type && <p className="mt-0.5 text-xs text-on-surface-variant">{asset.mime_type}</p>}
-                              <a href={asset.url} target="_blank" rel="noreferrer" className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline">
-                                Mở học liệu <ExternalLink className="h-3.5 w-3.5" />
-                              </a>
-                            </div>
-                            <button type="button" onClick={() => void removeMaterial(asset.id)} className="rounded-lg p-2 text-red-700 hover:bg-red-50" title="Xóa học liệu" aria-label="Xóa học liệu">
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          </div>
-                          {asset.type === 'REFERENCE_AUDIO' && <audio className="mt-3 w-full" controls preload="metadata" src={asset.url}>Trình duyệt không hỗ trợ phát audio.</audio>}
-                        </div>
-                      ))}
-                    </div>
-                  </section>
-
-                  <section className="space-y-3 border-t border-outline-variant/10 pt-md" aria-label="Lời cô Mai hướng dẫn">
-                    <div className="flex items-center justify-between gap-3">
-                      <h5 className="text-sm font-bold text-[#1D4532]">Lời cô Mai hướng dẫn</h5>
-                      <span className="text-xs text-on-surface-variant">{contents.length} nội dung</span>
-                    </div>
-                    {contents.length > 0 && (
-                      <div className="space-y-2">
-                        {contents.map((content, index) => (
-                          <div key={content.id} className="flex items-start justify-between gap-3 rounded-xl border border-outline-variant/15 bg-[#fbf9f4] p-3">
-                            <p className="whitespace-pre-wrap text-sm leading-6 text-on-surface">{content.content_text}</p>
-                            <div className="flex shrink-0 gap-1">
-                              <button type="button" disabled={savingDescription || index === 0} onClick={() => void moveContent(index, -1)} className="rounded-lg p-2 text-[#1D4532] disabled:opacity-30" aria-label="Đưa đoạn lên"><ArrowUp className="h-4 w-4" /></button>
-                              <button type="button" disabled={savingDescription || index === contents.length - 1} onClick={() => void moveContent(index, 1)} className="rounded-lg p-2 text-[#1D4532] disabled:opacity-30" aria-label="Đưa đoạn xuống"><ArrowDown className="h-4 w-4" /></button>
-                              <button type="button" onClick={() => editContent(content)} className="rounded-lg p-2 text-[#1D4532] hover:bg-[#edf5f1]" title="Sửa hướng dẫn" aria-label="Sửa hướng dẫn">
-                                <Pencil className="h-4 w-4" />
-                              </button>
-                              <button type="button" onClick={() => void removeContent(content.id)} className="rounded-lg p-2 text-red-700 hover:bg-red-50" title="Xóa hướng dẫn" aria-label="Xóa hướng dẫn">
-                                <Trash2 className="h-4 w-4" />
-                              </button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    {contents.length === 0 && !materialsLoading && <p className="text-sm text-on-surface-variant">Chưa có đoạn lời cô Mai.</p>}
-                  </section>
-                </div>
-
-                <section className="mt-5 space-y-3 border-t border-outline-variant/10 pt-4">
-                  <h5 className="text-sm font-bold text-[#1D4532]">Thực hành sau phần hướng dẫn</h5>
-                  <p className="rounded-lg bg-amber-50 p-3 text-xs text-amber-900">Bản soạn thử trên trang này, chưa lưu API và chưa đồng bộ Godot. Tải lại hoặc rời trang sẽ mất khuông. Lời cô Mai và học liệu được lưu riêng qua API hiện có.</p>
-                  {/tranh|sao|flute/.test(normalizeLevelText(editingLesson.instrument)) ? <PracticeSheetComposer value={sheetDrafts[editingLesson.id] ?? EMPTY_PRACTICE_SHEET} onChange={next => setSheetDrafts(current => ({ ...current, [editingLesson.id]: next }))} instrument={/sao|flute/.test(normalizeLevelText(editingLesson.instrument)) ? 'sao_truc' : 'dan_tranh'} /> : <p className="text-sm text-on-surface-variant">Chưa hỗ trợ soạn khuông cho nhạc cụ này.</p>}
-                  <Link to={`/instructor/lessons/${editingLesson.id}/content`} className="inline-block text-sm font-semibold text-[#1D4532] underline">Cấu hình bài tập & ngưỡng đạt →</Link>
-                </section>
-
-                </fieldset>
-                {/* Drawer Footer Actions */}
-                <div className="px-xl py-lg border-t border-outline-variant/10 bg-[#f5f3ee]/40 flex gap-md -mx-xl -mb-xl mt-xl">
-                  <button
-                    type="button"
-                    onClick={handleCloseModal}
-                    className="flex-1 flex items-center justify-center gap-sm bg-white border border-[#d1e4fb] text-[#1D4532] py-lg rounded-xl font-bold hover:bg-[#EDF7F2] active:scale-[0.98] transition-all shadow-sm"
-                  >
-                    Đóng
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={!newDescription.trim() || savingDescription || materialsLoading || !!materialsError}
-                    className="flex-1 flex items-center justify-center gap-sm bg-[#1b5e20] text-white py-lg rounded-xl font-bold hover:bg-[#154618] active:scale-[0.98] transition-all shadow-sm"
-                  >
-                    <Check className="w-5 h-5" />
-                    {savingDescription ? 'Đang lưu…' : editingContentId ? 'Lưu đoạn lời cô Mai' : 'Thêm đoạn lời cô Mai'}
-                  </button>
-                </div>
-              </form>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
+      {editingLesson && <LessonBodyEditor key={`${editingLesson.id}:${readOnly}`} lesson={editingLesson} readOnly={readOnly} initialSheet={sheetDrafts[editingLesson.id] ?? EMPTY_PRACTICE_SHEET} onSaveSheet={sheet => setSheetDrafts(current => ({ ...current, [editingLesson.id]: sheet }))} onClose={handleCloseModal} />}
     </div>
   );
 };
