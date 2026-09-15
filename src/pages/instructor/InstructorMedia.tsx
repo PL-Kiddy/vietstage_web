@@ -108,7 +108,6 @@ const InstructorMedia = () => {
   const [lessonInstrumentId, setLessonInstrumentId] = useState<number | null>(null);
   const [lessonSkillLevelId, setLessonSkillLevelId] = useState<number | undefined>();
   const [lessonOrderIndex, setLessonOrderIndex] = useState<number>(1);
-  const [lessonStatus, setLessonStatus] = useState<string>('DRAFT');
   const [isSavingLesson, setIsSavingLesson] = useState(false);
 
   const getBackendSkillLevelId = (key: CurriculumLevelKey) =>
@@ -122,7 +121,6 @@ const InstructorMedia = () => {
     setLessonInstrumentId(selectedInstrumentId);
     setLessonSkillLevelId(getBackendSkillLevelId(selectedCurriculumLevel));
     setLessonOrderIndex(lessons.length > 0 ? Math.max(...lessons.map((l: any) => l.orderIndex ?? l.order_index ?? 0)) + 1 : 1);
-    setLessonStatus('DRAFT');
     setLessonModalOpen(true);
   };
 
@@ -135,7 +133,6 @@ const InstructorMedia = () => {
     const curriculumLevel = getCurriculumLevelKey(lessonLevel);
     setLessonSkillLevelId(lessonLevel?.id ?? getBackendSkillLevelId(curriculumLevel));
     setLessonOrderIndex((lesson as any).orderIndex ?? (lesson as any).order_index ?? 1);
-    setLessonStatus(lesson.status || 'DRAFT');
     setOpenActionMenuId(null);
     setLessonModalOpen(true);
   };
@@ -158,9 +155,7 @@ const InstructorMedia = () => {
           skillLevelId: lessonSkillLevelId,
           orderIndex: lessonOrderIndex,
         });
-        if (editingLessonInfo.status !== lessonStatus) {
-          await lessonsApi.updateStatus(editingLessonInfo.id, lessonStatus as any);
-        }
+
       } else {
         const created = await lessonsApi.create({
           title: lessonTitle.trim(),
@@ -537,7 +532,7 @@ const InstructorMedia = () => {
                   <fieldset disabled={isSavingLesson} className="bg-white border border-outline-variant/10 rounded-2xl p-lg shadow-sm space-y-md min-w-0">
                     <label className="block text-sm font-semibold">Tên bài học *<input required value={lessonTitle} onChange={e => setLessonTitle(e.target.value)} placeholder="Nhập tên bài học…" className="mt-2 block w-full rounded-xl border bg-white p-3" /></label>
                     <label className="block text-sm font-semibold">Vị trí trong giáo trình<input type="number" min={1} required value={lessonOrderIndex} onChange={e => setLessonOrderIndex(Math.max(1, Number(e.target.value) || 1))} className="mt-2 block w-full rounded-xl border bg-white p-3" /></label>
-                    {editingLessonInfo ? <label className="block text-sm font-semibold">Trạng thái<select value={lessonStatus} onChange={e => setLessonStatus(e.target.value)} className="mt-2 block w-full rounded-xl border bg-white p-3"><option value="DRAFT">Bản nháp</option><option value="PENDING">Gửi duyệt</option><option value="APPROVED" disabled>Đã duyệt</option><option value="REJECTED" disabled>Bị từ chối</option></select></label> : <p className="text-sm text-on-surface-variant">Bài mới được tạo ở trạng thái nháp.</p>}
+                    <p className="text-sm text-on-surface-variant">{editingLessonInfo ? 'Trạng thái phê duyệt do quản trị viên quyết định; lưu thông tin không thay đổi trạng thái.' : 'Bài mới được tạo ở trạng thái nháp.'}</p>
                       <p className="text-sm text-on-surface-variant">Lời cô Mai, audio và khuông thực hành được biên soạn tại Nội dung & Học liệu sau khi tạo bài.</p>
                   </fieldset>
 

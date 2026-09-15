@@ -1,6 +1,6 @@
 import { useSearchParams, Link } from 'react-router-dom';
 import PracticeSheetComposer, { EMPTY_PRACTICE_SHEET, type PracticeSheetConfig } from '../../components/instructor/PracticeSheetComposer';
-import { useState, useEffect, useCallback, type FormEvent } from 'react';
+import { useState, useEffect, useCallback, useRef, type FormEvent } from 'react';
 import {
   Music,
   FileText,
@@ -114,6 +114,7 @@ const InstructorLessons = () => {
   const [editingLesson, setEditingLesson] = useState<Lesson | null>(null);
   const [assets, setAssets] = useState<LessonAsset[]>([]);
   const [contents, setContents] = useState<LessonContent[]>([]);
+  const materialRequest = useRef(0);
   const [materialsLoading, setMaterialsLoading] = useState(false);
   const [materialsError, setMaterialsError] = useState('');
   const [uploadingType, setUploadingType] = useState<'REFERENCE_AUDIO' | 'SHEET_MUSIC' | null>(null);
@@ -168,33 +169,38 @@ const InstructorLessons = () => {
     };
   }, [loadLessons]);
 
-  // Mở drawer quản lý học liệu: tải chi tiết bài giảng vào form
+  // Show the editor immediately; fetch independent resources concurrently.
   const handleEditClick = async (lesson: Lesson) => {
+    const requestId = ++materialRequest.current;
+    setEditingLesson(lesson);
+    setNewDescription('');
+    setEditingContentId(null);
+    setAssets([]);
+    setContents([]);
+    setMaterialsLoading(true);
+    setMaterialsError('');
     try {
-      const detail = await lessonDetailApi.get(Number(lesson.id));
-      const mapped = mapLesson(detail);
-      setEditingLesson(mapped);
-      setNewDescription('');
-      setEditingContentId(null);
-      setMaterialsLoading(true);
-      setMaterialsError('');
-      const [lessonAssets, lessonContents] = await Promise.all([
+      const [detail, lessonAssets, lessonContents] = await Promise.all([
+        lessonDetailApi.get(Number(lesson.id)),
         lessonAssetsApi.getAssets(Number(lesson.id)),
         lessonContentsApi.list(Number(lesson.id)),
       ]);
+      if (requestId !== materialRequest.current) return;
+      setEditingLesson(mapLesson(detail));
       setAssets(lessonAssets);
       setContents(lessonContents.sort((a, b) => a.order_index - b.order_index));
     } catch (error) {
-      alert(error instanceof Error ? error.message : 'Không thể tải chi tiết bài giảng.');
+      if (requestId === materialRequest.current) setMaterialsError(error instanceof Error ? error.message : 'Không thể tải nội dung bài học.');
     } finally {
-      setMaterialsLoading(false);
+      if (requestId === materialRequest.current) setMaterialsLoading(false);
     }
   };
 
   const requestedLessonId = searchParams.get('editLesson');
   useEffect(() => {
-    if (!requestedLessonId || !/^\\d+$/.test(requestedLessonId)) return;
+    if (!requestedLessonId || !/^\d+$/.test(requestedLessonId)) return;
     let cancelled = false;
+    const requestId = ++materialRequest.current;
     setMaterialsLoading(true);
     setMaterialsError('');
     Promise.all([
@@ -202,7 +208,7 @@ const InstructorLessons = () => {
       lessonAssetsApi.getAssets(Number(requestedLessonId)),
       lessonContentsApi.list(Number(requestedLessonId)),
     ]).then(([detail, loadedAssets, loadedContents]) => {
-      if (cancelled) return;
+      if (cancelled || requestId !== materialRequest.current) return;
       const mapped = mapLesson(detail);
       setEditingLesson(mapped);
       setSelectedInstrumentId(mapped.instrumentId ?? null);
@@ -211,13 +217,15 @@ const InstructorLessons = () => {
       setEditingContentId(null);
       setAssets(loadedAssets);
       setContents(loadedContents.sort((a, b) => a.order_index - b.order_index));
-    }).catch(error => { if (!cancelled) setLoadError(error instanceof Error ? error.message : 'Không thể mở bài học.'); })
-      .finally(() => { if (!cancelled) setMaterialsLoading(false); });
+    }).catch(error => { if (!cancelled && requestId === materialRequest.current) setLoadError(error instanceof Error ? error.message : 'Không thể mở bài học.'); })
+      .finally(() => { if (!cancelled && requestId === materialRequest.current) setMaterialsLoading(false); });
     return () => { cancelled = true; };
   }, [requestedLessonId]);
 
   // Đóng drawer và reset mô tả
   const handleCloseModal = () => {
+    materialRequest.current++;
+    setMaterialsLoading(false);
     setNewDescription('');
     setEditingContentId(null);
     setAssets([]);
@@ -596,7 +604,7 @@ const InstructorLessons = () => {
                                   className="w-full flex items-center gap-2 px-4 py-2 hover:bg-[#EDF7F2] text-[13px] text-on-surface transition-colors font-medium text-[#1D4532]"
                                 >
                                   <UploadCloud className="w-4 h-4 text-[#1D4532]" />
-                                  Quản lý học liệu
+                                  Biên soạn bài học
                                 </button>
                               </div>
                             </>
@@ -697,7 +705,7 @@ const InstructorLessons = () => {
               <div className="px-xl py-lg border-b border-outline-variant/10 flex justify-between items-center bg-[#EDF7F2]">
                 <div>
                   <h4 className="text-headline-md font-bold text-[#1D4532] font-sans">
-                    Biên soạn nội dung bài học
+                    Biên soạn bài học
                   </h4>
                   <p className="text-label-sm text-on-surface-variant text-[13px] mt-xs">
                     Đăng tải file âm thanh, sheet nhạc và mô tả kỹ thuật.
@@ -714,6 +722,10 @@ const InstructorLessons = () => {
 
               {/* Drawer Body */}
               <form onSubmit={handleSaveAssets} className="flex-1 overflow-y-auto p-xl space-y-xl custom-scrollbar flex flex-col justify-between">
+                {materialsLoading && <p role="status" className="rounded-xl bg-[#EDF7F2] p-4 text-sm text-[#1D4532]">Đang tải nội dung bài học…</p>}
+                {materialsError && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{materialsError}<button type="button" onClick={() => void handleEditClick(editingLesson)} className="ml-3 font-semibold underline">Thử lại</button></div>}
+                <fieldset disabled={materialsLoading || !!materialsError || savingDescription} aria-busy={materialsLoading} className="min-w-0 space-y-5 disabled:opacity-50">
+
                 <div className="bg-white/95 backdrop-blur-md border border-outline-variant/10 rounded-2xl p-lg shadow-sm space-y-lg">
                   {/* Context Info */}
                   <div className="bg-[#f8f9fa] rounded-xl p-4 border border-outline-variant/10">
@@ -797,7 +809,7 @@ const InstructorLessons = () => {
                     </div>
                   </div>
 
-                  {materialsError && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{materialsError}</p>}
+
 
                   <section className="space-y-3 border-t border-outline-variant/10 pt-md" aria-label="Học liệu đã tải lên">
                     <div className="flex items-center justify-between">
@@ -863,6 +875,7 @@ const InstructorLessons = () => {
                   <Link to={`/instructor/lessons/${editingLesson.id}/content`} className="inline-block text-sm font-semibold text-[#1D4532] underline">Cấu hình bài tập & ngưỡng đạt →</Link>
                 </section>
 
+                </fieldset>
                 {/* Drawer Footer Actions */}
                 <div className="px-xl py-lg border-t border-outline-variant/10 bg-[#f5f3ee]/40 flex gap-md -mx-xl -mb-xl mt-xl">
                   <button
@@ -874,7 +887,7 @@ const InstructorLessons = () => {
                   </button>
                   <button
                     type="submit"
-                    disabled={!newDescription.trim() || savingDescription}
+                    disabled={!newDescription.trim() || savingDescription || materialsLoading || !!materialsError}
                     className="flex-1 flex items-center justify-center gap-sm bg-[#1b5e20] text-white py-lg rounded-xl font-bold hover:bg-[#154618] active:scale-[0.98] transition-all shadow-sm"
                   >
                     <Check className="w-5 h-5" />
