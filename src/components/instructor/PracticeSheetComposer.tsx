@@ -35,6 +35,21 @@ const TECHNIQUE_LABELS: Record<PracticeTechnique, string> = {
 
 const newEvent = (): PracticeSheetEvent => ({ notes: ['Mi2'], duration: 'quarter', fingering: ['2'], technique: 'none' });
 
+const FINGER_NAMES: Record<string, string> = { '1': 'Cái', '2': 'Trỏ', '3': 'Giữa', '4': 'Áp út', '5': 'Út' };
+function fingeringOptions(event: PracticeSheetEvent): Array<{ value: string; label: string }> {
+  if (event.notes.length === 1) {
+    const singles = ['1', '2', '3'].map(value => ({ value, label: `Ngón ${value} — ${FINGER_NAMES[value]}` }));
+    return event.technique === 've' ? [...singles, { value: '2/1', label: 'Cái + trỏ — gảy luân phiên (1, 2)' }] : singles;
+  }
+  if (event.notes.length === 2) return [
+    { value: '2/1', label: 'Trỏ + cái — nốt cao: 2, nốt thấp: 1' },
+    { value: '3/1', label: 'Giữa + cái — nốt cao: 3, nốt thấp: 1' },
+    { value: '3/2', label: 'Giữa + trỏ — nốt cao: 3, nốt thấp: 2' },
+  ];
+  if (event.notes.length === 3) return [{ value: '3/2/1', label: 'Cái + trỏ + giữa — thấp → cao: 1–2–3' }];
+  return [];
+}
+
 interface Props {
   instrument?: 'dan_tranh' | 'sao_truc';
   value: PracticeSheetConfig;
@@ -150,7 +165,15 @@ const PracticeSheetComposer = ({ value, onChange, instrument = 'dan_tranh' }: Pr
                 {event.kind === 'chord' && event.notes.length > 3 && <button type="button" aria-label={`Xóa thành phần ${noteIndex + 1}`} onClick={() => updateEvent(lineIndex, eventIndex, { ...event, notes: event.notes.filter((_, i) => i !== noteIndex), fingering: [] })} className="shrink-0 p-1 text-red-700"><Trash2 className="h-4 w-4" /></button>}</div>
               </label>)}
               {event.kind === 'chord' && event.chordPreset === 'custom' && <button type="button" disabled={event.notes.length >= 6} onClick={() => updateEvent(lineIndex, eventIndex, { ...event, notes: [...event.notes, NOTES.find(n => !event.notes.includes(n)) || 'Do2'], fingering: [] })} className="self-end rounded-md border p-2 text-xs text-[#1D4532] disabled:opacity-45">+ Thêm nốt hợp âm (tối đa 6)</button>}
-              {!isFlute && <label className="text-[11px] font-semibold text-on-surface-variant">Ngón<input value={event.fingering.join('/')} onChange={(e) => updateEvent(lineIndex, eventIndex, { ...event, fingering: e.target.value.split('/').map((item) => item.trim()).filter(Boolean) })} className="mt-1 block w-full rounded-md border border-[#d8d2c3] bg-white p-1.5 text-xs" /></label>}
+              {!isFlute && <label className="text-[11px] font-semibold text-on-surface-variant">Ngón gảy · Tay phải
+                <select value={event.fingering.join('/')} onChange={e => updateEvent(lineIndex, eventIndex, { ...event, fingering: e.target.value ? e.target.value.split('/') : [] })} className="mt-1 block w-full rounded-md border border-[#d8d2c3] bg-white p-1.5 text-xs">
+                  <option value="">Không ghi số ngón</option>
+                  {fingeringOptions(event).map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+                  {event.notes.length === 1 && <optgroup label="Mở rộng · Chỉ khi bài yêu cầu"><option value="4">Ngón 4 — Áp út</option><option value="5">Ngón 5 — Út</option></optgroup>}
+                  {event.fingering.length > 0 && !fingeringOptions(event).some(option => option.value === event.fingering.join('/')) && !(event.notes.length === 1 && ['4', '5'].includes(event.fingering.join('/'))) && <option value={event.fingering.join('/')}>Đã lưu: {event.fingering.map(finger => FINGER_NAMES[finger] || finger).join(' + ')} — kiểm tra lại cách gảy</option>}
+                </select>
+                <span className="mt-1 block font-normal">{event.technique === 'nhan' || event.technique === 'rung' ? 'Đây là ngón gảy tay phải, không phải ngón nhấn/rung tay trái.' : event.technique === 've' && event.notes.length === 1 ? 'Vê: chọn một ngón hoặc cái–trỏ gảy luân phiên.' : event.notes.length > 3 ? 'Hợp âm nhiều hơn 3 nốt cần hướng dẫn cách gảy riêng trong lời cô Mai.' : event.notes.length > 1 ? 'Gảy đồng thời; chọn theo nốt cao/thấp, không theo thứ tự nhập nốt.' : 'Chọn ngón dùng để gảy nốt này.'}</span>
+              </label>}
               {!isFlute && <label className="text-[11px] font-semibold text-on-surface-variant">Kỹ thuật<select value={event.technique} onChange={(e) => updateEvent(lineIndex, eventIndex, { ...event, technique: e.target.value as PracticeTechnique })} className="mt-1 block w-full rounded-md border border-[#d8d2c3] bg-white p-1.5 text-xs">{Object.entries(TECHNIQUE_LABELS).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>}
               {!isFlute && event.technique === 'a' && <label className="text-[11px] font-semibold text-on-surface-variant">Hướng Á<select value={event.glissandoDirection || 'up'} onChange={e => updateEvent(lineIndex, eventIndex, { ...event, glissandoDirection: e.target.value as PracticeSheetEvent['glissandoDirection'] })} className="mt-1 block w-full rounded-md border border-[#d8d2c3] bg-white p-1.5 text-xs"><option value="up">Á lên</option><option value="down">Á xuống</option><option value="round">Á vòng</option></select></label>}
               <label className="text-[11px] font-semibold text-on-surface-variant">Trường độ<select value={event.duration} onChange={(e) => updateEvent(lineIndex, eventIndex, { ...event, duration: e.target.value as PracticeSheetEvent['duration'] })} className="mt-1 block w-full rounded-md border border-[#d8d2c3] bg-white p-1.5 text-xs">{Object.entries({ whole: 'Tròn', half: 'Trắng', quarter: 'Đen', eighth: 'Móc đơn', sixteenth: 'Móc kép' }).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
