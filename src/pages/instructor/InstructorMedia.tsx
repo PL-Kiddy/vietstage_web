@@ -4,6 +4,9 @@ import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plus,
+  ArrowUp,
+  ArrowDown,
+  Trash2,
   ChevronLeft,
   ChevronRight,
   Check,
@@ -118,6 +121,21 @@ const InstructorMedia = () => {
   const [editingLessonInfo, setEditingLessonInfo] = useState<Lesson | null>(null);
   const [lessonTitle, setLessonTitle] = useState('');
   const [lessonNarration, setLessonNarration] = useState<Array<Omit<LessonContent, 'id'> & { id?: number }>>([{ content_text: '', order_index: 1 }]);
+  const [removedNarrationIds, setRemovedNarrationIds] = useState<number[]>([]);
+  const moveNarration = (index: number, direction: number) => {
+    setLessonNarration(current => {
+      const target = index + direction;
+      if (target < 0 || target >= current.length) return current;
+      const next = [...current];
+      [next[index], next[target]] = [next[target], next[index]];
+      return next.map((item, i) => ({ ...item, order_index: i + 1 }));
+    });
+  };
+  const removeNarration = (index: number) => {
+    const id = lessonNarration[index].id;
+    if (id !== undefined) setRemovedNarrationIds(current => [...current, id]);
+    setLessonNarration(current => current.filter((_, i) => i !== index).map((item, i) => ({ ...item, order_index: i + 1 })));
+  };
   const [lessonInstrumentId, setLessonInstrumentId] = useState<number | null>(null);
   const [lessonSkillLevelId, setLessonSkillLevelId] = useState<number | undefined>();
   const [lessonOrderIndex, setLessonOrderIndex] = useState<number>(1);
@@ -130,10 +148,12 @@ const InstructorMedia = () => {
 
   // Mở drawer tạo bài học mới với giá trị mặc định (nhạc cụ/trình độ đầu tiên, orderIndex tiếp theo)
   const handleOpenCreateLesson = () => {
+    if (selectedInstrumentId === 'ALL') { alert('Vui lòng chọn nhạc cụ trước khi tạo bài học.'); return; }
+    setRemovedNarrationIds([]);
     setEditingLessonInfo(null);
     setLessonTitle('');
     setLessonNarration([{ content_text: '', order_index: 1 }]);
-    setLessonInstrumentId(selectedInstrumentId === 'ALL' ? instruments[0]?.id ?? null : selectedInstrumentId);
+    setLessonInstrumentId(selectedInstrumentId);
     setLessonSkillLevelId(getBackendSkillLevelId(selectedCurriculumLevel));
     setLessonOrderIndex(lessons.length > 0 ? Math.max(...lessons.map((l: any) => l.orderIndex ?? l.order_index ?? 0)) + 1 : 1);
     setLessonStatus('DRAFT');
@@ -151,6 +171,7 @@ const InstructorMedia = () => {
       return;
     }
     setEditingLessonInfo(lesson);
+    setRemovedNarrationIds([]);
     setLessonTitle(lesson.title);
     setLessonNarration(narration.length ? [...narration].sort((a, b) => a.order_index - b.order_index) : [{ content_text: '', order_index: 1 }]);
     setLessonInstrumentId((lesson as any).instrument?.id ?? (lesson as any).instrument_id ?? instruments[0]?.id ?? null);
@@ -168,6 +189,10 @@ const InstructorMedia = () => {
   const handleSaveLesson = async (e: FormEvent) => {
     e.preventDefault();
     if (!lessonTitle.trim() || !lessonInstrumentId) return;
+    if (lessonNarration.some(section => !section.content_text.trim()) && (lessonNarration.length > 1 || lessonNarration.some(section => section.id !== undefined))) {
+      alert('Vui lòng nhập nội dung hoặc xóa đoạn hướng dẫn đang để trống.');
+      return;
+    }
     if (lessonSkillLevelId === undefined) {
       alert('Chưa tải được cấp giáo trình đang chọn. Vui lòng tải lại danh sách trước khi lưu.');
       return;
@@ -201,11 +226,16 @@ const InstructorMedia = () => {
       for (let index = 0; index < lessonNarration.length; index++) {
         const section = lessonNarration[index];
         if (!section.id && !section.content_text.trim()) continue;
-        const body = { content_text: section.content_text.trim(), order_index: section.order_index };
+        const body = { content_text: section.content_text.trim(), order_index: index + 1 };
         const saved = section.id
           ? await lessonContentsApi.update(savedLessonId, section.id, body)
           : await lessonContentsApi.create(savedLessonId, body);
         setLessonNarration(current => current.map((item, i) => i === index ? { ...item, id: saved.id } : item));
+      }
+      // Deletions are deferred until Save, so closing the form never deletes server content.
+      for (const id of removedNarrationIds) {
+        await lessonContentsApi.remove(savedLessonId, id);
+        setRemovedNarrationIds(current => current.filter(item => item !== id));
       }
       setLessonModalOpen(false);
       await reloadLessons();
@@ -752,7 +782,7 @@ const InstructorMedia = () => {
                       {editingLessonInfo ? 'Chỉnh sửa Cấu trúc Bài học' : 'Tạo Bài học Mới'}
                     </h4>
                     <p className="text-xs text-on-surface-variant mt-0.5 font-medium">
-                      Thiết lập thông tin cơ bản, nhạc cụ và thứ tự bài học trong lộ trình.
+                      Đặt tên bài học, biên soạn từng đoạn lời cô Mai và khuông nhạc thực hành.
                     </p>
                   </div>
                   <button
@@ -766,8 +796,8 @@ const InstructorMedia = () => {
 
                 {/* Form Body */}
                 <form onSubmit={handleSaveLesson} className="flex-1 overflow-y-auto p-xl space-y-lg custom-scrollbar">
-                  <div className="bg-white border border-outline-variant/10 rounded-2xl p-lg shadow-sm space-y-md">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-md">
+                  <fieldset disabled={isSavingLesson} className="bg-white border border-outline-variant/10 rounded-2xl p-lg shadow-sm space-y-md min-w-0">
+                    <div className="grid grid-cols-1 gap-md">
                       <div className="flex flex-col gap-xs">
                         <label className="text-xs font-semibold text-[#6B7280] uppercase tracking-wider">
                           Tên bài học *
@@ -780,24 +810,6 @@ const InstructorMedia = () => {
                           placeholder="Nhập tên bài học..."
                           className="bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl p-md text-sm focus:ring-1 focus:ring-[#1D4532] focus:border-[#1D4532] outline-none"
                         />
-                      </div>
-                      <div className="flex flex-col gap-xs">
-                        <label className="text-xs font-semibold text-[#6B7280] uppercase tracking-wider">
-                          Nhạc cụ giảng dạy *
-                        </label>
-                        <select
-                          required
-                          value={lessonInstrumentId ?? ''}
-                          onChange={(e) => { setLessonInstrumentId(Number(e.target.value)); setPracticeSheet(EMPTY_PRACTICE_SHEET); }}
-                          disabled={editingLessonInfo !== null}
-                          className="bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl p-md text-sm focus:ring-1 focus:ring-[#1D4532] focus:border-[#1D4532] outline-none cursor-pointer"
-                        >
-                          {instruments.map((inst: any) => (
-                            <option key={inst.id} value={inst.id}>
-                              {getInstrumentTranslation(inst.name)}
-                            </option>
-                          ))}
-                        </select>
                       </div>
                     </div>
 
@@ -834,11 +846,18 @@ const InstructorMedia = () => {
                       <label className="text-xs font-semibold text-[#6B7280] uppercase tracking-wider">
                         Nội dung cô Mai nói và hướng dẫn
                       </label>
-                      <p className="text-xs text-on-surface-variant">Viết lời cô Mai nói trực tiếp với học viên: giới thiệu bài, hướng dẫn thao tác và lưu ý khi thực hành.</p>
+                      <p className="text-xs text-on-surface-variant">Mỗi ô là một đoạn lời hướng dẫn riêng. Chia nội dung theo từng bước ngắn: giới thiệu, thao tác, rồi lưu ý thực hành. Các đoạn được lưu theo thứ tự bên dưới.</p>
                       {lessonNarration.map((section, index) => <div key={index} className="flex flex-col gap-xs">
-                        {lessonNarration.length > 1 && <span className="text-xs font-semibold text-on-surface-variant">Đoạn hướng dẫn {index + 1}</span>}
+                        <div className="flex items-center justify-between gap-2 mt-3">
+                          <span className="text-xs font-semibold text-on-surface-variant">Đoạn hướng dẫn {index + 1}</span>
+                          <div className="flex items-center gap-1">
+                            <button type="button" disabled={index === 0} onClick={() => moveNarration(index, -1)} aria-label={`Đưa đoạn ${index + 1} lên`} className="p-2 rounded hover:bg-[#EDF7F2] disabled:opacity-30"><ArrowUp className="w-4 h-4" /></button>
+                            <button type="button" disabled={index === lessonNarration.length - 1} onClick={() => moveNarration(index, 1)} aria-label={`Đưa đoạn ${index + 1} xuống`} className="p-2 rounded hover:bg-[#EDF7F2] disabled:opacity-30"><ArrowDown className="w-4 h-4" /></button>
+                            <button type="button" onClick={() => removeNarration(index)} aria-label={`Xóa đoạn ${index + 1}`} className="p-2 rounded text-red-700 hover:bg-red-50"><Trash2 className="w-4 h-4" /></button>
+                          </div>
+                        </div>
                         <textarea
-                          rows={6}
+                          rows={3}
                           aria-label={`Lời hướng dẫn cô Mai, đoạn ${index + 1}`}
                           value={section.content_text}
                           onChange={(e) => setLessonNarration(current => current.map((item, i) => i === index ? { ...item, content_text: e.target.value } : item))}
@@ -846,10 +865,11 @@ const InstructorMedia = () => {
                           className="bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl p-md text-sm focus:ring-1 focus:ring-[#1D4532] focus:border-[#1D4532] outline-none resize-y"
                         />
                       </div>)}
+                      <button type="button" onClick={() => setLessonNarration(current => [...current, { content_text: '', order_index: current.length + 1 }])} className="mt-3 inline-flex items-center gap-2 self-start rounded-lg border border-[#1D4532]/30 px-3 py-2 text-sm font-bold text-[#1D4532] hover:bg-[#EDF7F2]"><Plus className="w-4 h-4" /> Thêm đoạn hướng dẫn</button>
                     </div>
 
                     <PracticeSheetComposer value={practiceSheet} onChange={setPracticeSheet} instrument={/sao|flute/.test(String(instruments.find(inst => Number(inst.id) === Number(lessonInstrumentId))?.name ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()) ? 'sao_truc' : 'dan_tranh'} />
-                  </div>
+                  </fieldset>
 
                   <div className="flex items-center justify-end gap-md pt-md">
                     <button
