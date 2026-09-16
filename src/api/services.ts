@@ -1,3 +1,4 @@
+import { normalizeLesson } from './normalizeLesson';
 import { apiRequest, type RequestOptions } from './client';
 import type {
   AdminUser,
@@ -129,7 +130,7 @@ export interface LessonInput {
 // ── Bài học (lesson): CRUD + cập nhật trạng thái ──
 export const lessonsApi = {
   list: (params: URLSearchParams, options?: RequestOptions) =>
-    apiRequest<PageResponse<Lesson>>(`/api/lessons?${params.toString()}`, options),
+    apiRequest<PageResponse<Lesson>>(`/api/lessons?${params.toString()}`, options).then(page => ({ ...page, content: page.content.map(normalizeLesson) })),
   create: (body: LessonInput) => apiRequest<Lesson>('/api/lessons', { method: 'POST', body }),
   update: (
     id: number,

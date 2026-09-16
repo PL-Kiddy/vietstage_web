@@ -1,3 +1,4 @@
+import { normalizeLesson } from './normalizeLesson';
 import { apiRequest, type RequestOptions } from './client';
 import type { Instrument, Lesson, SkillLevel } from './types';
 
@@ -174,6 +175,6 @@ export const techniqueManagementApi = {
 
 // ── Chi tiết một bài học ──
 export const lessonDetailApi = {
-  get: (id: number) => apiRequest<Lesson>(`/api/lessons/${id}`),
+  get: (id: number) => apiRequest<Lesson>(`/api/lessons/${id}`).then(normalizeLesson),
 };
 

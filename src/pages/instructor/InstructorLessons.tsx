@@ -4,8 +4,6 @@ import { EMPTY_PRACTICE_SHEET, type PracticeSheetConfig } from '../../components
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   X,
-  Music,
-  FileText,
   BookOpen,
   RefreshCw,
   AlertCircle,
@@ -34,6 +32,9 @@ interface Lesson {
   description: string;
   orderIndex: number;
   backendStatus?: ApiLesson['status'];
+  isVisible?: boolean;
+  contentCount?: number;
+  exerciseCount?: number;
 }
 
 const mapLesson = (lesson: ApiLesson): Lesson => ({
@@ -47,7 +48,10 @@ const mapLesson = (lesson: ApiLesson): Lesson => ({
   updatedAt: lesson.updatedAt
     ? new Date(lesson.updatedAt).toLocaleDateString('vi-VN')
     : '',
-  status: lesson.status,
+  status: lesson.approvalStatus ?? lesson.status,
+  isVisible: lesson.isVisible,
+  contentCount: lesson.contents?.length,
+  exerciseCount: lesson.exercises?.length,
   backendStatus: lesson.status,
   description: lesson.description ?? '',
   orderIndex: lesson.orderIndex ?? 0,
@@ -400,14 +404,7 @@ const InstructorLessons = () => {
                           </div>
                         </td>
                         <td className="py-lg px-md text-center whitespace-nowrap">
-                          <div className="flex items-center justify-center gap-xs whitespace-nowrap">
-                            <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 whitespace-nowrap" title="File âm thanh mẫu">
-                              <Music className="w-3 h-3 flex-shrink-0" /> Âm thanh
-                            </span>
-                            <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 whitespace-nowrap" title="Ký âm / Sheet nhạc">
-                              <FileText className="w-3 h-3 flex-shrink-0" /> Sheet
-                            </span>
-                          </div>
+                          <span className="text-xs text-on-surface-variant">{lesson.contentCount === undefined ? '—' : `${lesson.contentCount} nội dung`} · {lesson.exerciseCount === undefined ? '—' : `${lesson.exerciseCount} bài tập`}</span>
                         </td>
                         <td className="py-lg px-md text-on-surface-variant font-label-md text-xs text-center">
                           {lesson.updatedAt}
