@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ArrowDown, ArrowUp, Plus, Trash2 } from 'lucide-react';
 import { lessonContentsApi } from '../../api/services';
+import { teacherSpeechToRequest } from '../../api/danTranhCourseContract';
 import PracticeSheetComposer, { type PracticeSheetConfig } from './PracticeSheetComposer';
 import PracticeStaffPreview from './PracticeStaffPreview';
 
@@ -54,7 +55,7 @@ export default function LessonBodyEditor({ lesson, readOnly, initialSheet, onSav
     try {
       for (let index = 0; index < sections.length; index++) {
         const section = sections[index];
-        const body = { content_text: section.content_text.trim(), order_index: index + 1 };
+        const body = teacherSpeechToRequest(section.content_text, index + 1);
         const saved = section.id !== undefined
           ? await lessonContentsApi.update(Number(lesson.id), section.id, body)
           : await lessonContentsApi.create(Number(lesson.id), body);

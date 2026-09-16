@@ -3,6 +3,9 @@ import { useSearchParams } from 'react-router-dom';
 import { EMPTY_PRACTICE_SHEET, type PracticeSheetConfig } from '../../components/instructor/PracticeSheetComposer';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
+  X,
+  Music,
+  FileText,
   BookOpen,
   RefreshCw,
   AlertCircle,

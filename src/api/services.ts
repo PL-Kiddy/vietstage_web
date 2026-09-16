@@ -145,7 +145,8 @@ export const lessonsApi = {
   }),
   updateStatus: (id: number, status: 'DRAFT' | 'PENDING') =>
     apiRequest(`/api/lessons/${id}/status`, { method: 'PUT', body: { status } }),
-  remove: (id: number) => apiRequest<void>(`/api/lessons/${id}`, { method: 'DELETE' }),
+  // No lesson deletion: completion history/stars reference the lesson forever.
+  // Hiding requires a separate visibility API; do not emulate it with DELETE.
 };
 
 export interface ExerciseInput {
