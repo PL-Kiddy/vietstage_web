@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { useAxiosRequest } from '../../hooks/useAxiosRequest';
 import { lessonsApi, masterDataApi } from '../../api/services';
+import SubmitLessonReviewButton from '../../components/instructor/SubmitLessonReviewButton';
 import type { Lesson, SkillLevel } from '../../api/types';
 
 type CurriculumLevelKey = 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED';
@@ -403,6 +404,7 @@ const InstructorMedia = () => {
                                   <Pencil className="w-4 h-4 text-[#1D4532] flex-shrink-0" />
                                   Sửa thông tin bài học
                                 </button>
+                                <SubmitLessonReviewButton id={lesson.id} title={lesson.title} status={lesson.status} onSubmitted={async () => { await reloadLessons(); }} />
                                 
                                 <Link to={`/instructor/lessons?editLesson=${lesson.id}`} className="w-full flex items-center gap-2.5 px-4 py-2.5 hover:bg-[#EDF7F2] text-[13px] font-medium whitespace-nowrap"><BookOpen className="w-4 h-4" /> Biên soạn nội dung & học liệu</Link>
                                 <Link

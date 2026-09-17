@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   X,
   Check,
@@ -112,7 +112,9 @@ const AdminReview = () => {
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [perPage, setPerPage] = useState<number>(10);
   const [pageInfo, setPageInfo] = useState({ totalElements: 0, totalPages: 1 });
-  const [reviewCounts, setReviewCounts] = useState({ all: 0, pending: 0, approved: 0, rejected: 0 });
+  const [reviewCounts, setReviewCounts] = useState<Record<'all' | 'pending' | 'approved' | 'rejected', number | null>>({ all: null, pending: null, approved: null, rejected: null });
+  const [countError, setCountError] = useState('');
+  const loadSequence = useRef(0);
   const [instrumentOptions, setInstrumentOptions] = useState<Instrument[]>([]);
   const [instructorOptions, setInstructorOptions] = useState<AdminUser[]>([]);
 
@@ -145,8 +147,11 @@ const AdminReview = () => {
 
   // Tải song song danh sách chính + 4 request đếm số lượng theo trạng thái
   const loadReviews = useCallback(async (signal?: AbortSignal) => {
+    const sequence = ++loadSequence.current;
     setIsLoading(true);
     setLoadError('');
+    setCountError('');
+    setReviewCounts({ all: null, pending: null, approved: null, rejected: null });
     try {
       const createParams = (status?: string, page = currentPage - 1, size = perPage) => {
         const params = new URLSearchParams({ page: String(page), size: String(size) });
@@ -157,27 +162,33 @@ const AdminReview = () => {
         return params;
       };
       const activeStatus = statusFilter === 'all' ? undefined : statusFilter.toUpperCase();
-      const [reviewPage, allPage, pendingPage, approvedPage, rejectedPage] = await Promise.all([
+      const [mainResult, ...counts] = await Promise.allSettled([
         reviewsApi.list(createParams(activeStatus), { signal }),
         reviewsApi.list(createParams(undefined, 0, 1), { signal }),
         reviewsApi.list(createParams('PENDING', 0, 1), { signal }),
         reviewsApi.list(createParams('APPROVED', 0, 1), { signal }),
         reviewsApi.list(createParams('REJECTED', 0, 1), { signal }),
       ]);
+      if (signal?.aborted || sequence !== loadSequence.current) return;
+      const countValue = (index: number) => {
+        const result = counts[index];
+        return result.status === 'fulfilled' ? result.value.totalElements : null;
+      };
+      setReviewCounts({ all: countValue(0), pending: countValue(1), approved: countValue(2), rejected: countValue(3) });
+      if (counts.some((result) => result.status === 'rejected')) {
+        setCountError('Chưa tải được một số lượng bài theo trạng thái. Dấu — không có nghĩa là 0 bài.');
+      }
+      if (mainResult.status === 'rejected') throw mainResult.reason;
+      const reviewPage = mainResult.value;
       setItems((reviewPage.content ?? []).filter((item) => isModerationStatus(item.status)).map(normalizeReview));
       setPageInfo({ totalElements: reviewPage.totalElements ?? 0, totalPages: reviewPage.totalPages ?? 1 });
-      setReviewCounts({
-        all: allPage.totalElements ?? 0,
-        pending: pendingPage.totalElements ?? 0,
-        approved: approvedPage.totalElements ?? 0,
-        rejected: rejectedPage.totalElements ?? 0,
-      });
     } catch (error) {
+      if (signal?.aborted || sequence !== loadSequence.current) return;
       setItems([]);
       setPageInfo({ totalElements: 0, totalPages: 1 });
       setLoadError(error instanceof Error ? error.message : 'Không thể tải danh sách kiểm duyệt.');
     } finally {
-      if (!signal?.aborted) setIsLoading(false);
+      if (!signal?.aborted && sequence === loadSequence.current) setIsLoading(false);
     }
   }, [currentPage, debouncedSearch, perPage, selectedInstructorId, selectedInstrumentId, statusFilter]);
 
@@ -294,9 +305,9 @@ const AdminReview = () => {
   const displayEnd = Math.min((currentPage - 1) * perPage + items.length, pageInfo.totalElements);
 
   // Status counts
-  const pendingCount = reviewCounts.pending;
-  const approvedCount = reviewCounts.approved;
-  const rejectedCount = reviewCounts.rejected;
+  const pendingCount = reviewCounts.pending ?? '—';
+  const approvedCount = reviewCounts.approved ?? '—';
+  const rejectedCount = reviewCounts.rejected ?? '—';
   const materialAssets = selectedItem?.assets.filter((asset) => !isAudioAsset(asset)) ?? [];
   const audioAssets = selectedItem?.assets.filter(isAudioAsset) ?? [];
   return (
@@ -415,7 +426,7 @@ const AdminReview = () => {
               : 'border-transparent text-[#5e5e5b] hover:bg-[#EDF7F2]/50'
           }`}
         >
-          Tất cả ({reviewCounts.all})
+          Tất cả ({reviewCounts.all ?? '—'})
         </button>
         <button
           onClick={() => {
@@ -469,9 +480,10 @@ const AdminReview = () => {
 
 
 
+      {countError && !loadError && <div role="status" className="mb-4 rounded-xl bg-amber-50 p-4 text-amber-800">{countError} <button onClick={() => void loadReviews()} className="font-bold underline">Thử lại</button></div>}
       {loadError && (
         <div className="mb-lg flex items-center justify-between gap-4 rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-red-800">
-          <span>{loadError}</span>
+          <span>Không tải được danh sách kiểm duyệt. {loadError}</span>
           <button onClick={() => void loadReviews()} className="font-bold underline">Thử lại</button>
         </div>
       )}
@@ -481,7 +493,7 @@ const AdminReview = () => {
           <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-2 border-[#1D4532]/20 border-t-primary" />
           <p className="text-body-md text-on-surface-variant">Đang tải danh sách kiểm duyệt...</p>
         </div>
-      ) : displayedItems.length === 0 ? (
+      ) : loadError ? null : displayedItems.length === 0 ? (
         <div className="bg-white rounded-xl border border-outline-variant/10 p-xxl text-center shadow-sm flex flex-col items-center justify-center gap-md">
           <p className="text-body-md text-on-surface-variant">
             Không tìm thấy học liệu nào phù hợp với bộ lọc hiện tại!

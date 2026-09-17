@@ -1,6 +1,6 @@
 import LessonBodyEditor from '../../components/instructor/LessonBodyEditor';
-import { useSearchParams } from 'react-router-dom';
 import { EMPTY_PRACTICE_SHEET, type PracticeSheetConfig } from '../../components/instructor/PracticeSheetComposer';
+import { useSearchParams } from 'react-router-dom';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   X,
@@ -99,10 +99,12 @@ const getInstrumentTranslation = (instName: string) => {
 };
 
 // Trang Nội dung & Học liệu: danh sách bài giảng, quản lý học liệu (upload âm thanh/sheet, lưu ghi chú)
+import SubmitLessonReviewButton from '../../components/instructor/SubmitLessonReviewButton';
+
 const InstructorLessons = () => {
+  const [sheetDrafts, setSheetDrafts] = useState<Record<string, PracticeSheetConfig>>({});
   const [searchParams, setSearchParams] = useSearchParams();
   // Local draft only: never send notation through the narration API.
-  const [sheetDrafts, setSheetDrafts] = useState<Record<string, PracticeSheetConfig>>({});
 
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -440,6 +442,7 @@ const InstructorLessons = () => {
                                   <Pencil className="w-4 h-4 text-[#1D4532]" />
                                   Chỉnh sửa bài học
                                 </button>
+                                <SubmitLessonReviewButton id={Number(lesson.id)} title={lesson.title} status={lesson.status} onSubmitted={() => loadLessons()} />
                               </div>
                             </>
                           )}

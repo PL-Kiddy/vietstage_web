@@ -144,7 +144,7 @@ export const lessonsApi = {
       order_index: body.orderIndex,
     },
   }),
-  updateStatus: (id: number, status: 'DRAFT' | 'PENDING') =>
+  updateStatus: (id: number, status: 'PENDING') =>
     apiRequest(`/api/lessons/${id}/status`, { method: 'PUT', body: { status } }),
   // No lesson deletion: completion history/stars reference the lesson forever.
   // Hiding requires a separate visibility API; do not emulate it with DELETE.

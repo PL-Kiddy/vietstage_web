@@ -4,9 +4,9 @@ import { lessonContentsApi } from '../../api/services';
 import { lessonDetailApi } from '../../api/management';
 import type { Lesson } from '../../api/types';
 import ApiPracticePreview from './ApiPracticePreview';
-import { teacherSpeechToRequest } from '../../api/danTranhCourseContract';
 import PracticeSheetComposer, { type PracticeSheetConfig } from './PracticeSheetComposer';
 import PracticeStaffPreview from './PracticeStaffPreview';
+import { teacherSpeechToRequest } from '../../api/danTranhCourseContract';
 
 type Section = { key: string; id?: number; content_text: string };
 export default function LessonBodyEditor({ lesson, readOnly, initialSheet, onSaveSheet, onClose }: {
@@ -17,6 +17,9 @@ export default function LessonBodyEditor({ lesson, readOnly, initialSheet, onSav
   const [sections, setSections] = useState<Section[]>([]);
   const [removedIds, setRemovedIds] = useState<number[]>([]);
   const [sheet, setSheet] = useState(initialSheet);
+  const instrumentName = lesson.instrument.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const supported = /tranh|sao|flute/.test(instrumentName);
+  const instrument = /sao|flute/.test(instrumentName) ? 'sao_truc' : 'dan_tranh';
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [loadError, setLoadError] = useState('');
@@ -26,9 +29,6 @@ export default function LessonBodyEditor({ lesson, readOnly, initialSheet, onSav
   const [retry, setRetry] = useState(0);
   const [apiExercises, setApiExercises] = useState<NonNullable<Lesson['exercises']>>([]);
   const [otherContents, setOtherContents] = useState<NonNullable<Lesson['contents']>>([]);
-  const instrumentName = lesson.instrument.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-  const supported = /tranh|sao|flute/.test(instrumentName);
-  const instrument = /sao|flute/.test(instrumentName) ? 'sao_truc' : 'dan_tranh';
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
@@ -62,7 +62,7 @@ export default function LessonBodyEditor({ lesson, readOnly, initialSheet, onSav
   const save = async (event: React.FormEvent) => {
     event.preventDefault();
     if (readOnly || loading || saving || loadError) return;
-    if (otherContents.length) { setSaveError('Bài có hoạt động có cấu trúc; cần API lưu toàn bộ trình tự trước khi chỉnh sửa để tránh mất thứ tự.'); return; }
+    if (otherContents.length) { setSaveError('Bài học này hiện chỉ hỗ trợ xem nội dung.'); return; }
     if (sections.some(section => !section.content_text.trim())) { setSaveError('Nhập nội dung hoặc xóa đoạn đang để trống.'); return; }
     setSaving(true); setSaveError(''); setSuccess('');
     try {
@@ -81,7 +81,7 @@ export default function LessonBodyEditor({ lesson, readOnly, initialSheet, onSav
       }
       onSaveSheet(sheet);
       setDirty(false);
-      setSuccess('Đã lưu lời hướng dẫn. Khuông được giữ trong phiên trang này, chưa lưu API hoặc đồng bộ VietStageApp.');
+      setSuccess('Đã lưu nội dung hướng dẫn bài học.');
     } catch (error) { setSaveError(error instanceof Error ? error.message : 'Chưa lưu xong. Vui lòng thử lại.'); }
     finally { setSaving(false); }
   };
@@ -92,9 +92,9 @@ export default function LessonBodyEditor({ lesson, readOnly, initialSheet, onSav
         <div className="flex-1 space-y-5 overflow-y-auto p-6">
           {loading && <p role="status">Đang tải bài học…</p>}
           {loadError && <p role="alert" className="rounded-lg bg-red-50 p-3 text-red-700">{loadError} <button type="button" onClick={() => setRetry(value => value + 1)} className="underline">Thử lại</button></p>}
-          {!readOnly && otherContents.length > 0 && <p className="text-sm text-amber-800">Bài có các hoạt động có cấu trúc: tạm chỉ xem để bảo toàn trình tự từ server.</p>}
+          {!readOnly && otherContents.length > 0 && <p className="text-sm text-amber-800">Bài học này hiện chỉ hỗ trợ xem nội dung.</p>}
           {!loading && !loadError && <fieldset disabled={saving || otherContents.length > 0} className="min-w-0 space-y-5">
-            {otherContents.length > 0 && <section className="space-y-2 rounded-xl border bg-white p-4"><h3 className="font-bold">Hoạt động khác từ API</h3>{[...otherContents].sort((a,b) => a.orderIndex - b.orderIndex).map(item => <div key={item.id} className="text-sm"><p>{item.contentType} · Bước {item.orderIndex}</p><p className="whitespace-pre-wrap">{item.contentText}</p>{item.payloadJson && <details><summary>Cấu hình hoạt động</summary><pre className="overflow-auto whitespace-pre-wrap break-words text-xs">{item.payloadJson}</pre></details>}</div>)}</section>}
+            {otherContents.length > 0 && <section className="space-y-3 rounded-2xl border bg-white p-4"><h3 className="font-bold text-[#1D4532]">Hoạt động bài học</h3>{[...otherContents].sort((a,b) => a.orderIndex - b.orderIndex).map(item => <div key={item.id} className="rounded-lg bg-[#f4f7f4] p-3 text-sm"><p className="font-semibold">Bước {item.orderIndex}</p><p className="mt-1 whitespace-pre-wrap">{item.contentText || 'Nội dung này chưa hỗ trợ xem trước.'}</p></div>)}</section>}
             <section className="space-y-3 rounded-2xl border bg-white p-4">
               <h3 className="font-bold text-[#1D4532]">Nội dung hướng dẫn bài học</h3>
               <p className="text-xs text-on-surface-variant">Mỗi đoạn là một lượt cô Mai nói, theo thứ tự từ trên xuống; tiếp theo là phần thực hành.</p>
@@ -109,17 +109,16 @@ export default function LessonBodyEditor({ lesson, readOnly, initialSheet, onSav
               {!sections.length && <p className="text-sm text-on-surface-variant">Chưa có nội dung hướng dẫn.</p>}
               {!readOnly && <button type="button" onClick={() => { setSections(current => [...current, { key: crypto.randomUUID(), content_text: '' }]); changed(); }} className="inline-flex items-center gap-2 rounded-lg border border-[#1D4532]/30 px-3 py-2 text-sm font-semibold text-[#1D4532]"><Plus className="h-4 w-4" /> Thêm đoạn hướng dẫn</button>}
             </section>
-            <ApiPracticePreview exercises={apiExercises} />
-            {!readOnly && <p className="rounded-lg bg-amber-50 p-3 text-xs text-amber-900">Cấu hình thực hành phía trên lấy từ server. API cập nhật hiện chưa khai báo configJson; không chỉnh sửa hoặc ghi đè cấu hình này.</p>}
-            {apiExercises.length === 0 && !readOnly && <section className="space-y-3">
-              <p className="rounded-lg bg-amber-50 p-3 text-xs text-amber-900">Khuông thực hành là bản thử trong phiên trang này. Chưa lưu API; tải lại hoặc rời trang sẽ mất bản thử.</p>
-              {!supported ? <p>Chưa hỗ trợ soạn khuông cho nhạc cụ này.</p> : readOnly ? <><h3 className="font-bold text-[#1D4532]">Thực hành</h3>{sheet.staffLines.length ? sheet.staffLines.map((line, index) => <div key={index} className="overflow-x-auto rounded-xl border bg-white p-3"><p className="text-xs">Dòng {index + 1}</p><PracticeStaffPreview events={line.events} instrument={instrument} timeSignature={sheet.timeSignature} /></div>) : <p className="text-sm">Chưa có khuông thực hành trong phiên này.</p>}</> : <PracticeSheetComposer value={sheet} onChange={next => { setSheet(next); changed(); }} instrument={instrument} />}
-            </section>}
+            {apiExercises.length > 0 ? <ApiPracticePreview exercises={apiExercises} /> : supported ? (
+              readOnly ? <section className="space-y-3"><h3 className="font-bold text-[#1D4532]">Khuôn nhạc thực hành</h3>{sheet.staffLines.length ? sheet.staffLines.map((line, index) => <div key={index} className="overflow-x-auto rounded-xl border bg-white p-3"><PracticeStaffPreview events={line.events} instrument={instrument} timeSignature={sheet.timeSignature} /></div>) : <p className="text-sm">Chưa có khuôn nhạc thực hành.</p>}</section>
+              : <PracticeSheetComposer value={sheet} onChange={next => { setSheet(next); changed(); }} instrument={instrument} />
+            ) : <ApiPracticePreview exercises={apiExercises} />}
+
           </fieldset>}
           {saveError && <p role="alert" className="text-sm text-red-700">{saveError}</p>}
           {success && <p role="status" className="text-sm text-[#1D4532]">{success}</p>}
         </div>
-        <footer className="flex justify-end gap-3 border-t bg-white p-4"><button type="button" disabled={saving} onClick={close} className="rounded-lg border px-5 py-2">Đóng</button>{!readOnly && <button type="submit" disabled={loading || saving || !!loadError || !dirty} className="rounded-lg bg-[#1D4532] px-5 py-2 font-semibold text-white disabled:opacity-40">{saving ? 'Đang lưu…' : 'Lưu thay đổi'}</button>}</footer>
+        <footer className="flex justify-end gap-3 border-t bg-white p-4"><button type="button" disabled={saving} onClick={close} className="rounded-lg border px-5 py-2">Đóng</button>{!readOnly && <button type="submit" disabled={loading || saving || !!loadError || otherContents.length > 0 || !dirty} className="rounded-lg bg-[#1D4532] px-5 py-2 font-semibold text-white disabled:opacity-40">{saving ? 'Đang lưu…' : 'Lưu thay đổi'}</button>}</footer>
       </form>
     </section>
   </div>;
