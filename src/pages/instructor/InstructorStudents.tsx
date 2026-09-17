@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAxiosRequest } from '../../hooks/useAxiosRequest';
-import { lessonsApi, learnerProgressApi, instructorStudentsApi } from '../../api/services';
-import type { FeedbackResponse, PracticeAttempt } from '../../api/types';
+import { lessonsApi, learnerProgressApi, instructorStudentsApi, masterDataApi } from '../../api/services';
+import type { FeedbackResponse, PracticeAttempt, Instrument } from '../../api/types';
 import { Search, X, BookOpen, ChevronRight, Users, Loader2, Check, HelpCircle, User, CalendarDays, BarChart3, Clock3, MessageSquareText, Send } from 'lucide-react';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
@@ -70,7 +70,7 @@ const StarDisplay = ({ count }: { count: number }) => (
 const InstructorStudents = () => {
   const [selectedStudentId, setSelectedStudentId] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [instrumentFilter, setInstrumentFilter] = useState('ALL');
+  const [instrumentFilter, setInstrumentFilter] = useState('');
   const [studentPage, setStudentPage] = useState(1);
   const studentsPerPage = 5;
   const [lessonProgressMap, setLessonProgressMap] = useState<Record<number, LessonProgress>>({});
@@ -85,6 +85,21 @@ const InstructorStudents = () => {
   const [feedbackLoading, setFeedbackLoading] = useState(false);
   const [feedbackSaving, setFeedbackSaving] = useState(false);
   const [feedbackError, setFeedbackError] = useState('');
+
+  const { data: instruments = [], loading: instrumentsLoading, error: instrumentsError } = useAxiosRequest<Instrument[]>(
+    signal => masterDataApi.instruments({ signal }), { auto: true, initialData: [] },
+  );
+  const chooseInstrument = (value: string) => {
+    setInstrumentFilter(value);
+    setSelectedStudentId(null);
+    setSelectedAttemptId(null);
+    setLessonProgressMap({});
+    setPracticeAttempts([]);
+    setAttemptFeedbacks([]);
+    setFeedbackComment('');
+    setStudentPage(1);
+  };
+  useEffect(() => { setStudentPage(1); }, [searchQuery]);
 
   // Track currently selected instrument to filter the selected student's progress
   const [selectedStudentInstrument, setSelectedStudentInstrument] = useState<string>('');
@@ -122,7 +137,7 @@ const InstructorStudents = () => {
         (s.userCode && s.userCode.toLowerCase().includes(searchQuery.toLowerCase()));
 
       const matchesInstrument =
-        instrumentFilter === 'ALL' ||
+        !!instrumentFilter &&
         s.instrumentsList.some((inst: string) => inst.toLowerCase() === instrumentFilter.toLowerCase());
 
       return matchesSearch && matchesInstrument;
@@ -145,17 +160,17 @@ const InstructorStudents = () => {
     setSelectedAttemptId(null);
     if (selectedStudent) {
       // Default to the first instrument they learn
-      setSelectedStudentInstrument(selectedStudent.instrumentsList[0] || 'Đàn Tranh');
+      setSelectedStudentInstrument(instrumentFilter);
     } else {
       setSelectedStudentInstrument('');
     }
-  }, [selectedStudent]);
+  }, [selectedStudent, instrumentFilter]);
 
   // 2. Fetch instructor's lesson list
   const lessonParams = useMemo(() => {
     const p = new URLSearchParams();
-    p.set('page', '0');
-    p.set('size', '50');
+    p.set('page', '1');
+    p.set('size', '100');
     return p;
   }, []);
 
@@ -263,7 +278,7 @@ const InstructorStudents = () => {
             },
             { signal: controller.signal },
           );
-          attempts.push(...(result.content ?? []).map((attempt) => ({
+          attempts.push(...(result.content ?? []).filter(attempt => studentLessons.some((lesson: { id: number }) => lesson.id === attempt.lessonId)).map((attempt) => ({
             id: attempt.attemptId,
             createdAt: attempt.createdAt,
             lessonName: attempt.lessonTitle,
@@ -288,7 +303,7 @@ const InstructorStudents = () => {
     };
     void loadAttempts();
     return () => controller.abort();
-  }, [selectedStudentId, practiceDateFrom, practiceDateTo]);
+  }, [selectedStudentId, practiceDateFrom, practiceDateTo, studentLessons]);
 
   // Tải danh sách phản hồi của lượt tập được chọn
   useEffect(() => {
@@ -418,6 +433,11 @@ const InstructorStudents = () => {
         </p>
       </div>
 
+      <section className="mb-6 flex flex-col gap-4 rounded-2xl border border-[#d5e9dd] bg-[#f5faf7] p-5 sm:flex-row sm:items-center sm:justify-between">
+        <div><p className="text-xs font-semibold uppercase tracking-widest text-[#5e7770]">Nhạc cụ đang theo dõi</p><h3 className="mt-1 text-xl font-bold text-[#1D4532]">{instrumentFilter || 'Chọn nhạc cụ'}</h3><p className="mt-2 text-sm text-on-surface-variant">Chọn nhạc cụ trước, sau đó chọn học viên để xem tiến độ và phản hồi.</p></div>
+        <label className="flex w-full flex-col gap-2 text-sm sm:w-72">Chuyển nhạc cụ<select aria-label="Chọn nhạc cụ theo dõi" value={instrumentFilter} disabled={instrumentsLoading} onChange={event => chooseInstrument(event.target.value)} className="rounded-xl border border-[#c8ded0] bg-white px-4 py-3 font-semibold text-[#1D4532]"><option value="">{instrumentsLoading ? 'Đang tải nhạc cụ…' : 'Chọn nhạc cụ'}</option>{instruments.map(item => <option key={item.id} value={item.name}>{item.name}</option>)}</select></label>
+      </section>
+      {instrumentsError && <p role="alert" className="mb-4 text-sm text-red-700">Chưa tải được danh sách nhạc cụ. Vui lòng tải lại trang.</p>}
       <div className="grid grid-cols-12 gap-gutter">
         <section className="col-span-12 lg:col-span-3 flex flex-col gap-md">
           <div className="flex items-center justify-between px-base">
@@ -450,17 +470,7 @@ const InstructorStudents = () => {
               )}
             </div>
 
-            {/* Instrument Filter */}
-            <select
-              value={instrumentFilter}
-              onChange={(e) => setInstrumentFilter(e.target.value)}
-              className="bg-white border border-[#d1e4fb] text-xs font-semibold text-[#1D4532] rounded-xl px-3 py-2 outline-none focus:ring-1 focus:ring-[#1D4532]"
-            >
-              <option value="ALL">Tất cả nhạc cụ</option>
-              <option value="Đàn Bầu">Đàn Bầu</option>
-              <option value="Đàn Tranh">Đàn Tranh</option>
-              <option value="Sáo Trúc">Sáo Trúc</option>
-            </select>
+
           </div>
 
           <div className="flex flex-col gap-sm overflow-y-auto max-h-[calc(100vh-380px)] pr-1 custom-scrollbar">
@@ -474,7 +484,7 @@ const InstructorStudents = () => {
               </p>
             ) : filteredStudents.length === 0 ? (
               <p className="text-xs text-on-surface-variant italic px-base py-md text-center">
-                Không tìm thấy học viên phù hợp.
+                {instrumentFilter ? 'Không tìm thấy học viên phù hợp với nhạc cụ đã chọn.' : 'Chọn nhạc cụ để xem danh sách học viên.'}
               </p>
             ) : (
               paginatedStudents.map((st: any) => {
@@ -549,7 +559,7 @@ const InstructorStudents = () => {
               <Users className="w-10 h-10 opacity-70" />
             </div>
             <h3 className="text-xl font-bold text-[#1D4532] mb-2">
-              Vui lòng chọn học viên từ danh sách
+              {instrumentFilter ? 'Vui lòng chọn học viên từ danh sách' : 'Vui lòng chọn nhạc cụ trước'}
             </h3>
             <p className="text-sm text-[#5e5e5b] max-w-md">
               Chọn một học viên ở cột bên trái để xem tiến độ học tập theo từng bài giảng.
@@ -575,21 +585,8 @@ const InstructorStudents = () => {
                   <span className="text-xs text-white/80">{selectedStudent.email}</span>
                   <span className="text-white/40">•</span>
 
-                  {/* Multi-instrument Toggle Dropdown */}
-                  <div className="flex items-center gap-1 bg-white/15 px-2 py-0.5 rounded-lg border border-white/10">
-                    <span className="text-[11px] font-medium text-white/80">Xem nhạc cụ:</span>
-                    <select
-                      value={selectedStudentInstrument}
-                      onChange={(e) => setSelectedStudentInstrument(e.target.value)}
-                      className="bg-transparent border-none text-xs font-bold text-[#ffe088] focus:ring-0 cursor-pointer outline-none p-0 pr-4"
-                    >
-                      {selectedStudent.instrumentsList.map((inst: string) => (
-                        <option key={inst} value={inst} className="text-on-surface font-semibold text-xs bg-white text-[#1D4532]">
-                          {inst}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                  <span className="text-xs text-white/80">{instrumentFilter}</span>
+
                 </div>
               </div>
               <div className="flex gap-xl ml-auto flex-shrink-0 flex-wrap">
@@ -766,7 +763,7 @@ const InstructorStudents = () => {
                   <BarChart3 className="w-4 h-4 text-[#1D4532]" />
                   <div>
                     <h3 className="text-sm font-bold text-[#1D4532]">Báo cáo tần suất luyện tập</h3>
-                    <p className="text-xs text-on-surface-variant mt-0.5">Tổng hợp toàn bộ lượt tập của học viên theo ngày trong khoảng đã chọn.</p>
+                    <p className="text-xs text-on-surface-variant mt-0.5">Tổng hợp lượt tập của nhạc cụ đã chọn theo ngày trong khoảng đã chọn.</p>
                   </div>
                 </div>
                 <div className="flex flex-wrap items-center gap-2 text-xs">
