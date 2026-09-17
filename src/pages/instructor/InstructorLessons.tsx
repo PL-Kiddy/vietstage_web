@@ -20,6 +20,7 @@ import type { Instrument, Lesson as ApiLesson, SkillLevel } from '../../api/type
 import { useAxiosRequest } from '../../hooks/useAxiosRequest';
 
 interface Lesson {
+  createdById?: number;
   id: string;
   title: string;
   module: string;
@@ -38,6 +39,7 @@ interface Lesson {
 }
 
 const mapLesson = (lesson: ApiLesson): Lesson => ({
+  createdById: lesson.createdBy?.id,
   id: String(lesson.id),
   title: lesson.title,
   instrumentId: lesson.instrument?.id,
@@ -130,9 +132,8 @@ const InstructorLessons = () => {
   }, [instruments, selectedInstrumentId]);
 
   const { execute: requestLessons } = useAxiosRequest<Lesson[]>(async (signal) => {
-    const params = new URLSearchParams({ page: '1', size: '100' });
-    const response = await lessonsApi.list(params, { signal });
-    return Array.isArray(response.content) ? response.content.map(mapLesson) : [];
+    const response = await lessonsApi.listAll({ signal });
+    return response.map(mapLesson);
   }, { auto: false });
 
   // Tải danh sách bài giảng từ GET /api/lessons (page 1, size 100)
@@ -442,7 +443,7 @@ const InstructorLessons = () => {
                                   <Pencil className="w-4 h-4 text-[#1D4532]" />
                                   Chỉnh sửa bài học
                                 </button>
-                                <SubmitLessonReviewButton id={Number(lesson.id)} title={lesson.title} status={lesson.status} onSubmitted={() => loadLessons()} />
+                                <SubmitLessonReviewButton id={Number(lesson.id)} title={lesson.title} status={lesson.status} createdById={lesson.createdById} onSubmitted={async () => { const response = await requestLessons(); if (!response) throw new Error('Không tải được danh sách'); setLessons(response); }} />
                               </div>
                             </>
                           )}

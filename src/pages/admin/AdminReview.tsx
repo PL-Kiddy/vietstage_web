@@ -13,6 +13,9 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { masterDataApi, reviewsApi, usersApi } from '../../api/services';
+import { apiRequest } from '../../api/client';
+import type { Lesson } from '../../api/types';
+import ApiPracticePreview from '../../components/instructor/ApiPracticePreview';
 import type { AdminUser, Instrument, ReviewItem as ApiReviewItem } from '../../api/types';
 
 interface ReviewAsset {
@@ -207,9 +210,36 @@ const AdminReview = () => {
   const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
   const [isPreviewZoomed, setIsPreviewZoomed] = useState<boolean>(false);
   const [previewAsset, setPreviewAsset] = useState<ReviewAsset | null>(null);
+  const [lessonDetail, setLessonDetail] = useState<Lesson | null>(null);
+  const [detailError, setDetailError] = useState('');
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailRetry, setDetailRetry] = useState(0);
+  const [quizzes, setQuizzes] = useState<{ id: number; question: string; options: string; correctAnswer: string; orderIndex: number }[]>([]);
+  const [games, setGames] = useState<{ id: number; title: string; difficulty: string; maxScore: number; contentJson: string; orderIndex: number }[]>([]);
+  useEffect(() => {
+    if (!isDrawerOpen || !selectedItem) return;
+    const controller = new AbortController();
+    setLessonDetail(null); setQuizzes([]); setGames([]); setDetailError('');
+    if (!selectedItem.lessonId) { setDetailError('Không xác định được bài học cần duyệt.'); return; }
+    setDetailLoading(true);
+    const path = `/api/lessons/${selectedItem.lessonId}`;
+    Promise.all([
+      apiRequest<Lesson>(path, { signal: controller.signal }),
+      apiRequest<typeof quizzes>(`${path}/quizzes`, { signal: controller.signal }),
+      apiRequest<typeof games>(`${path}/minigames`, { signal: controller.signal }),
+    ]).then(([lesson, quizItems, gameItems]) => {
+      if (controller.signal.aborted) return;
+      setLessonDetail(lesson); setQuizzes(quizItems); setGames(gameItems);
+    }).catch(() => { if (!controller.signal.aborted) setDetailError('Chưa tải đủ nội dung bài học để kiểm duyệt.'); })
+      .finally(() => { if (!controller.signal.aborted) setDetailLoading(false); });
+    return () => controller.abort();
+  }, [isDrawerOpen, selectedItem, detailRetry]);
 
   // Mở drawer xem trước học liệu
   const openDrawer = (item: ReviewItem) => {
+    setLessonDetail(null);
+    setDetailError('');
+    setDetailLoading(true);
     setSelectedItem(item);
     setFeedback(item.feedback || '');
     setFeedbackError('');
@@ -224,6 +254,7 @@ const AdminReview = () => {
 
   // Phê duyệt học liệu (POST approve)
   const handleApprove = async () => {
+    if (!lessonDetail || detailLoading || detailError) return;
     if (!selectedItem || selectedItem.status !== 'pending' || isDecisionSubmitting) return;
     setIsDecisionSubmitting(true);
     try {
@@ -240,6 +271,7 @@ const AdminReview = () => {
 
   // Từ chối học liệu: bắt buộc có lý do (<=1000 ký tự) gửi qua POST reject
   const handleReject = async () => {
+    if (!lessonDetail || detailLoading || detailError) return;
     if (!selectedItem || selectedItem.status !== 'pending' || isDecisionSubmitting) return;
     if (!feedback.trim()) {
       setFeedbackError('Lý do từ chối là bắt buộc để giảng viên nắm được thông tin chỉnh sửa.');
@@ -693,6 +725,19 @@ const AdminReview = () => {
 
               {/* Drawer Body - Scrollable content area */}
               <div className="flex-1 overflow-y-auto p-xl space-y-xl custom-scrollbar">
+                {detailLoading && <p role="status">Đang tải nội dung bài học…</p>}
+                {detailError && <p role="alert" className="rounded-xl bg-red-50 p-4 text-red-700">{detailError} <button className="underline" onClick={() => setDetailRetry(value => value + 1)}>Thử lại</button></p>}
+                {lessonDetail && <section className="space-y-5 rounded-2xl border bg-white p-5">
+                  <h3 className="font-bold text-[#1D4532]">Nội dung bài học</h3>
+                  {!(lessonDetail.contents?.length) && <p className="text-sm">Chưa có nội dung hướng dẫn.</p>}
+                  {[...(lessonDetail.contents ?? [])].sort((a,b) => a.orderIndex - b.orderIndex).map(item => <article key={item.id} className="rounded-xl bg-[#f5faf7] p-3"><h4 className="text-sm font-semibold">Bước {item.orderIndex}</h4><p className="whitespace-pre-wrap text-sm">{item.contentText || 'Hoạt động không có lời hướng dẫn.'}</p>{item.payloadJson && <details><summary>Chi tiết hoạt động</summary><pre className="overflow-auto whitespace-pre-wrap break-words text-xs">{item.payloadJson}</pre></details>}</article>)}
+                  <ApiPracticePreview exercises={lessonDetail.exercises ?? []} />
+                  {(lessonDetail.exercises ?? []).filter(item => item.configJson).map(item => <details key={item.id}><summary className="text-sm">Chi tiết thực hành: {item.title}</summary><pre className="max-h-60 overflow-auto whitespace-pre-wrap break-words text-xs">{item.configJson}</pre></details>)}
+                  <h3 className="font-bold text-[#1D4532]">Câu hỏi ({quizzes.length})</h3>
+                  {[...quizzes].sort((a,b) => a.orderIndex - b.orderIndex).map(item => <article key={item.id} className="space-y-2 rounded-xl border p-3 text-sm"><p>{item.question}</p><p className="whitespace-pre-wrap">{item.options}</p><p>Đáp án: {item.correctAnswer}</p></article>)}
+                  <h3 className="font-bold text-[#1D4532]">Trò chơi ({games.length})</h3>
+                  {[...games].sort((a,b) => a.orderIndex - b.orderIndex).map(item => <article key={item.id} className="rounded-xl border p-3 text-sm"><p className="font-semibold">{item.title}</p><p>{item.difficulty} · Điểm tối đa: {item.maxScore}</p><details><summary>Chi tiết trò chơi</summary><pre className="overflow-auto whitespace-pre-wrap break-words text-xs">{item.contentJson}</pre></details></article>)}
+                </section>}
                 {/* Visual Preview Card */}
                 <div className="bg-white/95 backdrop-blur-md border border-[#d1e4fb]/40 rounded-2xl p-lg shadow-sm space-y-lg">
                   <div>
@@ -849,7 +894,7 @@ const AdminReview = () => {
                   <>
                     <button
                       onClick={handleReject}
-                      disabled={isDecisionSubmitting}
+                      disabled={isDecisionSubmitting || detailLoading || !!detailError || !lessonDetail}
                       className="flex-1 flex items-center justify-center gap-sm bg-[#c62828] text-white py-lg rounded-xl font-bold hover:bg-[#b71c1c] active:scale-[0.98] transition-all shadow-sm disabled:cursor-wait disabled:opacity-60"
                     >
                       <X className="w-5 h-5" />
@@ -857,7 +902,7 @@ const AdminReview = () => {
                     </button>
                     <button
                       onClick={handleApprove}
-                      disabled={isDecisionSubmitting}
+                      disabled={isDecisionSubmitting || detailLoading || !!detailError || !lessonDetail}
                       className="flex-1 flex items-center justify-center gap-sm bg-[#1b5e20] text-white py-lg rounded-xl font-bold hover:bg-[#1b5e20]/90 active:scale-[0.98] transition-all shadow-sm disabled:cursor-wait disabled:opacity-60"
                     >
                       <Check className="w-5 h-5" />

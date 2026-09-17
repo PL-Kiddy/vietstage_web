@@ -68,7 +68,7 @@ const InstructorMedia = () => {
   // ── Fetch lessons ─────────────────────────────────────────────────────
   // Tải danh sách bài học (size 100, sort theo orderIndex)
   const fetchLessons = useCallback((signal?: AbortSignal) =>
-    lessonsApi.list(new URLSearchParams({ size: '100', sort: 'orderIndex,asc' }), { signal })
+    lessonsApi.listAll({ signal })
     , []);
 
   const { data: lessonsResponse, loading: lessonsLoading, execute: reloadLessons } = useAxiosRequest(
@@ -110,6 +110,7 @@ const InstructorMedia = () => {
   const [lessonSkillLevelId, setLessonSkillLevelId] = useState<number | undefined>();
   const [lessonOrderIndex, setLessonOrderIndex] = useState<number>(1);
   const [isSavingLesson, setIsSavingLesson] = useState(false);
+  const [lessonError, setLessonError] = useState('');
 
   const getBackendSkillLevelId = (key: CurriculumLevelKey) =>
     skillLevels.find((level) => getCurriculumLevelKey(level) === key)?.id;
@@ -117,16 +118,19 @@ const InstructorMedia = () => {
   // Mở drawer tạo bài học mới với giá trị mặc định (nhạc cụ/trình độ đầu tiên, orderIndex tiếp theo)
   const handleOpenCreateLesson = () => {
     if (selectedInstrumentId === 'ALL') { alert('Vui lòng chọn nhạc cụ trước khi tạo bài học.'); return; }
+    setLessonError('');
     setEditingLessonInfo(null);
     setLessonTitle('');
     setLessonInstrumentId(selectedInstrumentId);
     setLessonSkillLevelId(getBackendSkillLevelId(selectedCurriculumLevel));
-    setLessonOrderIndex(lessons.length > 0 ? Math.max(...lessons.map((l: any) => l.orderIndex ?? l.order_index ?? 0)) + 1 : 1);
+    const scoped = lessons.filter(l => l.instrument?.id === selectedInstrumentId && getCurriculumLevelKey(l.skillLevel) === selectedCurriculumLevel);
+    setLessonOrderIndex(Math.max(0, ...scoped.map(l => l.orderIndex ?? 0)) + 1);
     setLessonModalOpen(true);
   };
 
   // Mở drawer sửa bài học: nạp thông tin hiện tại vào form
   const handleOpenEditLesson = async (lesson: Lesson) => {
+    setLessonError('');
     setEditingLessonInfo(lesson);
     setLessonTitle(lesson.title);
     setLessonInstrumentId((lesson as any).instrument?.id ?? (lesson as any).instrument_id ?? instruments[0]?.id ?? null);
@@ -141,9 +145,12 @@ const InstructorMedia = () => {
   // Lưu bài học: tạo mới (POST /api/lessons) hoặc cập nhật (PUT + PUT status nếu đổi trạng thái)
   const handleSaveLesson = async (e: FormEvent) => {
     e.preventDefault();
-    if (!lessonTitle.trim() || !lessonInstrumentId) return;
-    if (lessonSkillLevelId === undefined) {
-      alert('Chưa tải được cấp giáo trình đang chọn. Vui lòng tải lại danh sách trước khi lưu.');
+    if (isSavingLesson) return;
+    setLessonError('');
+    if (!lessonTitle.trim() || !Number.isInteger(lessonInstrumentId) || !instruments.some(item => item.id === lessonInstrumentId)) { setLessonError('Nhập tên bài và chọn nhạc cụ hợp lệ.'); return; }
+    if (!Number.isInteger(lessonOrderIndex) || lessonOrderIndex < 1) { setLessonError('Vị trí bài phải là số nguyên từ 1 trở lên.'); return; }
+    if (!skillLevels.some(level => level.id === lessonSkillLevelId)) {
+      setLessonError('Chưa xác định được cấp giáo trình. Vui lòng tải lại danh sách.');
       return;
     }
     setIsSavingLesson(true);
@@ -160,7 +167,7 @@ const InstructorMedia = () => {
       } else {
         const created = await lessonsApi.create({
           title: lessonTitle.trim(),
-          instrumentId: lessonInstrumentId,
+          instrumentId: lessonInstrumentId!,
           skillLevelId: lessonSkillLevelId,
           status: 'DRAFT',
           orderIndex: lessonOrderIndex,
@@ -173,7 +180,7 @@ const InstructorMedia = () => {
         navigate(`/instructor/lessons?editLesson=${savedLessonId}`);
       } else await reloadLessons();
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Không thể lưu bài học.');
+      setLessonError(err instanceof Error ? err.message : 'Không thể lưu bài học.');
     } finally {
       setIsSavingLesson(false);
     }
@@ -404,7 +411,7 @@ const InstructorMedia = () => {
                                   <Pencil className="w-4 h-4 text-[#1D4532] flex-shrink-0" />
                                   Sửa thông tin bài học
                                 </button>
-                                <SubmitLessonReviewButton id={lesson.id} title={lesson.title} status={lesson.status} onSubmitted={async () => { await reloadLessons(); }} />
+                                <SubmitLessonReviewButton id={lesson.id} title={lesson.title} status={lesson.status} createdById={lesson.createdBy?.id} onSubmitted={async () => { if (!await reloadLessons()) throw new Error('Không tải được danh sách'); }} />
                                 
                                 <Link to={`/instructor/lessons?editLesson=${lesson.id}`} className="w-full flex items-center gap-2.5 px-4 py-2.5 hover:bg-[#EDF7F2] text-[13px] font-medium whitespace-nowrap"><BookOpen className="w-4 h-4" /> Biên soạn nội dung & học liệu</Link>
                                 <Link
@@ -531,6 +538,7 @@ const InstructorMedia = () => {
 
                 {/* Form Body */}
                 <form onSubmit={handleSaveLesson} className="flex-1 overflow-y-auto p-xl space-y-lg custom-scrollbar">
+                  {lessonError && <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{lessonError}</p>}
                   <fieldset disabled={isSavingLesson} className="bg-white border border-outline-variant/10 rounded-2xl p-lg shadow-sm space-y-md min-w-0">
                     <label className="block text-sm font-semibold">Tên bài học *<input required value={lessonTitle} onChange={e => setLessonTitle(e.target.value)} placeholder="Nhập tên bài học…" className="mt-2 block w-full rounded-xl border bg-white p-3" /></label>
                     <label className="block text-sm font-semibold">Vị trí trong giáo trình<input type="number" min={1} required value={lessonOrderIndex} onChange={e => setLessonOrderIndex(Math.max(1, Number(e.target.value) || 1))} className="mt-2 block w-full rounded-xl border bg-white p-3" /></label>

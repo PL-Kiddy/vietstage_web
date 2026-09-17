@@ -129,6 +129,18 @@ export interface LessonInput {
 
 // ── Bài học (lesson): CRUD + cập nhật trạng thái ──
 export const lessonsApi = {
+  listAll: async (options?: RequestOptions): Promise<Lesson[]> => {
+    const lessons: Lesson[] = [];
+    let page = 1;
+    let totalPages = 1;
+    do {
+      const result = await lessonsApi.list(new URLSearchParams({ page: String(page), size: '100' }), options);
+      lessons.push(...result.content);
+      totalPages = result.totalPages;
+      page += 1;
+    } while (page <= totalPages);
+    return lessons;
+  },
   list: (params: URLSearchParams, options?: RequestOptions) =>
     apiRequest<PageResponse<Lesson>>(`/api/lessons?${params.toString()}`, options).then(page => ({ ...page, content: page.content.map(normalizeLesson) })),
   create: (body: LessonInput) => apiRequest<Lesson>('/api/lessons', { method: 'POST', body }),
