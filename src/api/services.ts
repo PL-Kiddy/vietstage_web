@@ -329,12 +329,18 @@ export const lessonAssetsApi = {
 };
 
 export interface LessonContent {
+  content_type?: string;
+  payload_json?: string;
+  asset_id?: number;
   id: number;
   content_text: string;
   order_index: number;
 }
 
 export interface LessonContentInput {
+  content_type?: string;
+  payload_json?: string;
+  asset_id?: number;
   content_text: string;
   order_index: number;
 }

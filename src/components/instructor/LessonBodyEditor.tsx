@@ -7,8 +7,10 @@ import ApiPracticePreview from './ApiPracticePreview';
 import PracticeSheetComposer, { type PracticeSheetConfig } from './PracticeSheetComposer';
 import PracticeStaffPreview from './PracticeStaffPreview';
 import { teacherSpeechToRequest } from '../../api/danTranhCourseContract';
+import { exercisesApi, type Exercise } from '../../api/lessonContent';
+import { hasPracticeNotes, parsePracticeSheet } from './practiceSheetStorage';
 
-type Section = { key: string; id?: number; content_text: string };
+type Section = { key: string; id?: number; content_text: string; content_type?: string; payload_json?: string; asset_id?: number };
 export default function LessonBodyEditor({ lesson, readOnly, initialSheet, onSaveSheet, onClose }: {
   lesson: { id: string; title: string; instrument: string };
   readOnly: boolean; initialSheet: PracticeSheetConfig;
@@ -17,6 +19,8 @@ export default function LessonBodyEditor({ lesson, readOnly, initialSheet, onSav
   const [sections, setSections] = useState<Section[]>([]);
   const [removedIds, setRemovedIds] = useState<number[]>([]);
   const [sheet, setSheet] = useState(initialSheet);
+  const [sheetDirty, setSheetDirty] = useState(false);
+  const [sheetExercise, setSheetExercise] = useState<Exercise | null>(null);
   const instrumentName = lesson.instrument.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
   const supported = /tranh|sao|flute/.test(instrumentName);
   const instrument = /sao|flute/.test(instrumentName) ? 'sao_truc' : 'dan_tranh';
@@ -35,11 +39,19 @@ export default function LessonBodyEditor({ lesson, readOnly, initialSheet, onSav
     setLoadError('');
     lessonDetailApi.get(Number(lesson.id)).then(async detail => {
       if (cancelled) return;
-      setApiExercises(detail.exercises ?? []);
+      const exercises = await exercisesApi.list(Number(lesson.id));
+      if (cancelled) return;
+      const editable = exercises.filter(item => parsePracticeSheet(item.configJson));
+      // Multiple exercises or legacy configurations must not be flattened into one sheet.
+      const target = exercises.length === 1 && editable.length === 1 ? editable[0] : null;
+      setSheetExercise(target);
+      setSheet(target ? parsePracticeSheet(target.configJson)! : { version: 1, staffLines: [] });
+      setSheetDirty(false);
+      setApiExercises(target ? [] : exercises);
       const isSpeech = (item: NonNullable<Lesson['contents']>[number]) => !item.contentType || ['TEACHER_SPEECH', 'THEORY_TEXT', 'TEXT', 'PRACTICE_INSTRUCTION'].includes(item.contentType);
       setOtherContents((detail.contents ?? []).filter(item => !isSpeech(item)));
       const items = detail.contents !== undefined
-        ? detail.contents.filter(isSpeech).map(item => ({ id: item.id, content_text: item.contentText ?? '', order_index: item.orderIndex }))
+        ? detail.contents.filter(isSpeech).map(item => ({ id: item.id, content_text: item.contentText ?? '', order_index: item.orderIndex, content_type: item.contentType, payload_json: item.payloadJson, asset_id: item.assetId }))
         : await lessonContentsApi.list(Number(lesson.id));
       if (!cancelled) setSections([...items].sort((a, b) => a.order_index - b.order_index).map(item => ({ ...item, key: String(item.id) })));
     }).catch(error => { if (!cancelled) setLoadError(error instanceof Error ? error.message : 'Không thể tải nội dung.'); })
@@ -64,11 +76,13 @@ export default function LessonBodyEditor({ lesson, readOnly, initialSheet, onSav
     if (readOnly || loading || saving || loadError) return;
     if (otherContents.length) { setSaveError('Bài học này hiện chỉ hỗ trợ xem nội dung.'); return; }
     if (sections.some(section => !section.content_text.trim())) { setSaveError('Nhập nội dung hoặc xóa đoạn đang để trống.'); return; }
+    if (sheetDirty && sheetExercise && !hasPracticeNotes(sheet)) { setSaveError('Bài thực hành đã lưu cần ít nhất một nốt. Chưa hỗ trợ xóa toàn bộ thực hành tại đây.'); return; }
+    if (sheetDirty && hasPracticeNotes(sheet) && (!parsePracticeSheet(JSON.stringify(sheet)) || sheet.staffLines.some(line => !line.events.length))) { setSaveError('Hãy nhập nốt hoặc bỏ dòng khuôn trống trước khi lưu.'); return; }
     setSaving(true); setSaveError(''); setSuccess('');
     try {
       for (let index = 0; index < sections.length; index++) {
         const section = sections[index];
-        const body = teacherSpeechToRequest(section.content_text, index + 1);
+        const body = { ...teacherSpeechToRequest(section.content_text, index + 1), content_type: section.content_type ?? 'TEACHER_SPEECH', payload_json: section.payload_json, asset_id: section.asset_id };
         const saved = section.id !== undefined
           ? await lessonContentsApi.update(Number(lesson.id), section.id, body)
           : await lessonContentsApi.create(Number(lesson.id), body);
@@ -79,9 +93,22 @@ export default function LessonBodyEditor({ lesson, readOnly, initialSheet, onSav
         await lessonContentsApi.remove(Number(lesson.id), id);
         setRemovedIds(current => current.filter(item => item !== id));
       }
+      if (sheetDirty && hasPracticeNotes(sheet)) {
+        const body = {
+          title: sheetExercise?.title ?? `Thực hành · ${lesson.title}`,
+          description: sheetExercise?.description,
+          beatMapAssetId: sheetExercise?.beatMapAssetId,
+          passThreshold: sheetExercise?.passThreshold,
+          orderIndex: sheetExercise?.orderIndex ?? 1,
+          configJson: JSON.stringify({ ...sheet, staffLines: sheet.staffLines.map((line, index) => ({ ...line, order: index + 1 })) }),
+        };
+        const saved = sheetExercise ? await exercisesApi.update(sheetExercise.id, body) : await exercisesApi.create(Number(lesson.id), body);
+        setSheetExercise({ ...saved, configJson: body.configJson });
+      }
+      setSheetDirty(false);
       onSaveSheet(sheet);
       setDirty(false);
-      setSuccess('Đã lưu nội dung hướng dẫn bài học.');
+      setSuccess('Đã lưu nội dung bài học.');
     } catch (error) { setSaveError(error instanceof Error ? error.message : 'Chưa lưu xong. Vui lòng thử lại.'); }
     finally { setSaving(false); }
   };
@@ -111,7 +138,7 @@ export default function LessonBodyEditor({ lesson, readOnly, initialSheet, onSav
             </section>
             {apiExercises.length > 0 ? <ApiPracticePreview exercises={apiExercises} /> : supported ? (
               readOnly ? <section className="space-y-3"><h3 className="font-bold text-[#1D4532]">Khuôn nhạc thực hành</h3>{sheet.staffLines.length ? sheet.staffLines.map((line, index) => <div key={index} className="overflow-x-auto rounded-xl border bg-white p-3"><PracticeStaffPreview events={line.events} instrument={instrument} timeSignature={sheet.timeSignature} /></div>) : <p className="text-sm">Chưa có khuôn nhạc thực hành.</p>}</section>
-              : <PracticeSheetComposer value={sheet} onChange={next => { setSheet(next); changed(); }} instrument={instrument} />
+              : <PracticeSheetComposer value={sheet} onChange={next => { setSheet(next); setSheetDirty(true); changed(); }} instrument={instrument} />
             ) : <ApiPracticePreview exercises={apiExercises} />}
 
           </fieldset>}
