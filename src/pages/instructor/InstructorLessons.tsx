@@ -1,4 +1,6 @@
 import LessonBodyEditor from '../../components/instructor/LessonBodyEditor';
+import { canEditLesson } from '../../api/lessonPermissions';
+import { useInstructorIdentity } from '../../hooks/useInstructorIdentity';
 import { EMPTY_PRACTICE_SHEET, type PracticeSheetConfig } from '../../components/instructor/PracticeSheetComposer';
 import { useSearchParams } from 'react-router-dom';
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -104,6 +106,7 @@ const getInstrumentTranslation = (instName: string) => {
 import SubmitLessonReviewButton from '../../components/instructor/SubmitLessonReviewButton';
 
 const InstructorLessons = () => {
+  const { data: instructor } = useInstructorIdentity();
   const [sheetDrafts, setSheetDrafts] = useState<Record<string, PracticeSheetConfig>>({});
   const [searchParams, setSearchParams] = useSearchParams();
   // Local draft only: never send notation through the narration API.
@@ -164,7 +167,7 @@ const InstructorLessons = () => {
 
   const handleEditClick = (lesson: Lesson, viewOnly = false) => {
     materialRequest.current++;
-    setReadOnly(viewOnly);
+    setReadOnly(viewOnly || !canEditLesson(instructor, lesson));
     setEditingLesson(lesson);
   };
   const requestedLessonId = searchParams.get('editLesson');
@@ -175,13 +178,13 @@ const InstructorLessons = () => {
     lessonDetailApi.get(Number(requestedLessonId)).then(detail => {
       if (cancelled || requestId !== materialRequest.current) return;
       const mapped = mapLesson(detail);
-      setReadOnly(false);
+      setReadOnly(!canEditLesson(instructor, mapped));
       setEditingLesson(mapped);
       setSelectedInstrumentId(mapped.instrumentId ?? null);
       setSelectedCurriculumLevel(getCurriculumLevelKey(mapped.skillLevel));
     }).catch(error => { if (!cancelled && requestId === materialRequest.current) setLoadError(error instanceof Error ? error.message : 'Không thể mở bài học.'); });
     return () => { cancelled = true; };
-  }, [requestedLessonId]);
+  }, [requestedLessonId, instructor]);
 
   const handleCloseModal = () => {
     materialRequest.current++;
@@ -433,7 +436,7 @@ const InstructorLessons = () => {
                                 idx >= paginatedLessons.length - 2 && paginatedLessons.length > 2 ? 'bottom-[85%] mb-1' : 'top-full mt-1'
                               }`}>
                                 <button type="button" onClick={() => { setOpenActionMenuLessonId(null); handleEditClick(lesson, true); }} className="flex w-full items-center gap-2 px-4 py-2 text-left text-[13px] font-medium text-[#1D4532] hover:bg-[#EDF7F2]"><Eye className="h-4 w-4" /> Xem bài học</button>
-                                <button
+                                {canEditLesson(instructor, lesson) && <button
                                   onClick={() => {
                                     setOpenActionMenuLessonId(null);
                                     void handleEditClick(lesson);
@@ -442,7 +445,7 @@ const InstructorLessons = () => {
                                 >
                                   <Pencil className="w-4 h-4 text-[#1D4532]" />
                                   Chỉnh sửa bài học
-                                </button>
+                                </button>}
                                 <SubmitLessonReviewButton id={Number(lesson.id)} title={lesson.title} status={lesson.status} createdById={lesson.createdById} onSubmitted={async () => { const response = await requestLessons(); if (!response) throw new Error('Không tải được danh sách'); setLessons(response); }} />
                               </div>
                             </>

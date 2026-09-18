@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createPortal } from 'react-dom';
+import { cosmeticUnlockLabel, matchesCosmeticCost } from '../../api/cosmeticUnlock';
 import {
   cosmeticsApi,
   uploadApi,
@@ -40,7 +41,7 @@ const AdminCosmetics = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [starFilter, setStarFilter] = useState<'ALL' | 'FREE' | 'PAID'>('ALL');
+  const [starFilter, setStarFilter] = useState<'ALL' | 'FREE' | 'PAID' | 'ACHIEVEMENT'>('ALL');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'ACTIVE' | 'INACTIVE'>('ALL');
   const [currentPage, setCurrentPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
@@ -89,10 +90,7 @@ const AdminCosmetics = () => {
         item.name.toLowerCase().includes(searchQuery.trim().toLowerCase()) ||
         item.id.toString().includes(searchQuery.trim());
 
-      const val = item.unlockValue ?? 0;
-      let matchStar = true;
-      if (starFilter === 'FREE') matchStar = val === 0;
-      if (starFilter === 'PAID') matchStar = val > 0;
+      const matchStar = matchesCosmeticCost(item, starFilter);
 
       const itemStatus = item.status === 'INACTIVE' ? 'INACTIVE' : 'ACTIVE';
       let matchStatus = true;
@@ -171,6 +169,7 @@ const AdminCosmetics = () => {
       setError('Vui lòng tải lên ảnh hoặc nhập URL ảnh vật phẩm.');
       return;
     }
+    if (!Number.isInteger(form.unlockValue ?? 0) || (form.unlockValue ?? 0) < 0) { setError('Điều kiện mở khóa phải là số nguyên không âm.'); return; }
     setSaving(true);
     setError('');
     try {
@@ -284,7 +283,7 @@ const AdminCosmetics = () => {
               <select
                 value={starFilter}
                 onChange={(e) => {
-                  setStarFilter(e.target.value as 'ALL' | 'FREE' | 'PAID');
+                  setStarFilter(e.target.value as 'ALL' | 'FREE' | 'PAID' | 'ACHIEVEMENT');
                   setCurrentPage(1);
                 }}
                 className="bg-transparent border-none py-0 pl-0 pr-4 text-label-md font-semibold text-[#1D4532] focus:ring-0 cursor-pointer outline-none"
@@ -292,6 +291,7 @@ const AdminCosmetics = () => {
                 <option value="ALL">Tất cả vật phẩm</option>
                 <option value="FREE">Mặc định (0 Sao / Miễn phí)</option>
                 <option value="PAID">Cần đổi bằng Sao ⭐</option>
+                <option value="ACHIEVEMENT">Theo thành tích</option>
               </select>
             </div>
 
@@ -372,7 +372,6 @@ const AdminCosmetics = () => {
                   </tr>
                 ) : (
                   pagedItems.map((item) => {
-                    const stars = item.unlockValue ?? 0;
                     const isActive = item.status !== 'INACTIVE';
                     return (
                       <tr
@@ -414,15 +413,15 @@ const AdminCosmetics = () => {
 
                         {/* 4. Điều kiện mở khóa (Số Sao ⭐) */}
                         <td className="px-6 py-3.5 text-left">
-                          {stars > 0 ? (
+                          {item.unlockType !== 'DEFAULT' && (item.unlockType !== 'STARS' || (item.unlockValue ?? 0) > 0) ? (
                             <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-amber-100 text-amber-900 border border-amber-200 whitespace-nowrap">
                               <Star className="w-4 h-4 text-amber-600 fill-amber-500" />
-                              {stars} Sao
+                              {cosmeticUnlockLabel(item)}
                             </span>
                           ) : (
                             <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-emerald-100 text-emerald-800 border border-emerald-200 whitespace-nowrap">
                               <Star className="w-4 h-4 text-emerald-600" />
-                              Mặc định (Miễn phí)
+                              {cosmeticUnlockLabel(item)}
                             </span>
                           )}
                         </td>
@@ -684,14 +683,14 @@ const AdminCosmetics = () => {
                   <div className="col-span-2">
                     <p className="text-[#5e5e5b]">Điều kiện mở khóa</p>
                     <div className="mt-0.5">
-                      {(selectedItem.unlockValue ?? 0) > 0 ? (
+                      {selectedItem.unlockType !== 'DEFAULT' && (selectedItem.unlockType !== 'STARS' || (selectedItem.unlockValue ?? 0) > 0) ? (
                         <span className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold rounded-md bg-amber-100 text-amber-900 border border-amber-200">
                           <Star className="w-3.5 h-3.5 text-amber-600 fill-amber-500" />
-                          {selectedItem.unlockValue} Sao ⭐
+                          {cosmeticUnlockLabel(selectedItem)}
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold rounded-md bg-emerald-100 text-emerald-800 border border-emerald-200">
-                          Mặc định (Miễn phí)
+                          {cosmeticUnlockLabel(selectedItem)}
                         </span>
                       )}
                     </div>
@@ -858,15 +857,23 @@ const AdminCosmetics = () => {
                       />
                     </div>
 
+                    <label className="flex flex-col gap-2 text-sm font-semibold">Điều kiện mở khóa
+                      <select value={form.unlockType} disabled={form.unlockType === 'ACHIEVEMENT'} onChange={event => setForm(prev => ({ ...prev, unlockType: event.target.value as CosmeticRequest['unlockType'], unlockValue: 0 }))} className="rounded-xl border bg-white p-3">
+                        <option value="STARS">Đổi bằng sao</option>
+                        <option value="DEFAULT">Mở khóa mặc định</option>
+                        {form.unlockType === 'ACHIEVEMENT' && <option value="ACHIEVEMENT">Theo thành tích (giữ nguyên điều kiện hiện tại)</option>}
+                      </select>
+                    </label>
                     {/* Grid 2 cột: Số Sao + Trạng thái */}
                     <div className="grid grid-cols-2 gap-3">
                       {/* Số sao mở khóa */}
                       <div className="flex flex-col gap-1">
                         <label className={labelClass}>
-                          Số Sao ⭐ <span className="text-red-500">*</span>
+                          {form.unlockType === 'STARS' ? 'Số Sao ⭐' : 'Điều kiện hiện tại'} <span className="text-red-500">*</span>
                         </label>
                         <input
                           required
+                          disabled={form.unlockType !== 'STARS'}
                           type="number"
                           min={0}
                           step={1}
@@ -878,7 +885,7 @@ const AdminCosmetics = () => {
                           className="w-full bg-white border border-outline-variant/30 rounded-xl px-3.5 py-2 text-sm focus:border-[#1D4532] focus:ring-1 focus:ring-[#1D4532] transition-all outline-none text-on-surface font-medium"
                         />
                         <span className="text-[10px] text-[#5e5e5b]">
-                          * <strong>0 Sao</strong>: Miễn phí
+                          {form.unlockType === 'STARS' ? '0 Sao: Miễn phí' : cosmeticUnlockLabel(form)}
                         </span>
                       </div>
 
@@ -914,7 +921,7 @@ const AdminCosmetics = () => {
                           <div className="mt-0.5 flex items-center gap-1.5 flex-wrap">
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-200">
                               <Star className="w-2.5 h-2.5 text-amber-600 fill-amber-500" />
-                              {(form.unlockValue ?? 0) > 0 ? `${form.unlockValue} Sao` : 'Miễn phí'}
+                              {cosmeticUnlockLabel(form)}
                             </span>
                             <span
                               className={`text-[10px] font-semibold px-2 py-0.5 rounded-md ${form.status !== 'INACTIVE'

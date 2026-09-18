@@ -731,7 +731,7 @@ const AdminReview = () => {
                   <h3 className="font-bold text-[#1D4532]">Nội dung bài học</h3>
                   {!(lessonDetail.contents?.length) && <p className="text-sm">Chưa có nội dung hướng dẫn.</p>}
                   {[...(lessonDetail.contents ?? [])].sort((a,b) => a.orderIndex - b.orderIndex).map(item => <article key={item.id} className="rounded-xl bg-[#f5faf7] p-3"><h4 className="text-sm font-semibold">Bước {item.orderIndex}</h4><p className="whitespace-pre-wrap text-sm">{item.contentText || 'Hoạt động không có lời hướng dẫn.'}</p>{item.payloadJson && <details><summary>Chi tiết hoạt động</summary><pre className="overflow-auto whitespace-pre-wrap break-words text-xs">{item.payloadJson}</pre></details>}</article>)}
-                  <ApiPracticePreview exercises={lessonDetail.exercises ?? []} />
+                  <ApiPracticePreview exercises={lessonDetail.exercises ?? []} instrumentName={lessonDetail.instrument?.name} />
                   {(lessonDetail.exercises ?? []).filter(item => item.configJson).map(item => <details key={item.id}><summary className="text-sm">Chi tiết thực hành: {item.title}</summary><pre className="max-h-60 overflow-auto whitespace-pre-wrap break-words text-xs">{item.configJson}</pre></details>)}
                   <h3 className="font-bold text-[#1D4532]">Câu hỏi ({quizzes.length})</h3>
                   {[...quizzes].sort((a,b) => a.orderIndex - b.orderIndex).map(item => <article key={item.id} className="space-y-2 rounded-xl border p-3 text-sm"><p>{item.question}</p><p className="whitespace-pre-wrap">{item.options}</p><p>Đáp án: {item.correctAnswer}</p></article>)}

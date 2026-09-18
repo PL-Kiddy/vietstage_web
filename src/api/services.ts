@@ -233,6 +233,18 @@ export const learnerProgressApi = {
 
 // ── Giảng viên: danh sách học viên, lượt luyện tập, phản hồi theo attempt ──
 export const instructorStudentsApi = {
+  listAllStudents: async (options?: RequestOptions): Promise<InstructorLearner[]> => {
+    const learners = new Map<number, InstructorLearner>();
+    let page = 0;
+    let totalPages = 1;
+    do {
+      const result = await instructorStudentsApi.listStudents(page, 100, undefined, options);
+      for (const learner of result.content) learners.set(learner.id, learner);
+      totalPages = result.totalPages;
+      page += 1;
+    } while (page < totalPages);
+    return [...learners.values()];
+  },
   // Returns only learners the authenticated instructor is allowed to monitor.
   listStudents: (page = 0, size = 100, search?: string, options?: RequestOptions) => {
     const params = new URLSearchParams({ page: String(page), size: String(size) });
@@ -341,7 +353,7 @@ export interface LessonContentInput {
   content_type?: string;
   payload_json?: string;
   asset_id?: number;
-  content_text: string;
+  content_text?: string;
   order_index: number;
 }
 

@@ -3,12 +3,13 @@ import PracticeStaffPreview from './PracticeStaffPreview';
 import type { PracticeSheetEvent } from './PracticeSheetComposer';
 import { parsePracticeSheet } from './practiceSheetStorage';
 
-export default function ApiPracticePreview({ exercises }: { exercises: NonNullable<Lesson['exercises']> }) {
+export default function ApiPracticePreview({ exercises, instrumentName = '' }: { exercises: NonNullable<Lesson['exercises']>; instrumentName?: string }) {
+  const instrument = /sao|sáo|flute/i.test(instrumentName) ? 'sao_truc' : 'dan_tranh';
   return <section className="space-y-3"><h3 className="font-bold text-[#1D4532]">Thực hành</h3>
     {!exercises.length && <p className="text-sm">Chưa có bài tập thực hành.</p>}
     {[...exercises].sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0)).map(exercise => {
       const sheet = parsePracticeSheet(exercise.configJson);
-      if (sheet) return <article key={exercise.id} className="space-y-3 rounded-xl border bg-white p-4"><h4 className="font-semibold">{exercise.title}</h4>{exercise.description && <p className="text-sm">{exercise.description}</p>}{exercise.passThreshold !== undefined && <p className="text-xs">Ngưỡng đạt: {exercise.passThreshold}</p>}{[...sheet.staffLines].sort((a,b) => a.order - b.order).map((line, index) => <div key={index} className="overflow-x-auto"><PracticeStaffPreview events={line.events} timeSignature={sheet.timeSignature} /></div>)}</article>;
+      if (sheet) return <article key={exercise.id} className="space-y-3 rounded-xl border bg-white p-4"><h4 className="font-semibold">{exercise.title}</h4>{exercise.description && <p className="text-sm">{exercise.description}</p>}{exercise.passThreshold !== undefined && <p className="text-xs">Ngưỡng đạt: {exercise.passThreshold}</p>}{[...sheet.staffLines].sort((a,b) => a.order - b.order).map((line, index) => <div key={index} className="overflow-x-auto"><PracticeStaffPreview events={line.events} instrument={instrument} timeSignature={sheet.timeSignature} /></div>)}</article>;
       let config: Record<string, unknown> | null = null;
       let error = '';
       try { const parsed: unknown = exercise.configJson ? JSON.parse(exercise.configJson) : null; if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) config = parsed as Record<string, unknown>; else if (parsed !== null) error = 'Chưa thể hiển thị nội dung bài tập.'; } catch { error = 'Chưa thể hiển thị nội dung bài tập.'; }
@@ -20,7 +21,8 @@ export default function ApiPracticePreview({ exercises }: { exercises: NonNullab
       return <article key={exercise.id} className="space-y-2 rounded-xl border bg-white p-4">
         <h4 className="font-semibold">{exercise.title}</h4><p className="text-xs text-on-surface-variant">{exercise.practiceMode || exercise.exerciseType || 'Chưa có loại thực hành'}{exercise.passThreshold !== undefined ? ` · Ngưỡng đạt: ${exercise.passThreshold}` : ''}</p>
         {exercise.description && <p className="text-sm">{exercise.description}</p>}
-        {events.length > 0 && <><p className="text-xs text-on-surface-variant">Minh họa cao độ, chưa thể hiện đầy đủ trường độ và kỹ thuật.</p>{Array.from({ length: Math.ceil(events.length / 10) }, (_, i) => <div key={i} className="overflow-x-auto"><PracticeStaffPreview events={events.slice(i * 10, i * 10 + 10)} /></div>)}</>}
+        {events.length > 0 && <><p className="text-xs text-on-surface-variant">Minh họa cao độ, chưa thể hiện đầy đủ trường độ và kỹ thuật.</p>{Array.from({ length: Math.ceil(events.length / 10) }, (_, i) => <div key={i} className="overflow-x-auto"><PracticeStaffPreview events={events.slice(i * 10, i * 10 + 10)} instrument={instrument} /></div>)}</>}
+        {config && !sheet && <p className="text-sm text-amber-800">Bài tập này chưa hỗ trợ xem trước đầy đủ. Cần đối chiếu nội dung gốc trước khi duyệt.</p>}
         {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
         {!config && !error && <p className="text-sm">Chưa có khuôn nhạc cho bài tập này.</p>}
       </article>;

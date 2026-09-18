@@ -107,14 +107,12 @@ const InstructorStudents = () => {
   // The learner list must come from the server; never substitute demo identities
   // when an authorization or connectivity error occurs.
   const { data: learnersPage, loading: usersLoading, error: usersError } = useAxiosRequest(
-    (signal) => instructorStudentsApi.listStudents(0, 100, undefined, { signal }),
+    (signal) => instructorStudentsApi.listAllStudents({ signal }),
     { auto: true },
   );
 
   const allStudents = useMemo(() => {
-    const rawList = Array.isArray((learnersPage as any)?.content)
-      ? (learnersPage as any).content
-      : [];
+    const rawList = learnersPage ?? [];
 
     const mapped = rawList.map((u: any) => ({
       id: u.id,
@@ -167,15 +165,8 @@ const InstructorStudents = () => {
   }, [selectedStudent, instrumentFilter]);
 
   // 2. Fetch instructor's lesson list
-  const lessonParams = useMemo(() => {
-    const p = new URLSearchParams();
-    p.set('page', '1');
-    p.set('size', '100');
-    return p;
-  }, []);
-
-  const { data: lessonsRaw, loading: lessonsLoading } = useAxiosRequest(
-    (signal) => lessonsApi.list(lessonParams, { signal }),
+  const { data: lessonsRaw, loading: lessonsLoading, error: lessonsError } = useAxiosRequest(
+    (signal) => lessonsApi.listAll({ signal }),
     { auto: true }
   );
 
@@ -189,13 +180,14 @@ const InstructorStudents = () => {
   // 3. Fetch per-lesson progress for selected learner
   // Tải tiến độ của học viên cho từng bài học (gọi 1 request/bài)
   const fetchLessonProgress = useCallback(
-    async (learnerId: number, lessonId: number) => {
+    async (learnerId: number, lessonId: number, signal: AbortSignal) => {
       setLessonProgressMap((prev) => ({
         ...prev,
         [lessonId]: { lessonId, stars: 0, completed: false, totalPracticeAttempts: 0, bestPracticeScore: 0, totalQuizAttempts: 0, loading: true, error: false },
       }));
       try {
-        const result = await learnerProgressApi.getLessonLearnerProgress(lessonId, learnerId);
+        const result = await learnerProgressApi.getLessonLearnerProgress(lessonId, learnerId, { signal });
+        if (signal.aborted) return;
         setLessonProgressMap((prev) => ({
           ...prev,
           [lessonId]: {
@@ -210,6 +202,7 @@ const InstructorStudents = () => {
           },
         }));
       } catch {
+        if (signal.aborted) return;
         setLessonProgressMap((prev) => ({
           ...prev,
           [lessonId]: { lessonId, stars: 0, completed: false, totalPracticeAttempts: 0, bestPracticeScore: 0, totalQuizAttempts: 0, loading: false, error: true },
@@ -231,13 +224,15 @@ const InstructorStudents = () => {
   }, [lessons, selectedStudent, selectedStudentInstrument]);
 
   useEffect(() => {
+    const controller = new AbortController();
+    setLessonProgressMap({});
     if (!selectedStudentId || studentLessons.length === 0) {
-      setLessonProgressMap({});
-      return;
+      return () => controller.abort();
     }
     studentLessons.forEach((lesson: any) => {
-      fetchLessonProgress(selectedStudentId, lesson.id);
+      void fetchLessonProgress(selectedStudentId, lesson.id, controller.signal);
     });
+    return () => controller.abort();
   }, [selectedStudentId, studentLessons, fetchLessonProgress]);
 
   // Load attempts via the Instructor endpoint. Both feedback and frequency
@@ -478,9 +473,9 @@ const InstructorStudents = () => {
               <div className="flex items-center justify-center py-8">
                 <Loader2 className="w-5 h-5 animate-spin text-[#1D4532]" />
               </div>
-            ) : usersError ? (
+            ) : usersError || lessonsError ? (
               <p className="text-xs text-rose-500 italic px-base py-md text-center">
-                Lỗi tải danh sách: {usersError}
+                Lỗi tải danh sách: {usersError || lessonsError}
               </p>
             ) : filteredStudents.length === 0 ? (
               <p className="text-xs text-on-surface-variant italic px-base py-md text-center">

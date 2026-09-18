@@ -38,6 +38,8 @@ import {
 } from '../../api/lessonContent';
 import type { Lesson } from '../../api/types';
 import QuizEditor from '../../components/instructor/QuizEditor';
+import { canEditLesson } from '../../api/lessonPermissions';
+import { useInstructorIdentity } from '../../hooks/useInstructorIdentity';
 
 const parseQuizOptions = (value: string): string[] => {
   try {
@@ -202,6 +204,8 @@ const emptyMinigame: MinigameInput = {
 const InstructorLessonContent = () => {
   const lessonId = Number(useParams().lessonId);
   const [lesson, setLesson] = useState<Lesson | null>(null);
+  const { data: instructor } = useInstructorIdentity();
+  const canEdit = canEditLesson(instructor, lesson);
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
   const [minigames, setMinigames] = useState<Minigame[]>([]);
@@ -245,19 +249,12 @@ const InstructorLessonContent = () => {
     setLoading(true);
     setError('');
     try {
-      const [lessonData, quizData, minigameData] = await Promise.all([
+      const [lessonData, quizData, minigameData, exerciseData] = await Promise.all([
         lessonDetailApi.get(lessonId),
         quizzesApi.list(lessonId),
         minigamesApi.list(lessonId),
+        exercisesApi.list(lessonId),
       ]);
-      const exerciseData: Exercise[] = (lessonData.exercises ?? []).map((item) => ({
-        id: item.id,
-        lessonId,
-        title: item.title,
-        description: item.description,
-        passThreshold: item.passThreshold,
-        orderIndex: item.orderIndex ?? 0,
-      }));
       setLesson(lessonData);
       setExercises(exerciseData.sort((a, b) => a.orderIndex - b.orderIndex));
       setQuizzes(quizData.sort((a, b) => a.orderIndex - b.orderIndex));
@@ -276,6 +273,7 @@ const InstructorLessonContent = () => {
 
   // Mở editor tạo mới theo tab
   const openCreate = () => {
+    if (!canEdit) return;
     setEditingId(null);
     if (tab === 'exercises') {
       const beatMapAsset = lesson?.mediaAssets?.find((asset) => asset.assetType === 'BEAT_MAP');
@@ -299,11 +297,13 @@ const InstructorLessonContent = () => {
   };
 
   const openExercise = (item: Exercise) => {
+    if (!canEdit) return;
     setEditingId(item.id);
     setExerciseForm({
       title: item.title,
       description: item.description ?? '',
       beatMapAssetId: item.beatMapAssetId,
+      configJson: item.configJson,
       passThreshold: item.passThreshold ?? 80,
       orderIndex: item.orderIndex,
     });
@@ -311,12 +311,18 @@ const InstructorLessonContent = () => {
   };
 
   const openQuiz = (item: Quiz) => {
+    if (!canEdit) return;
     setEditingId(item.id);
     setEditorOpen(true);
   };
 
   // Mở chỉnh sửa minigame: Tự động phát hiện đúng loại và mở đúng form trực quan
   const openMinigame = (item: Minigame) => {
+    if (!canEdit) return;
+    if (!['RHYTHM_MATCH', 'MELODY_COMPLETE'].includes(item.challengeType)) {
+      setError('Loại minigame này chưa hỗ trợ chỉnh sửa. Nội dung hiện tại được giữ nguyên.');
+      return;
+    }
     setEditingId(item.id);
     const isRhythm = item.challengeType === 'RHYTHM_MATCH';
     setMinigameForm({
@@ -343,6 +349,7 @@ const InstructorLessonContent = () => {
   // Submit chung: exercises -> POST/PUT /api/exercises, minigames -> validate & build JSON tương ứng
   const submit = async (event: FormEvent) => {
     event.preventDefault();
+    if (!canEdit || saving) return;
     setSaving(true);
     setError('');
     try {
@@ -352,9 +359,8 @@ const InstructorLessonContent = () => {
           title: exerciseForm.title.trim(),
           description: exerciseForm.description?.trim(),
         };
-        if (!editingId && !body.beatMapAssetId) {
-          throw new Error('Vui lòng chọn tài nguyên bản đồ nhịp điệu trước khi tạo bài tập.');
-        }
+        if (!body.title || !Number.isInteger(body.orderIndex) || body.orderIndex < 1) throw new Error('Nhập tên và thứ tự bài tập hợp lệ.');
+        if (body.passThreshold !== undefined && (!Number.isFinite(body.passThreshold) || body.passThreshold < 0 || body.passThreshold > 100)) throw new Error('Ngưỡng đạt phải từ 0 đến 100.');
         if (editingId) await exercisesApi.update(editingId, body);
         else await exercisesApi.create(lessonId, body);
       } else {
@@ -407,6 +413,7 @@ const InstructorLessonContent = () => {
 
   // Submit quiz qua QuizEditor
   const submitQuiz = async (body: QuizInput) => {
+    if (!canEdit || saving) return;
     setSaving(true);
     setError('');
     try {
@@ -423,6 +430,7 @@ const InstructorLessonContent = () => {
 
   // Xóa nội dung theo tab hiện tại
   const remove = async (id: number) => {
+    if (!canEdit || saving) return;
     if (!window.confirm('Bạn có chắc muốn xóa nội dung này?')) return;
     setError('');
     try {
@@ -441,7 +449,7 @@ const InstructorLessonContent = () => {
     { id: 'minigames' as const, label: 'Minigame', count: minigames.length, icon: Gamepad2 },
   ];
 
-  const itemActions = (id: number, onEdit: () => void) => (
+  const itemActions = (id: number, onEdit: () => void) => canEdit ? (
     <div className="flex gap-2 shrink-0">
       <button
         onClick={onEdit}
@@ -458,7 +466,7 @@ const InstructorLessonContent = () => {
         <Trash2 className="w-4 h-4" />
       </button>
     </div>
-  );
+  ) : null;
 
   return (
     <div className="max-w-[1200px] mx-auto">
@@ -478,6 +486,7 @@ const InstructorLessonContent = () => {
       </section>
 
       {error && <div className="mb-5 rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-red-800">{error}</div>}
+      {!loading && lesson && !canEdit && <p className="mb-4 text-sm text-on-surface-variant">Chế độ xem. Chỉ người phụ trách được sửa bài nháp hoặc bài bị từ chối.</p>}
 
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5">
         <div className="flex gap-2 bg-white p-1.5 rounded-xl border border-outline-variant/10 shadow-sm overflow-x-auto">
@@ -496,7 +505,7 @@ const InstructorLessonContent = () => {
             </button>
           ))}
         </div>
-        <button onClick={openCreate} className="inline-flex justify-center items-center gap-2 bg-[#1D4532] text-white px-5 py-3 rounded-xl font-bold shadow-md hover:opacity-90 transition-all">
+        <button disabled={!canEdit || loading} onClick={openCreate} className="inline-flex justify-center items-center gap-2 bg-[#1D4532] text-white px-5 py-3 rounded-xl font-bold shadow-md hover:opacity-90 transition-all disabled:opacity-50">
           <Plus className="w-5 h-5" /> Thêm {tabs.find((item) => item.id === tab)?.label.toLowerCase()}
         </button>
       </div>
@@ -686,20 +695,19 @@ const InstructorLessonContent = () => {
                           <input type="number" min="0" max="100" required value={exerciseForm.passThreshold} onChange={(e) => setExerciseForm({ ...exerciseForm, passThreshold: Number(e.target.value) })} className="input" />
                         </Field>
                         <Field label="Thứ tự">
-                          <input type="number" min="0" required value={exerciseForm.orderIndex} onChange={(e) => setExerciseForm({ ...exerciseForm, orderIndex: Number(e.target.value) })} className="input" />
+                          <input type="number" min="1" required value={exerciseForm.orderIndex} onChange={(e) => setExerciseForm({ ...exerciseForm, orderIndex: Number(e.target.value) })} className="input" />
                         </Field>
                       </div>
-                      <Field label={`Mã tài nguyên bản đồ nhịp điệu (Beat Map Asset ID)${editingId ? ' (không bắt buộc khi cập nhật)' : ''}`}>
+                      <Field label="Tài nguyên nhịp điệu (không bắt buộc)">
                         <input
                           type="number"
                           min="1"
-                          required={!editingId}
                           value={exerciseForm.beatMapAssetId ?? ''}
                           onChange={(e) => setExerciseForm({ ...exerciseForm, beatMapAssetId: e.target.value ? Number(e.target.value) : undefined })}
                           placeholder="Nhập ID tài nguyên BEAT_MAP"
                           className="input"
                         />
-                        <span className="mt-2 block text-xs text-on-surface-variant">Hệ thống cần một tài nguyên đa phương tiện hợp lệ để liên kết với bài tập mới.</span>
+                        <span className="mt-2 block text-xs text-on-surface-variant">Chỉ điền khi bài tập sử dụng tài nguyên nhịp điệu. Khuôn nhạc được biên soạn ở Nội dung & Học liệu.</span>
                       </Field>
                     </>
                   )}

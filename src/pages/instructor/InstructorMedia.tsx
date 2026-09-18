@@ -19,6 +19,8 @@ import { useAxiosRequest } from '../../hooks/useAxiosRequest';
 import { lessonsApi, masterDataApi } from '../../api/services';
 import SubmitLessonReviewButton from '../../components/instructor/SubmitLessonReviewButton';
 import type { Lesson, SkillLevel } from '../../api/types';
+import { canEditLesson } from '../../api/lessonPermissions';
+import { useInstructorIdentity } from '../../hooks/useInstructorIdentity';
 
 type CurriculumLevelKey = 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED';
 
@@ -60,6 +62,7 @@ const getInstrumentTranslation = (instName: string) => {
 
 // Trang Cấu hình Giáo trình: tạo/sửa bài học, cập nhật trạng thái, cấu hình bài tập & ngưỡng điểm
 const InstructorMedia = () => {
+  const { data: instructor } = useInstructorIdentity();
   const navigate = useNavigate();
   // ── Curriculum List State ─────────────────────────────────────────────
   const [searchQuery, setSearchQuery] = useState('');
@@ -130,6 +133,7 @@ const InstructorMedia = () => {
 
   // Mở drawer sửa bài học: nạp thông tin hiện tại vào form
   const handleOpenEditLesson = async (lesson: Lesson) => {
+    if (!canEditLesson(instructor, lesson)) return;
     setLessonError('');
     setEditingLessonInfo(lesson);
     setLessonTitle(lesson.title);
@@ -146,6 +150,7 @@ const InstructorMedia = () => {
   const handleSaveLesson = async (e: FormEvent) => {
     e.preventDefault();
     if (isSavingLesson) return;
+    if (editingLessonInfo && !canEditLesson(instructor, editingLessonInfo)) { setLessonError('Bài học hiện chỉ được xem.'); return; }
     setLessonError('');
     if (!lessonTitle.trim() || !Number.isInteger(lessonInstrumentId) || !instruments.some(item => item.id === lessonInstrumentId)) { setLessonError('Nhập tên bài và chọn nhạc cụ hợp lệ.'); return; }
     if (!Number.isInteger(lessonOrderIndex) || lessonOrderIndex < 1) { setLessonError('Vị trí bài phải là số nguyên từ 1 trở lên.'); return; }
@@ -404,16 +409,16 @@ const InstructorMedia = () => {
                             <>
                               <div className="fixed inset-0 z-10" onClick={() => setOpenActionMenuId(null)} />
                               <div className="absolute right-6 mt-1 w-72 bg-white border border-[#d1e4fb] rounded-xl shadow-lg py-1 z-20 text-left overflow-hidden">
-                                <button
+                                {canEditLesson(instructor, lesson) && <button
                                   onClick={() => handleOpenEditLesson(lesson)}
                                   className="w-full flex items-center gap-2.5 px-4 py-2.5 hover:bg-[#EDF7F2] text-[13px] font-medium text-on-surface transition-colors whitespace-nowrap"
                                 >
                                   <Pencil className="w-4 h-4 text-[#1D4532] flex-shrink-0" />
                                   Sửa thông tin bài học
-                                </button>
+                                </button>}
                                 <SubmitLessonReviewButton id={lesson.id} title={lesson.title} status={lesson.status} createdById={lesson.createdBy?.id} onSubmitted={async () => { if (!await reloadLessons()) throw new Error('Không tải được danh sách'); }} />
                                 
-                                <Link to={`/instructor/lessons?editLesson=${lesson.id}`} className="w-full flex items-center gap-2.5 px-4 py-2.5 hover:bg-[#EDF7F2] text-[13px] font-medium whitespace-nowrap"><BookOpen className="w-4 h-4" /> Biên soạn nội dung & học liệu</Link>
+                                <Link to={`/instructor/lessons?editLesson=${lesson.id}`} className="w-full flex items-center gap-2.5 px-4 py-2.5 hover:bg-[#EDF7F2] text-[13px] font-medium whitespace-nowrap"><BookOpen className="w-4 h-4" /> {canEditLesson(instructor, lesson) ? 'Biên soạn nội dung & học liệu' : 'Xem nội dung bài học'}</Link>
                                 <Link
                                   to={`/instructor/lessons/${lesson.id}/content`}
                                   onClick={() => setOpenActionMenuId(null)}
