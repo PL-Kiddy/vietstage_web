@@ -16,7 +16,7 @@ import { masterDataApi, reviewsApi, usersApi } from '../../api/services';
 import { apiRequest } from '../../api/client';
 import type { Lesson } from '../../api/types';
 import ApiPracticePreview from '../../components/instructor/ApiPracticePreview';
-import type { AdminUser, Instrument, ReviewItem as ApiReviewItem } from '../../api/types';
+import type { AdminUser, Instrument, ReviewItem as ApiReviewItem, SkillLevel } from '../../api/types';
 
 interface ReviewAsset {
   id: number;
@@ -120,6 +120,8 @@ const AdminReview = () => {
   const loadSequence = useRef(0);
   const [instrumentOptions, setInstrumentOptions] = useState<Instrument[]>([]);
   const [instructorOptions, setInstructorOptions] = useState<AdminUser[]>([]);
+  const [skillLevelOptions, setSkillLevelOptions] = useState<SkillLevel[]>([]);
+  const [selectedSkillLevelId, setSelectedSkillLevelId] = useState<number | null>(null);
 
   useEffect(() => {
     const timer = window.setTimeout(() => setDebouncedSearch(searchQuery.trim()), 350);
@@ -134,14 +136,17 @@ const AdminReview = () => {
     void Promise.all([
       masterDataApi.instruments({ signal: controller.signal }),
       usersApi.list({ signal: controller.signal, params: instructorParams }),
-    ]).then(([instruments, instructors]) => {
+      masterDataApi.skillLevels({ signal: controller.signal }),
+    ]).then(([instruments, instructors, skillLevels]) => {
       if (controller.signal.aborted) return;
       setInstrumentOptions(Array.isArray(instruments) ? instruments : []);
       setInstructorOptions(instructors.content ?? []);
+      setSkillLevelOptions(Array.isArray(skillLevels) ? [...skillLevels].sort((a, b) => a.orderIndex - b.orderIndex) : []);
     }).catch(() => {
       if (!controller.signal.aborted) {
         setInstrumentOptions([]);
         setInstructorOptions([]);
+        setSkillLevelOptions([]);
       }
     });
 
@@ -162,6 +167,7 @@ const AdminReview = () => {
         if (debouncedSearch) params.set('search', debouncedSearch);
         if (selectedInstructorId !== null) params.set('instructorId', String(selectedInstructorId));
         if (selectedInstrumentId !== null) params.set('instrumentId', String(selectedInstrumentId));
+        if (selectedSkillLevelId !== null) params.set('skillLevelId', String(selectedSkillLevelId));
         return params;
       };
       const activeStatus = statusFilter === 'all' ? undefined : statusFilter.toUpperCase();
@@ -193,7 +199,7 @@ const AdminReview = () => {
     } finally {
       if (!signal?.aborted && sequence === loadSequence.current) setIsLoading(false);
     }
-  }, [currentPage, debouncedSearch, perPage, selectedInstructorId, selectedInstrumentId, statusFilter]);
+  }, [currentPage, debouncedSearch, perPage, selectedInstructorId, selectedInstrumentId, selectedSkillLevelId, statusFilter]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -442,6 +448,26 @@ const AdminReview = () => {
               ))}
             </select>
           </div>
+
+          {/* Skill Level Filter */}
+          {skillLevelOptions.length > 0 && (
+            <div className="flex w-full sm:w-60 items-center gap-xs px-md py-sm bg-white border border-outline-variant rounded-lg shadow-sm">
+              <span className="font-label-md text-[#5e5e5b] whitespace-nowrap">Cấp độ:</span>
+              <select
+                value={selectedSkillLevelId ?? 'all'}
+                onChange={(e) => {
+                  setSelectedSkillLevelId(e.target.value === 'all' ? null : Number(e.target.value));
+                  setCurrentPage(1);
+                }}
+                className="min-w-0 flex-1 bg-transparent border-none text-label-md font-semibold text-[#1D4532] focus:ring-0 cursor-pointer outline-none"
+              >
+                <option value="all">Tất cả cấp độ</option>
+                {skillLevelOptions.map((level) => (
+                  <option key={level.id} value={level.id}>{level.levelName}</option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
       </section>
 

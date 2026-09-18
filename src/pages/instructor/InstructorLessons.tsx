@@ -20,6 +20,7 @@ import { lessonsApi, masterDataApi } from '../../api/services';
 import { lessonDetailApi } from '../../api/management';
 import type { Instrument, Lesson as ApiLesson, SkillLevel } from '../../api/types';
 import { useAxiosRequest } from '../../hooks/useAxiosRequest';
+import SubmitLessonReviewButton from '../../components/instructor/SubmitLessonReviewButton';
 
 interface Lesson {
   createdById?: number;
@@ -60,7 +61,6 @@ const mapLesson = (lesson: ApiLesson): Lesson => ({
   description: lesson.description ?? '',
   orderIndex: lesson.orderIndex ?? 0,
 });
-
 
 type CurriculumLevelKey = 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED';
 const CURRICULUM_LEVELS: Array<{ key: CurriculumLevelKey; number: number; label: string }> = [
@@ -103,8 +103,6 @@ const getInstrumentTranslation = (instName: string) => {
 };
 
 // Trang Nội dung & Học liệu: danh sách bài giảng, quản lý học liệu (upload âm thanh/sheet, lưu ghi chú)
-import SubmitLessonReviewButton from '../../components/instructor/SubmitLessonReviewButton';
-
 const InstructorLessons = () => {
   const { data: instructor } = useInstructorIdentity();
   const [sheetDrafts, setSheetDrafts] = useState<Record<string, PracticeSheetConfig>>({});
@@ -237,7 +235,7 @@ const InstructorLessons = () => {
       <div className="mb-lg flex flex-col gap-md">
         <div>
           <h1 className="text-headline-lg font-bold text-[#1D4532]">
-            Nội dung & Học liệu
+            Nội dung &amp; Học liệu
           </h1>
           <p className="text-body-md text-on-surface-variant mt-xs">
             Xem và chỉnh sửa lời cô Mai hướng dẫn cùng khuông thực hành của từng bài học.
@@ -280,9 +278,9 @@ const InstructorLessons = () => {
           })}
         </section>
 
-        {/* Controls Row: Search + Filter + Add Button */}
+        {/* Controls Row: Search + Filter */}
         <div className="flex flex-col md:flex-row md:items-center gap-sm w-full">
-          {/* Search Bar - Kéo dài chiếm khoảng trống bên trái */}
+          {/* Search Bar */}
           <div className="flex items-center gap-xs px-md h-[42px] bg-white border border-[#d1e4fb] rounded-lg flex-grow shadow-sm focus-within:ring-1 focus-within:ring-[#1D4532] transition-all">
             <Search className="w-5 h-5 text-[#5e5e5b] flex-shrink-0" />
             <input
@@ -326,7 +324,6 @@ const InstructorLessons = () => {
               <option value="Bản nháp">Bản nháp</option>
             </select>
           </div>
-
         </div>
       </div>
 
@@ -354,7 +351,7 @@ const InstructorLessons = () => {
                       STT
                     </th>
                     <th className="text-left whitespace-nowrap py-md px-xl font-label-sm text-label-sm text-[#1D4532] font-semibold border-b border-outline-variant/10">
-                      Tên bài giảng & Kỹ thuật
+                      Tên bài giảng &amp; Kỹ thuật
                     </th>
                     <th className="text-center whitespace-nowrap py-md px-md font-label-sm text-label-sm text-[#1D4532] font-semibold border-b border-outline-variant/10">
                       Học liệu Media
@@ -416,10 +413,18 @@ const InstructorLessons = () => {
                           {lesson.updatedAt}
                         </td>
                         <td className="py-lg px-md text-center">
-                          <span className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-bold whitespace-nowrap ${getStatusMeta(lesson.status).className}`}>
-                            <span className={`h-2 w-2 rounded-full ${getStatusMeta(lesson.status).dot}`} />
-                            {getStatusMeta(lesson.status).label}
-                          </span>
+                          <div className="flex flex-col items-center gap-1">
+                            <span className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-bold whitespace-nowrap ${getStatusMeta(lesson.status).className}`}>
+                              <span className={`h-2 w-2 rounded-full ${getStatusMeta(lesson.status).dot}`} />
+                              {getStatusMeta(lesson.status).label}
+                            </span>
+                            {lesson.isVisible !== undefined && (
+                              <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold whitespace-nowrap ${lesson.isVisible ? 'bg-blue-50 text-blue-700 border border-blue-200' : 'bg-slate-50 text-slate-500 border border-slate-200'}`}>
+                                <span className={`h-1.5 w-1.5 rounded-full ${lesson.isVisible ? 'bg-blue-500' : 'bg-slate-400'}`} />
+                                {lesson.isVisible ? 'Hiển thị App' : 'Ẩn trên App'}
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td className="py-lg px-xl text-right relative" onClick={(e) => e.stopPropagation()}>
                           <button

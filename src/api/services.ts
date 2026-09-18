@@ -141,6 +141,20 @@ export const lessonsApi = {
     } while (page <= totalPages);
     return lessons;
   },
+  // Lấy toàn bộ bài học đang hiển thị trên App (isVisible=true)
+  listAllVisible: async (options?: RequestOptions): Promise<Lesson[]> => {
+    const lessons: Lesson[] = [];
+    let page = 1;
+    let totalPages = 1;
+    do {
+      const params = new URLSearchParams({ page: String(page), size: '100', isVisible: 'true' });
+      const result = await lessonsApi.list(params, options);
+      lessons.push(...result.content);
+      totalPages = result.totalPages;
+      page += 1;
+    } while (page <= totalPages);
+    return lessons;
+  },
   list: (params: URLSearchParams, options?: RequestOptions) =>
     apiRequest<PageResponse<Lesson>>(`/api/lessons?${params.toString()}`, options).then(page => ({ ...page, content: page.content.map(normalizeLesson) })),
   create: (body: LessonInput) => apiRequest<Lesson>('/api/lessons', { method: 'POST', body }),
