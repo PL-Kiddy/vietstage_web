@@ -116,19 +116,6 @@ const getChallengeTypeLabel = (type: string) => {
   }
 };
 
-const getDifficultyLabel = (difficulty?: string) => {
-  switch (difficulty?.toUpperCase()) {
-    case 'BEGINNER':
-      return 'Cơ bản';
-    case 'INTERMEDIATE':
-      return 'Trung cấp';
-    case 'ADVANCED':
-      return 'Nâng cao';
-    default:
-      return 'CHƯA PHÂN LOẠI';
-  }
-};
-
 // ── Parser & Validator cho Mini game 2 (MELODY_COMPLETE) ──
 const parseMelodyConfig = (contentJson?: string): MelodyCompleteConfig => {
   const fallback: MelodyCompleteConfig = {
@@ -478,8 +465,8 @@ const InstructorLessonContent = () => {
             ...minigameForm,
             title: minigameForm.title.trim(),
             challengeType: 'RHYTHM_MATCH',
-            difficulty: minigameForm.difficulty || 'BEGINNER',
-            maxScore: minigameForm.maxScore > 0 ? minigameForm.maxScore : 100,
+            difficulty: editingId ? (minigameForm.difficulty || 'BEGINNER') : 'BEGINNER',
+            maxScore: editingId && minigameForm.maxScore > 0 ? minigameForm.maxScore : 100,
             referenceAssetId: rhythmDraft.audio_asset_id,
             contentJson: buildRhythmConfigJson(rhythmDraft),
           };
@@ -496,8 +483,8 @@ const InstructorLessonContent = () => {
             ...minigameForm,
             title: minigameForm.title.trim(),
             challengeType: 'MELODY_COMPLETE',
-            difficulty: minigameForm.difficulty || 'BEGINNER',
-            maxScore: minigameForm.maxScore > 0 ? minigameForm.maxScore : 100,
+            difficulty: editingId ? (minigameForm.difficulty || 'BEGINNER') : 'BEGINNER',
+            maxScore: editingId && minigameForm.maxScore > 0 ? minigameForm.maxScore : 100,
             referenceAssetId: melodyDraft.audio_asset_id,
             contentJson: buildMelodyConfigJson(melodyDraft),
           };
@@ -667,15 +654,6 @@ const InstructorLessonContent = () => {
                 const rhythmConfig = isRhythm ? parseRhythmConfig(item.contentJson) : null;
                 const melodyConfig = !isRhythm ? parseMelodyConfig(item.contentJson) : null;
 
-                const difficultyClass =
-                  item.difficulty === 'BEGINNER'
-                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                    : item.difficulty === 'INTERMEDIATE'
-                    ? 'bg-amber-50 text-amber-700 border-amber-200'
-                    : item.difficulty === 'ADVANCED'
-                    ? 'bg-red-50 text-red-700 border-red-200'
-                    : 'bg-[#f0eee9] text-on-surface-variant';
-
                 return (
                   <article key={item.id} className="p-5 flex items-start justify-between gap-4 hover:bg-[#fbf9f4] transition-colors">
                     <div className="min-w-0">
@@ -688,14 +666,8 @@ const InstructorLessonContent = () => {
                           {isRhythm ? <Timer className="w-3.5 h-3.5 text-emerald-700" /> : <Music4 className="w-3.5 h-3.5 text-purple-700" />}
                           {getChallengeTypeLabel(item.challengeType)}
                         </span>
-                        <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full border ${difficultyClass}`}>
-                          {getDifficultyLabel(item.difficulty)}
-                        </span>
                       </div>
                       <h3 className="font-bold text-lg">{item.title}</h3>
-                      <p className="text-sm text-on-surface-variant mt-0.5">
-                        Điểm tối đa: <strong className="text-neutral-800">{item.maxScore}</strong> · Thứ tự: #{item.orderIndex}
-                      </p>
 
                       {isRhythm && rhythmConfig && (
                         <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-on-surface-variant">
@@ -874,41 +846,6 @@ const InstructorLessonContent = () => {
                           placeholder={minigameForm.challengeType === 'RHYTHM_MATCH' ? 'Ví dụ: Gõ nhịp 4/4 bài Trống Cơm' : 'Ví dụ: Điền nốt khuyết — Lý Cây Đa'}
                         />
                       </Field>
-
-                      {false && minigameForm.challengeType !== 'RHYTHM_MATCH' && <div className="grid grid-cols-3 gap-3">
-                        <Field label="Độ khó">
-                          <select
-                            value={minigameForm.difficulty ?? 'BEGINNER'}
-                            onChange={(e) => setMinigameForm({ ...minigameForm, difficulty: e.target.value })}
-                            className="input cursor-pointer"
-                          >
-                            <option value="BEGINNER">Cơ bản</option>
-                            <option value="INTERMEDIATE">Trung cấp</option>
-                            <option value="ADVANCED">Nâng cao</option>
-                          </select>
-                        </Field>
-                        <Field label="Điểm tối đa">
-                          <input
-                            type="number"
-                            min="10"
-                            step="10"
-                            required
-                            value={minigameForm.maxScore}
-                            onChange={(e) => setMinigameForm({ ...minigameForm, maxScore: Number(e.target.value) })}
-                            className="input"
-                          />
-                        </Field>
-                        <Field label="Thứ tự">
-                          <input
-                            type="number"
-                            min="1"
-                            required
-                            value={minigameForm.orderIndex}
-                            onChange={(e) => setMinigameForm({ ...minigameForm, orderIndex: Number(e.target.value) })}
-                            className="input"
-                          />
-                        </Field>
-                      </div>}
 
                       {minigameForm.challengeType === 'RHYTHM_MATCH' && (
                         <section className="rounded-2xl border border-[#1D4532]/20 bg-[#fbf9f4] p-4 sm:p-5 space-y-4">
