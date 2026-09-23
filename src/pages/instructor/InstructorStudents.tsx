@@ -9,6 +9,8 @@ interface LessonProgress {
   lessonId: number;
   stars: number;
   completed: boolean;
+  learningStatus?: 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED';
+  isUnlocked?: boolean;
   totalPracticeAttempts: number;
   bestPracticeScore: number;
   totalQuizAttempts: number;
@@ -194,6 +196,8 @@ const InstructorStudents = () => {
             lessonId,
             stars: (result as any)?.stars ?? 0,
             completed: (result as any)?.completed ?? false,
+            learningStatus: (result as any)?.learningStatus,
+            isUnlocked: (result as any)?.isUnlocked,
             totalPracticeAttempts: (result as any)?.totalPracticeAttempts ?? 0,
             bestPracticeScore: (result as any)?.bestPracticeScore ?? 0,
             totalQuizAttempts: (result as any)?.totalQuizAttempts ?? 0,
@@ -627,7 +631,7 @@ const InstructorStudents = () => {
                     <thead>
                       <tr className="bg-[#F8FAF9] text-xs text-[#5e5e5b] uppercase tracking-wider border-b border-outline-variant/10">
                         <th className="text-left px-lg py-md font-semibold">Tên bài giảng</th>
-                        <th className="text-center px-md py-md font-semibold">Hoàn thành</th>
+                        <th className="text-center px-md py-md font-semibold">Trạng thái học</th>
                         <th className="text-center px-md py-md font-semibold">Sao đạt được</th>
                         <th className="text-center px-md py-md font-semibold">Lượt thực hành</th>
                         <th className="text-center px-md py-md font-semibold">Điểm tốt nhất</th>
@@ -648,15 +652,25 @@ const InstructorStudents = () => {
                                 <Loader2 className="w-3.5 h-3.5 animate-spin text-[#1D4532]/40 mx-auto" />
                               ) : p.error ? (
                                 <span className="text-[10px] text-on-surface-variant/40">—</span>
-                              ) : p.completed ? (
+                              ) : p.learningStatus === 'COMPLETED' || p.completed ? (
                                 <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold bg-[#EDF7F2] text-[#1D4532]">
                                   <Check className="w-3 h-3 text-[#1D4532]" />
-                                  Đạt
+                                  Hoàn thành
+                                </span>
+                              ) : p.learningStatus === 'IN_PROGRESS' ? (
+                                <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold bg-amber-50 text-amber-700">
+                                  <Clock3 className="w-3 h-3" />
+                                  Đang học
+                                </span>
+                              ) : p.learningStatus === 'NOT_STARTED' ? (
+                                <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold bg-gray-100 text-gray-500">
+                                  <HelpCircle className="w-3 h-3 text-gray-400" />
+                                  Chưa học
                                 </span>
                               ) : (
                                 <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold bg-gray-100 text-gray-500">
                                   <HelpCircle className="w-3 h-3 text-gray-400" />
-                                  Chưa đạt
+                                  Chưa có trạng thái
                                 </span>
                               )}
                             </td>

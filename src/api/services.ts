@@ -216,6 +216,9 @@ export const learnerProgressApi = {
       learnerId: number;
       stars: number;
       completed: boolean;
+      /** Available after the learning-access backend contract is deployed. */
+      learningStatus?: 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED';
+      isUnlocked?: boolean;
       totalPracticeAttempts: number;
       bestPracticeScore: number;
       totalQuizAttempts: number;
@@ -227,7 +230,10 @@ export const learnerProgressApi = {
     if (instrumentId) params.append('instrument_id', String(instrumentId));
     if (skillLevelId) params.append('skill_level_id', String(skillLevelId));
     const query = params.toString();
-    return apiRequest<{ lessonId: number; title: string; stars: number; completed: boolean }[]>(
+    return apiRequest<{
+      lessonId: number; title: string; stars: number; completed: boolean;
+      learningStatus?: 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED'; isUnlocked?: boolean;
+    }[]>(
       `/api/users/me/progress${query ? `?${query}` : ''}`,
       options
     );
