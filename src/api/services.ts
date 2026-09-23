@@ -1,3 +1,4 @@
+import { normalizeLesson } from './normalizeLesson';
 import { apiRequest, type RequestOptions } from './client';
 import type {
   AdminUser,
@@ -128,8 +129,34 @@ export interface LessonInput {
 
 // ── Bài học (lesson): CRUD + cập nhật trạng thái ──
 export const lessonsApi = {
+  listAll: async (options?: RequestOptions): Promise<Lesson[]> => {
+    const lessons: Lesson[] = [];
+    let page = 1;
+    let totalPages = 1;
+    do {
+      const result = await lessonsApi.list(new URLSearchParams({ page: String(page), size: '100' }), options);
+      lessons.push(...result.content);
+      totalPages = result.totalPages;
+      page += 1;
+    } while (page <= totalPages);
+    return lessons;
+  },
+  // Lấy toàn bộ bài học đang hiển thị trên App (isVisible=true)
+  listAllVisible: async (options?: RequestOptions): Promise<Lesson[]> => {
+    const lessons: Lesson[] = [];
+    let page = 1;
+    let totalPages = 1;
+    do {
+      const params = new URLSearchParams({ page: String(page), size: '100', isVisible: 'true' });
+      const result = await lessonsApi.list(params, options);
+      lessons.push(...result.content);
+      totalPages = result.totalPages;
+      page += 1;
+    } while (page <= totalPages);
+    return lessons;
+  },
   list: (params: URLSearchParams, options?: RequestOptions) =>
-    apiRequest<PageResponse<Lesson>>(`/api/lessons?${params.toString()}`, options),
+    apiRequest<PageResponse<Lesson>>(`/api/lessons?${params.toString()}`, options).then(page => ({ ...page, content: page.content.map(normalizeLesson) })),
   create: (body: LessonInput) => apiRequest<Lesson>('/api/lessons', { method: 'POST', body }),
   update: (
     id: number,
@@ -143,9 +170,10 @@ export const lessonsApi = {
       order_index: body.orderIndex,
     },
   }),
-  updateStatus: (id: number, status: 'DRAFT' | 'PENDING') =>
+  updateStatus: (id: number, status: 'PENDING') =>
     apiRequest(`/api/lessons/${id}/status`, { method: 'PUT', body: { status } }),
-  remove: (id: number) => apiRequest<void>(`/api/lessons/${id}`, { method: 'DELETE' }),
+  // No lesson deletion: completion history/stars reference the lesson forever.
+  // Hiding requires a separate visibility API; do not emulate it with DELETE.
 };
 
 export interface ExerciseInput {
@@ -188,6 +216,9 @@ export const learnerProgressApi = {
       learnerId: number;
       stars: number;
       completed: boolean;
+      /** Available after the learning-access backend contract is deployed. */
+      learningStatus?: 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED';
+      isUnlocked?: boolean;
       totalPracticeAttempts: number;
       bestPracticeScore: number;
       totalQuizAttempts: number;
@@ -199,7 +230,10 @@ export const learnerProgressApi = {
     if (instrumentId) params.append('instrument_id', String(instrumentId));
     if (skillLevelId) params.append('skill_level_id', String(skillLevelId));
     const query = params.toString();
-    return apiRequest<{ lessonId: number; title: string; stars: number; completed: boolean }[]>(
+    return apiRequest<{
+      lessonId: number; title: string; stars: number; completed: boolean;
+      learningStatus?: 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED'; isUnlocked?: boolean;
+    }[]>(
       `/api/users/me/progress${query ? `?${query}` : ''}`,
       options
     );
@@ -219,6 +253,18 @@ export const learnerProgressApi = {
 
 // ── Giảng viên: danh sách học viên, lượt luyện tập, phản hồi theo attempt ──
 export const instructorStudentsApi = {
+  listAllStudents: async (options?: RequestOptions): Promise<InstructorLearner[]> => {
+    const learners = new Map<number, InstructorLearner>();
+    let page = 0;
+    let totalPages = 1;
+    do {
+      const result = await instructorStudentsApi.listStudents(page, 100, undefined, options);
+      for (const learner of result.content) learners.set(learner.id, learner);
+      totalPages = result.totalPages;
+      page += 1;
+    } while (page < totalPages);
+    return [...learners.values()];
+  },
   // Returns only learners the authenticated instructor is allowed to monitor.
   listStudents: (page = 0, size = 100, search?: string, options?: RequestOptions) => {
     const params = new URLSearchParams({ page: String(page), size: String(size) });
@@ -293,22 +339,61 @@ export const lessonTechniquesApi = {
 export const lessonAssetsApi = {
   getAssets: (lessonId: number, options?: RequestOptions) =>
     apiRequest<LessonAsset[]>(`/api/lessons/${lessonId}/assets`, options),
-    
+
   uploadAsset: (lessonId: number, file: File, type: string, tempoBpm?: number, durationSec?: number) => {
     const formData = new FormData();
     formData.append('file', file);
     let url = `/api/lessons/${lessonId}/assets?type=${type}`;
     if (tempoBpm) url += `&tempo_bpm=${tempoBpm}`;
     if (durationSec) url += `&duration_sec=${durationSec}`;
-    
+
     return apiRequest<LessonAsset>(url, {
       method: 'POST',
       body: formData,
     });
   },
-  
+
   deleteAsset: (lessonId: number, assetId: number, options?: RequestOptions) =>
     apiRequest<void>(`/api/lessons/${lessonId}/assets/${assetId}`, {
+      ...options,
+      method: 'DELETE',
+    }),
+};
+
+export interface LessonContent {
+  content_type?: string;
+  payload_json?: string;
+  asset_id?: number;
+  id: number;
+  content_text: string;
+  order_index: number;
+}
+
+export interface LessonContentInput {
+  content_type?: string;
+  payload_json?: string;
+  asset_id?: number;
+  content_text?: string;
+  order_index: number;
+}
+
+export const lessonContentsApi = {
+  list: (lessonId: number, options?: RequestOptions) =>
+    apiRequest<LessonContent[]>(`/api/lessons/${lessonId}/contents`, options),
+  create: (lessonId: number, body: LessonContentInput, options?: RequestOptions) =>
+    apiRequest<LessonContent>(`/api/lessons/${lessonId}/contents`, {
+      ...options,
+      method: 'POST',
+      body,
+    }),
+  update: (lessonId: number, contentId: number, body: LessonContentInput, options?: RequestOptions) =>
+    apiRequest<LessonContent>(`/api/lessons/${lessonId}/contents/${contentId}`, {
+      ...options,
+      method: 'PUT',
+      body,
+    }),
+  remove: (lessonId: number, contentId: number, options?: RequestOptions) =>
+    apiRequest<void>(`/api/lessons/${lessonId}/contents/${contentId}`, {
       ...options,
       method: 'DELETE',
     }),
@@ -327,4 +412,51 @@ export const adminDashboardApi = {
     });
     return apiRequest<AdminDashboardStats>(`/api/admin/dashboard?${query.toString()}`, options);
   },
+};
+
+// ── Vật phẩm trang trí (Cosmetics): CRUD dành cho Admin ──
+// Entity backend: CosmeticItem { id, name, itemType, assetUrl, starPrice, status }
+// itemType: ROOM_DECOR | INSTRUMENT_SKIN | AVATAR
+
+export type CosmeticItemType = 'ROOM_DECOR' | 'INSTRUMENT_SKIN' | 'AVATAR';
+export type CosmeticStatus = 'ACTIVE' | 'INACTIVE';
+
+export interface CosmeticItem {
+  id: number;
+  name: string;
+  itemType: CosmeticItemType;
+  assetUrl?: string;
+  starPrice: number;
+  status?: CosmeticStatus;
+}
+
+export interface CosmeticRequest {
+  name: string;
+  itemType: CosmeticItemType;
+  assetUrl: string;
+  starPrice: number;
+  status: CosmeticStatus;
+}
+
+export const cosmeticsApi = {
+  // GET /api/admin/cosmetics?item_type=ROOM_DECOR&status=ACTIVE
+  list: (params?: { itemType?: string; status?: string }, options?: RequestOptions) => {
+    const query = new URLSearchParams();
+    if (params?.itemType) query.set('item_type', params.itemType);
+    if (params?.status && params.status !== 'ALL') query.set('status', params.status);
+    const queryString = query.toString();
+    return apiRequest<CosmeticItem[]>(`/api/admin/cosmetics${queryString ? `?${queryString}` : ''}`, options);
+  },
+
+  // POST /api/admin/cosmetics
+  create: (body: CosmeticRequest, options?: RequestOptions) =>
+    apiRequest<CosmeticItem>('/api/admin/cosmetics', { ...options, method: 'POST', body }),
+
+  // PUT /api/admin/cosmetics/{id}
+  update: (id: number, body: CosmeticRequest, options?: RequestOptions) =>
+    apiRequest<CosmeticItem>(`/api/admin/cosmetics/${id}`, { ...options, method: 'PUT', body }),
+
+  // DELETE /api/admin/cosmetics/{id}
+  remove: (id: number, options?: RequestOptions) =>
+    apiRequest<string>(`/api/admin/cosmetics/${id}`, { ...options, method: 'DELETE' }),
 };

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   X,
   Check,
@@ -13,7 +13,10 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { masterDataApi, reviewsApi, usersApi } from '../../api/services';
-import type { AdminUser, Instrument, ReviewItem as ApiReviewItem } from '../../api/types';
+import { apiRequest } from '../../api/client';
+import type { Lesson } from '../../api/types';
+import ApiPracticePreview from '../../components/instructor/ApiPracticePreview';
+import type { AdminUser, Instrument, ReviewItem as ApiReviewItem, SkillLevel } from '../../api/types';
 
 interface ReviewAsset {
   id: number;
@@ -112,9 +115,13 @@ const AdminReview = () => {
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [perPage, setPerPage] = useState<number>(10);
   const [pageInfo, setPageInfo] = useState({ totalElements: 0, totalPages: 1 });
-  const [reviewCounts, setReviewCounts] = useState({ all: 0, pending: 0, approved: 0, rejected: 0 });
+  const [reviewCounts, setReviewCounts] = useState<Record<'all' | 'pending' | 'approved' | 'rejected', number | null>>({ all: null, pending: null, approved: null, rejected: null });
+  const [countError, setCountError] = useState('');
+  const loadSequence = useRef(0);
   const [instrumentOptions, setInstrumentOptions] = useState<Instrument[]>([]);
   const [instructorOptions, setInstructorOptions] = useState<AdminUser[]>([]);
+  const [skillLevelOptions, setSkillLevelOptions] = useState<SkillLevel[]>([]);
+  const [selectedSkillLevelId, setSelectedSkillLevelId] = useState<number | null>(null);
 
   useEffect(() => {
     const timer = window.setTimeout(() => setDebouncedSearch(searchQuery.trim()), 350);
@@ -129,14 +136,17 @@ const AdminReview = () => {
     void Promise.all([
       masterDataApi.instruments({ signal: controller.signal }),
       usersApi.list({ signal: controller.signal, params: instructorParams }),
-    ]).then(([instruments, instructors]) => {
+      masterDataApi.skillLevels({ signal: controller.signal }),
+    ]).then(([instruments, instructors, skillLevels]) => {
       if (controller.signal.aborted) return;
       setInstrumentOptions(Array.isArray(instruments) ? instruments : []);
       setInstructorOptions(instructors.content ?? []);
+      setSkillLevelOptions(Array.isArray(skillLevels) ? [...skillLevels].sort((a, b) => a.orderIndex - b.orderIndex) : []);
     }).catch(() => {
       if (!controller.signal.aborted) {
         setInstrumentOptions([]);
         setInstructorOptions([]);
+        setSkillLevelOptions([]);
       }
     });
 
@@ -145,8 +155,11 @@ const AdminReview = () => {
 
   // Tải song song danh sách chính + 4 request đếm số lượng theo trạng thái
   const loadReviews = useCallback(async (signal?: AbortSignal) => {
+    const sequence = ++loadSequence.current;
     setIsLoading(true);
     setLoadError('');
+    setCountError('');
+    setReviewCounts({ all: null, pending: null, approved: null, rejected: null });
     try {
       const createParams = (status?: string, page = currentPage - 1, size = perPage) => {
         const params = new URLSearchParams({ page: String(page), size: String(size) });
@@ -154,32 +167,39 @@ const AdminReview = () => {
         if (debouncedSearch) params.set('search', debouncedSearch);
         if (selectedInstructorId !== null) params.set('instructorId', String(selectedInstructorId));
         if (selectedInstrumentId !== null) params.set('instrumentId', String(selectedInstrumentId));
+        if (selectedSkillLevelId !== null) params.set('skillLevelId', String(selectedSkillLevelId));
         return params;
       };
       const activeStatus = statusFilter === 'all' ? undefined : statusFilter.toUpperCase();
-      const [reviewPage, allPage, pendingPage, approvedPage, rejectedPage] = await Promise.all([
+      const [mainResult, ...counts] = await Promise.allSettled([
         reviewsApi.list(createParams(activeStatus), { signal }),
         reviewsApi.list(createParams(undefined, 0, 1), { signal }),
         reviewsApi.list(createParams('PENDING', 0, 1), { signal }),
         reviewsApi.list(createParams('APPROVED', 0, 1), { signal }),
         reviewsApi.list(createParams('REJECTED', 0, 1), { signal }),
       ]);
+      if (signal?.aborted || sequence !== loadSequence.current) return;
+      const countValue = (index: number) => {
+        const result = counts[index];
+        return result.status === 'fulfilled' ? result.value.totalElements : null;
+      };
+      setReviewCounts({ all: countValue(0), pending: countValue(1), approved: countValue(2), rejected: countValue(3) });
+      if (counts.some((result) => result.status === 'rejected')) {
+        setCountError('Chưa tải được một số lượng bài theo trạng thái. Dấu — không có nghĩa là 0 bài.');
+      }
+      if (mainResult.status === 'rejected') throw mainResult.reason;
+      const reviewPage = mainResult.value;
       setItems((reviewPage.content ?? []).filter((item) => isModerationStatus(item.status)).map(normalizeReview));
       setPageInfo({ totalElements: reviewPage.totalElements ?? 0, totalPages: reviewPage.totalPages ?? 1 });
-      setReviewCounts({
-        all: allPage.totalElements ?? 0,
-        pending: pendingPage.totalElements ?? 0,
-        approved: approvedPage.totalElements ?? 0,
-        rejected: rejectedPage.totalElements ?? 0,
-      });
     } catch (error) {
+      if (signal?.aborted || sequence !== loadSequence.current) return;
       setItems([]);
       setPageInfo({ totalElements: 0, totalPages: 1 });
       setLoadError(error instanceof Error ? error.message : 'Không thể tải danh sách kiểm duyệt.');
     } finally {
-      if (!signal?.aborted) setIsLoading(false);
+      if (!signal?.aborted && sequence === loadSequence.current) setIsLoading(false);
     }
-  }, [currentPage, debouncedSearch, perPage, selectedInstructorId, selectedInstrumentId, statusFilter]);
+  }, [currentPage, debouncedSearch, perPage, selectedInstructorId, selectedInstrumentId, selectedSkillLevelId, statusFilter]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -196,9 +216,36 @@ const AdminReview = () => {
   const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
   const [isPreviewZoomed, setIsPreviewZoomed] = useState<boolean>(false);
   const [previewAsset, setPreviewAsset] = useState<ReviewAsset | null>(null);
+  const [lessonDetail, setLessonDetail] = useState<Lesson | null>(null);
+  const [detailError, setDetailError] = useState('');
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailRetry, setDetailRetry] = useState(0);
+  const [quizzes, setQuizzes] = useState<{ id: number; question: string; options: string; correctAnswer: string; orderIndex: number }[]>([]);
+  const [games, setGames] = useState<{ id: number; title: string; difficulty: string; maxScore: number; contentJson: string; orderIndex: number }[]>([]);
+  useEffect(() => {
+    if (!isDrawerOpen || !selectedItem) return;
+    const controller = new AbortController();
+    setLessonDetail(null); setQuizzes([]); setGames([]); setDetailError('');
+    if (!selectedItem.lessonId) { setDetailError('Không xác định được bài học cần duyệt.'); return; }
+    setDetailLoading(true);
+    const path = `/api/lessons/${selectedItem.lessonId}`;
+    Promise.all([
+      apiRequest<Lesson>(path, { signal: controller.signal }),
+      apiRequest<typeof quizzes>(`${path}/quizzes`, { signal: controller.signal }),
+      apiRequest<typeof games>(`${path}/minigames`, { signal: controller.signal }),
+    ]).then(([lesson, quizItems, gameItems]) => {
+      if (controller.signal.aborted) return;
+      setLessonDetail(lesson); setQuizzes(quizItems); setGames(gameItems);
+    }).catch(() => { if (!controller.signal.aborted) setDetailError('Chưa tải đủ nội dung bài học để kiểm duyệt.'); })
+      .finally(() => { if (!controller.signal.aborted) setDetailLoading(false); });
+    return () => controller.abort();
+  }, [isDrawerOpen, selectedItem, detailRetry]);
 
   // Mở drawer xem trước học liệu
   const openDrawer = (item: ReviewItem) => {
+    setLessonDetail(null);
+    setDetailError('');
+    setDetailLoading(true);
     setSelectedItem(item);
     setFeedback(item.feedback || '');
     setFeedbackError('');
@@ -213,6 +260,7 @@ const AdminReview = () => {
 
   // Phê duyệt học liệu (POST approve)
   const handleApprove = async () => {
+    if (!lessonDetail || detailLoading || detailError) return;
     if (!selectedItem || selectedItem.status !== 'pending' || isDecisionSubmitting) return;
     setIsDecisionSubmitting(true);
     try {
@@ -229,6 +277,7 @@ const AdminReview = () => {
 
   // Từ chối học liệu: bắt buộc có lý do (<=1000 ký tự) gửi qua POST reject
   const handleReject = async () => {
+    if (!lessonDetail || detailLoading || detailError) return;
     if (!selectedItem || selectedItem.status !== 'pending' || isDecisionSubmitting) return;
     if (!feedback.trim()) {
       setFeedbackError('Lý do từ chối là bắt buộc để giảng viên nắm được thông tin chỉnh sửa.');
@@ -294,9 +343,9 @@ const AdminReview = () => {
   const displayEnd = Math.min((currentPage - 1) * perPage + items.length, pageInfo.totalElements);
 
   // Status counts
-  const pendingCount = reviewCounts.pending;
-  const approvedCount = reviewCounts.approved;
-  const rejectedCount = reviewCounts.rejected;
+  const pendingCount = reviewCounts.pending ?? '—';
+  const approvedCount = reviewCounts.approved ?? '—';
+  const rejectedCount = reviewCounts.rejected ?? '—';
   const materialAssets = selectedItem?.assets.filter((asset) => !isAudioAsset(asset)) ?? [];
   const audioAssets = selectedItem?.assets.filter(isAudioAsset) ?? [];
   return (
@@ -399,6 +448,26 @@ const AdminReview = () => {
               ))}
             </select>
           </div>
+
+          {/* Skill Level Filter */}
+          {skillLevelOptions.length > 0 && (
+            <div className="flex w-full sm:w-60 items-center gap-xs px-md py-sm bg-white border border-outline-variant rounded-lg shadow-sm">
+              <span className="font-label-md text-[#5e5e5b] whitespace-nowrap">Cấp độ:</span>
+              <select
+                value={selectedSkillLevelId ?? 'all'}
+                onChange={(e) => {
+                  setSelectedSkillLevelId(e.target.value === 'all' ? null : Number(e.target.value));
+                  setCurrentPage(1);
+                }}
+                className="min-w-0 flex-1 bg-transparent border-none text-label-md font-semibold text-[#1D4532] focus:ring-0 cursor-pointer outline-none"
+              >
+                <option value="all">Tất cả cấp độ</option>
+                {skillLevelOptions.map((level) => (
+                  <option key={level.id} value={level.id}>{level.levelName}</option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
       </section>
 
@@ -415,7 +484,7 @@ const AdminReview = () => {
               : 'border-transparent text-[#5e5e5b] hover:bg-[#EDF7F2]/50'
           }`}
         >
-          Tất cả ({reviewCounts.all})
+          Tất cả ({reviewCounts.all ?? '—'})
         </button>
         <button
           onClick={() => {
@@ -469,9 +538,10 @@ const AdminReview = () => {
 
 
 
+      {countError && !loadError && <div role="status" className="mb-4 rounded-xl bg-amber-50 p-4 text-amber-800">{countError} <button onClick={() => void loadReviews()} className="font-bold underline">Thử lại</button></div>}
       {loadError && (
         <div className="mb-lg flex items-center justify-between gap-4 rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-red-800">
-          <span>{loadError}</span>
+          <span>Không tải được danh sách kiểm duyệt. {loadError}</span>
           <button onClick={() => void loadReviews()} className="font-bold underline">Thử lại</button>
         </div>
       )}
@@ -481,7 +551,7 @@ const AdminReview = () => {
           <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-2 border-[#1D4532]/20 border-t-primary" />
           <p className="text-body-md text-on-surface-variant">Đang tải danh sách kiểm duyệt...</p>
         </div>
-      ) : displayedItems.length === 0 ? (
+      ) : loadError ? null : displayedItems.length === 0 ? (
         <div className="bg-white rounded-xl border border-outline-variant/10 p-xxl text-center shadow-sm flex flex-col items-center justify-center gap-md">
           <p className="text-body-md text-on-surface-variant">
             Không tìm thấy học liệu nào phù hợp với bộ lọc hiện tại!
@@ -681,6 +751,19 @@ const AdminReview = () => {
 
               {/* Drawer Body - Scrollable content area */}
               <div className="flex-1 overflow-y-auto p-xl space-y-xl custom-scrollbar">
+                {detailLoading && <p role="status">Đang tải nội dung bài học…</p>}
+                {detailError && <p role="alert" className="rounded-xl bg-red-50 p-4 text-red-700">{detailError} <button className="underline" onClick={() => setDetailRetry(value => value + 1)}>Thử lại</button></p>}
+                {lessonDetail && <section className="space-y-5 rounded-2xl border bg-white p-5">
+                  <h3 className="font-bold text-[#1D4532]">Nội dung bài học</h3>
+                  {!(lessonDetail.contents?.length) && <p className="text-sm">Chưa có nội dung hướng dẫn.</p>}
+                  {[...(lessonDetail.contents ?? [])].sort((a,b) => a.orderIndex - b.orderIndex).map(item => <article key={item.id} className="rounded-xl bg-[#f5faf7] p-3"><h4 className="text-sm font-semibold">Bước {item.orderIndex}</h4><p className="whitespace-pre-wrap text-sm">{item.contentText || 'Hoạt động không có lời hướng dẫn.'}</p>{item.payloadJson && <details><summary>Chi tiết hoạt động</summary><pre className="overflow-auto whitespace-pre-wrap break-words text-xs">{item.payloadJson}</pre></details>}</article>)}
+                  <ApiPracticePreview exercises={lessonDetail.exercises ?? []} instrumentName={lessonDetail.instrument?.name} />
+                  {(lessonDetail.exercises ?? []).filter(item => item.configJson).map(item => <details key={item.id}><summary className="text-sm">Chi tiết thực hành: {item.title}</summary><pre className="max-h-60 overflow-auto whitespace-pre-wrap break-words text-xs">{item.configJson}</pre></details>)}
+                  <h3 className="font-bold text-[#1D4532]">Câu hỏi ({quizzes.length})</h3>
+                  {[...quizzes].sort((a,b) => a.orderIndex - b.orderIndex).map(item => <article key={item.id} className="space-y-2 rounded-xl border p-3 text-sm"><p>{item.question}</p><p className="whitespace-pre-wrap">{item.options}</p><p>Đáp án: {item.correctAnswer}</p></article>)}
+                  <h3 className="font-bold text-[#1D4532]">Trò chơi ({games.length})</h3>
+                  {[...games].sort((a,b) => a.orderIndex - b.orderIndex).map(item => <article key={item.id} className="rounded-xl border p-3 text-sm"><p className="font-semibold">{item.title}</p><p>{item.difficulty} · Điểm tối đa: {item.maxScore}</p><details><summary>Chi tiết trò chơi</summary><pre className="overflow-auto whitespace-pre-wrap break-words text-xs">{item.contentJson}</pre></details></article>)}
+                </section>}
                 {/* Visual Preview Card */}
                 <div className="bg-white/95 backdrop-blur-md border border-[#d1e4fb]/40 rounded-2xl p-lg shadow-sm space-y-lg">
                   <div>
@@ -837,7 +920,7 @@ const AdminReview = () => {
                   <>
                     <button
                       onClick={handleReject}
-                      disabled={isDecisionSubmitting}
+                      disabled={isDecisionSubmitting || detailLoading || !!detailError || !lessonDetail}
                       className="flex-1 flex items-center justify-center gap-sm bg-[#c62828] text-white py-lg rounded-xl font-bold hover:bg-[#b71c1c] active:scale-[0.98] transition-all shadow-sm disabled:cursor-wait disabled:opacity-60"
                     >
                       <X className="w-5 h-5" />
@@ -845,7 +928,7 @@ const AdminReview = () => {
                     </button>
                     <button
                       onClick={handleApprove}
-                      disabled={isDecisionSubmitting}
+                      disabled={isDecisionSubmitting || detailLoading || !!detailError || !lessonDetail}
                       className="flex-1 flex items-center justify-center gap-sm bg-[#1b5e20] text-white py-lg rounded-xl font-bold hover:bg-[#1b5e20]/90 active:scale-[0.98] transition-all shadow-sm disabled:cursor-wait disabled:opacity-60"
                     >
                       <Check className="w-5 h-5" />

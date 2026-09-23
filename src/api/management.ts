@@ -1,3 +1,4 @@
+import { normalizeLesson } from './normalizeLesson';
 import { apiRequest, type RequestOptions } from './client';
 import type { Instrument, Lesson, SkillLevel } from './types';
 
@@ -113,9 +114,9 @@ const normalizeNotification = (n: RawNotification): Notification => ({
 
 // ── Thông báo: danh sách, đánh dấu đã đọc 1 cái / tất cả ──
 export const notificationApi = {
-  // Lấy danh sách thông báo — backend trả về { data: [...], page, size, total, unread_count }
+  // OpenAPI yêu cầu phân trang; gửi rõ giá trị mặc định để backend không phải suy luận page/size.
   list: async (options?: RequestOptions): Promise<Notification[]> => {
-    const raw = await apiRequest<NotificationListResponse | RawNotification[]>('/api/notifications', options);
+    const raw = await apiRequest<NotificationListResponse | RawNotification[]>('/api/notifications?page=0&size=20', options);
     // Handle direct array, single nested { data: [...] }, or double nested { data: { data: [...] } } envelope
     const arr = Array.isArray(raw) ? raw : raw.data ?? [];
     return arr.map(normalizeNotification);
@@ -174,6 +175,6 @@ export const techniqueManagementApi = {
 
 // ── Chi tiết một bài học ──
 export const lessonDetailApi = {
-  get: (id: number) => apiRequest<Lesson>(`/api/lessons/${id}`),
+  get: (id: number) => apiRequest<Lesson>(`/api/lessons/${id}`).then(normalizeLesson),
 };
 

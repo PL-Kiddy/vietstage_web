@@ -1,15 +1,18 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Activity,
   ArrowRight,
   BookOpen,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   CircleDashed,
   Clock3,
   FilePenLine,
+  MessageSquare,
   RefreshCw,
   Send,
   Users,
+  X,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAxiosRequest } from '../../hooks/useAxiosRequest';
@@ -23,10 +26,11 @@ interface InstructorDashboardData {
   teacherName: string;
   totalStudents?: number;
   totalLessons?: number;
-  totalAttempts?: number;
   lessons: Lesson[];
   recentAttempts: PracticeAttemptDetailResponse[];
-  weeklyAttempts: PracticeAttemptDetailResponse[];
+  attemptsNeedingFeedback: number[];
+  recentAttemptTotal: number;
+  recentAttemptTotalPages: number;
   hasPartialError: boolean;
 }
 
@@ -37,61 +41,30 @@ const lessonStatusMeta: Record<LessonStatus, { label: string; color: string; ico
   REJECTED: { label: 'Từ chối', color: 'bg-rose-500', icon: RefreshCw },
 };
 
-const toLocalDate = (date: Date) => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
-
 const scoreLabel = (score?: number) =>
   typeof score === 'number' ? `${score.toFixed(2)} điểm` : 'Chưa chấm điểm';
 
 const RECENT_PAGE_SIZE = 5;
 
-// Dashboard giảng viên: thống kê học viên/bài giảng/lượt tập, biểu đồ 7 ngày, trạng thái bài giảng, lượt tập mới nhất
+// Dashboard giảng viên: chỉ giữ chỉ số chính, việc cần xử lý và lượt tập mới nhất.
 const InstructorDashboard = () => {
   const [recentPage, setRecentPage] = useState(1);
+  const [feedbackTarget, setFeedbackTarget] = useState<PracticeAttemptDetailResponse | null>(null);
+  const [feedbackText, setFeedbackText] = useState('');
+  const [sendingFeedback, setSendingFeedback] = useState(false);
+  const [feedbackError, setFeedbackError] = useState('');
   // Tải toàn bộ dữ liệu dashboard (profile, students, attempts, lessons của chính giảng viên) — cho phép lỗi từng phần
   const fetchDashboard = useCallback(async (signal?: AbortSignal): Promise<InstructorDashboardData> => {
-    const today = new Date();
-    const firstDay = new Date(today);
-    firstDay.setDate(today.getDate() - 6);
-
     const profilePromise = profileApi.get({ signal });
     const studentsPromise = instructorStudentsApi.listStudents(0, 1, undefined, { signal });
     const recentAttemptsPromise = (async () => {
-      const attempts: PracticeAttemptDetailResponse[] = [];
-      let page = 0;
-      let totalPages = 1;
-      while (page < totalPages) {
-        const response = await instructorStudentsApi.getInstructorAttempts({ page, size: 100 }, { signal });
-        attempts.push(...(response.content ?? []));
-        totalPages = response.totalPages ?? 1;
-        page += 1;
-      }
-      return attempts.sort((left, right) => {
+      // Dashboard chỉ lấy các lượt mới nhất; không tải toàn bộ lịch sử chỉ để đếm.
+      const response = await instructorStudentsApi.getInstructorAttempts({ page: recentPage - 1, size: RECENT_PAGE_SIZE }, { signal });
+      return { ...response, content: (response.content ?? []).sort((left, right) => {
         const leftTime = left.createdAt ? new Date(left.createdAt).getTime() : 0;
         const rightTime = right.createdAt ? new Date(right.createdAt).getTime() : 0;
         return rightTime - leftTime;
-      });
-    })();
-    const weeklyAttemptsPromise = (async () => {
-      const attempts: PracticeAttemptDetailResponse[] = [];
-      let page = 0;
-      let totalPages = 1;
-      while (page < totalPages) {
-        const response = await instructorStudentsApi.getInstructorAttempts({
-          fromDate: toLocalDate(firstDay),
-          toDate: toLocalDate(today),
-          page,
-          size: 100,
-        }, { signal });
-        attempts.push(...(response.content ?? []));
-        totalPages = response.totalPages ?? 1;
-        page += 1;
-      }
-      return attempts;
+      }) };
     })();
     const ownLessonsPromise = (async () => {
       const profile = await profilePromise;
@@ -108,55 +81,42 @@ const InstructorDashboard = () => {
         .filter((lesson) => lesson.createdBy?.id === profile.id);
     })();
 
-    const [profileResult, studentsResult, recentResult, weeklyResult, lessonsResult] = await Promise.allSettled([
+    const [profileResult, studentsResult, recentResult, lessonsResult] = await Promise.allSettled([
       profilePromise,
       studentsPromise,
       recentAttemptsPromise,
-      weeklyAttemptsPromise,
       ownLessonsPromise,
     ]);
-    const results = [profileResult, studentsResult, recentResult, weeklyResult, lessonsResult];
+    const recentAttemptPage = recentResult.status === 'fulfilled' ? recentResult.value : undefined;
+    const recentAttempts = recentAttemptPage?.content ?? [];
+    // API chưa trả feedbackCount trong attempt; chỉ kiểm tra 5 lượt trên trang hiện tại.
+    const feedbackResults = await Promise.allSettled(recentAttempts.map((attempt) => instructorStudentsApi.getFeedbacks(attempt.attemptId, { signal })));
+    const attemptsNeedingFeedback = recentAttempts
+      .filter((_, index) => {
+        const result = feedbackResults[index];
+        if (result.status !== 'fulfilled') return false;
+        const feedback = result.value;
+        return Array.isArray(feedback) ? feedback.length === 0 : (feedback.content ?? []).length === 0;
+      })
+      .map((attempt) => attempt.attemptId);
+    const results = [profileResult, studentsResult, recentResult, lessonsResult, ...feedbackResults];
 
     return {
       teacherName: profileResult.status === 'fulfilled' ? profileResult.value.fullName : '',
       totalStudents: studentsResult.status === 'fulfilled' ? studentsResult.value.totalElements : undefined,
       totalLessons: lessonsResult.status === 'fulfilled' ? lessonsResult.value.length : undefined,
-      totalAttempts: recentResult.status === 'fulfilled' ? recentResult.value.length : undefined,
       lessons: lessonsResult.status === 'fulfilled' ? lessonsResult.value : [],
-      recentAttempts: recentResult.status === 'fulfilled' ? recentResult.value : [],
-      weeklyAttempts: weeklyResult.status === 'fulfilled' ? weeklyResult.value : [],
+      recentAttempts,
+      attemptsNeedingFeedback,
+      recentAttemptTotal: recentAttemptPage?.totalElements ?? 0,
+      recentAttemptTotalPages: recentAttemptPage?.totalPages ?? 1,
       hasPartialError: results.some((result) => result.status === 'rejected'),
     };
-  }, []);
+  }, [recentPage]);
 
-  const { data, loading, execute } = useAxiosRequest(fetchDashboard);
+  const { data, loading, execute } = useAxiosRequest(fetchDashboard, { auto: false });
+  useEffect(() => { void execute(); }, [execute, recentPage]);
   const teacherName = data?.teacherName?.trim();
-
-  // Số lượt luyện tập mỗi ngày trong 7 ngày gần nhất (cho biểu đồ cột)
-  const chartRows = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const attempt of data?.weeklyAttempts ?? []) {
-      if (!attempt.createdAt) continue;
-      const attemptDate = new Date(attempt.createdAt);
-      if (Number.isNaN(attemptDate.getTime())) continue;
-      const key = toLocalDate(attemptDate);
-      counts.set(key, (counts.get(key) ?? 0) + 1);
-    }
-
-    const rows: Array<{ date: string; label: string; attempts: number }> = [];
-    const today = new Date();
-    for (let offset = 6; offset >= 0; offset -= 1) {
-      const date = new Date(today);
-      date.setDate(today.getDate() - offset);
-      const key = toLocalDate(date);
-      rows.push({
-        date: key,
-        label: date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }),
-        attempts: counts.get(key) ?? 0,
-      });
-    }
-    return rows;
-  }, [data?.weeklyAttempts]);
 
   const statusRows = useMemo(() => {
     const counts: Record<LessonStatus, number> = { DRAFT: 0, PENDING: 0, APPROVED: 0, REJECTED: 0 };
@@ -170,19 +130,38 @@ const InstructorDashboard = () => {
     }));
   }, [data?.lessons]);
 
-  const recentTotalPages = Math.max(1, Math.ceil((data?.recentAttempts.length ?? 0) / RECENT_PAGE_SIZE));
-  const paginatedRecentAttempts = useMemo(
-    () => (data?.recentAttempts ?? []).slice((recentPage - 1) * RECENT_PAGE_SIZE, recentPage * RECENT_PAGE_SIZE),
-    [data?.recentAttempts, recentPage],
+  const recentTotalPages = Math.max(1, data?.recentAttemptTotalPages ?? 1);
+  const paginatedRecentAttempts = data?.recentAttempts ?? [];
+  const recentAttemptTotal = data?.recentAttemptTotal ?? 0;
+  const recentPageStart = Math.max(1, Math.min(recentPage - 2, recentTotalPages - 4));
+  const recentPageNumbers = Array.from(
+    { length: Math.min(5, recentTotalPages) },
+    (_, index) => recentPageStart + index,
   );
 
-  const maxAttempts = Math.max(1, ...chartRows.map((row) => row.attempts));
-  const weeklyTotal = chartRows.reduce((total, row) => total + row.attempts, 0);
+  const attemptsNeedingFeedback = data?.attemptsNeedingFeedback ?? [];
+  const pendingLessons = statusRows.find((row) => row.status === 'PENDING')?.count ?? 0;
   const statCards = [
     { icon: Users, label: 'Học viên đang theo dõi', value: data?.totalStudents, href: '/instructor/students' },
     { icon: BookOpen, label: 'Bài giảng của tôi', value: data?.totalLessons, href: '/instructor/lessons' },
-    { icon: Activity, label: 'Tổng lượt luyện tập', value: data?.totalAttempts, href: '/instructor/students' },
+    { icon: Clock3, label: 'Bài chờ duyệt', value: pendingLessons, href: '/instructor/lessons' },
   ];
+
+  const submitFeedback = async () => {
+    if (!feedbackTarget || !feedbackText.trim()) return;
+    setSendingFeedback(true);
+    setFeedbackError('');
+    try {
+      await instructorStudentsApi.sendFeedback(feedbackTarget.attemptId, feedbackText.trim());
+      setFeedbackTarget(null);
+      setFeedbackText('');
+      await execute();
+    } catch {
+      setFeedbackError('Không thể gửi phản hồi. Vui lòng thử lại.');
+    } finally {
+      setSendingFeedback(false);
+    }
+  };
 
   return (
     <div className="mx-auto w-full max-w-[1500px] space-y-6 pb-4">
@@ -206,114 +185,60 @@ const InstructorDashboard = () => {
         </div>
       )}
 
-      <section className="grid grid-cols-1 gap-4 sm:grid-cols-3" aria-label="Chỉ số tổng quan">
+      <section className="grid grid-cols-1 gap-3 lg:grid-cols-3" aria-label="Chỉ số tổng quan">
         {statCards.map((stat) => (
           <Link
             key={stat.label}
             to={stat.href}
-            className="group rounded-2xl border border-[#e0e9e4] bg-white p-5 shadow-[0_4px_18px_rgba(20,61,44,0.04)] transition hover:-translate-y-0.5 hover:border-[#bfd3c7] hover:shadow-[0_10px_28px_rgba(20,61,44,0.08)]"
+            className="group flex items-center gap-3 rounded-xl border border-[#e0e9e4] bg-white px-4 py-3 shadow-[0_4px_18px_rgba(20,61,44,0.04)] transition hover:-translate-y-0.5 hover:border-[#bfd3c7] hover:shadow-[0_10px_28px_rgba(20,61,44,0.08)]"
           >
-            <div className="flex items-start justify-between">
-              <span className="grid h-10 w-10 place-items-center rounded-xl bg-[#edf5f1] text-[#1D4532]">
-                <stat.icon className="h-5 w-5" />
-              </span>
-              <ArrowRight className="h-4 w-4 text-[#9aa9a1] transition group-hover:translate-x-0.5 group-hover:text-[#1D4532]" />
-            </div>
-            <p className="mt-5 text-3xl font-bold tracking-tight text-[#173f2f]">
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#edf5f1] text-[#1D4532]">
+              <stat.icon className="h-4 w-4" />
+            </span>
+            <p className="min-w-0 flex-1 text-sm font-medium text-[#6b7770]">{stat.label}</p>
+            <p className="text-xl font-bold tracking-tight text-[#173f2f]">
               {loading || stat.value === undefined ? '—' : stat.value.toLocaleString('vi-VN')}
             </p>
-            <p className="mt-1 text-sm font-medium text-[#6b7770]">{stat.label}</p>
           </Link>
         ))}
       </section>
 
-      <section className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1.7fr)_minmax(300px,0.8fr)]">
-        <article className="rounded-2xl border border-[#e0e9e4] bg-white p-5 shadow-[0_4px_18px_rgba(20,61,44,0.04)] md:p-6">
-          <div className="flex items-start justify-between gap-4">
+      <section className="rounded-xl border border-[#e0e9e4] bg-white px-4 py-3 shadow-[0_4px_18px_rgba(20,61,44,0.04)]">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <h2 className="text-lg font-bold text-[#173f2f]">Hoạt động 7 ngày gần nhất</h2>
-              <p className="mt-1 text-sm text-[#718078]">Số lượt luyện tập của học viên theo ngày.</p>
-            </div>
-            <div className="rounded-xl bg-[#edf5f1] px-3 py-2 text-right">
-              <p className="text-lg font-bold leading-none text-[#1D4532]">{weeklyTotal}</p>
-              <p className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-[#718078]">Lượt tập</p>
-            </div>
-          </div>
-
-          {loading ? (
-            <div className="mt-6 h-52 animate-pulse rounded-xl bg-[#f1f5f3]" />
-          ) : weeklyTotal === 0 ? (
-            <div className="mt-6 grid min-h-52 place-items-center rounded-xl border border-dashed border-[#d5e2db] bg-[#fafcfb] px-6 text-center">
-              <div>
-                <Activity className="mx-auto h-8 w-8 text-[#91a39a]" />
-                <p className="mt-3 font-semibold text-[#365647]">Chưa có lượt luyện tập trong 7 ngày qua</p>
-                <p className="mt-1 text-sm text-[#7a8780]">Hoạt động mới sẽ được cập nhật tự động tại đây.</p>
-              </div>
-            </div>
-          ) : (
-            <div className="mt-6 grid h-52 grid-cols-7 items-end gap-2 sm:gap-3" aria-label="Biểu đồ lượt luyện tập 7 ngày">
-              {chartRows.map((row) => (
-                <div key={row.date} className="flex h-full min-w-0 flex-col justify-end gap-2 text-center">
-                  <span className="text-xs font-bold text-[#1D4532]">{row.attempts}</span>
-                  <div className="flex h-36 items-end justify-center rounded-lg bg-[#f3f7f5] px-1.5">
-                    <div
-                      className="w-full max-w-10 rounded-t-md bg-gradient-to-t from-[#1D4532] to-[#4f856c]"
-                      style={{ height: row.attempts === 0 ? 0 : `${Math.max(9, (row.attempts / maxAttempts) * 100)}%` }}
-                    />
-                  </div>
-                  <span className="truncate text-[10px] font-medium text-[#7a8780] sm:text-xs">{row.label}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </article>
-
-        <article className="rounded-2xl border border-[#e0e9e4] bg-white p-5 shadow-[0_4px_18px_rgba(20,61,44,0.04)] md:p-6">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <h2 className="text-lg font-bold text-[#173f2f]">Trạng thái bài giảng</h2>
-              <p className="mt-1 text-sm text-[#718078]">Tổng hợp từ các bài giảng của bạn.</p>
+              <h2 className="text-base font-bold text-[#173f2f]">Việc cần xử lý</h2>
+              <p className="mt-0.5 text-sm text-[#718078]">Các lượt mới chưa phản hồi và trạng thái bài giảng.</p>
             </div>
             <Link to="/instructor/lessons" className="text-sm font-semibold text-[#1D4532] hover:underline">Chi tiết</Link>
           </div>
 
           {loading ? (
-            <div className="mt-6 space-y-3">
-              {[0, 1, 2, 3].map((item) => <div key={item} className="h-12 animate-pulse rounded-xl bg-[#f1f5f3]" />)}
-            </div>
-          ) : (data?.totalLessons ?? 0) === 0 ? (
-            <div className="mt-6 grid min-h-52 place-items-center rounded-xl border border-dashed border-[#d5e2db] bg-[#fafcfb] px-5 text-center">
-              <div>
-                <BookOpen className="mx-auto h-8 w-8 text-[#91a39a]" />
-                <p className="mt-3 font-semibold text-[#365647]">Chưa có bài giảng</p>
-                <Link to="/instructor/media" className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-[#1D4532] hover:underline">
+            <div className="mt-3 h-10 animate-pulse rounded-lg bg-[#f1f5f3]" />
+          ) : (data?.totalLessons ?? 0) === 0 && recentAttemptTotal === 0 ? (
+            <div className="mt-3 flex items-center gap-2 rounded-lg bg-[#fafcfb] px-3 py-2.5 text-sm text-[#365647]">
+                <BookOpen className="h-4 w-4 text-[#91a39a]" />
+                <Link to="/instructor/media" className="inline-flex items-center gap-1 font-semibold text-[#1D4532] hover:underline">
                   Tạo bài giảng <ArrowRight className="h-3.5 w-3.5" />
                 </Link>
-              </div>
             </div>
           ) : (
-            <div className="mt-6 space-y-3">
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <Link to="/instructor/students" className="flex items-center justify-between rounded-lg border border-[#d7e8dd] bg-[#f7fbf8] px-3 py-2 transition hover:bg-[#edf7f2]">
+                <span className="flex items-center gap-2 text-sm font-medium text-[#365647]"><MessageSquare className="h-4 w-4 text-[#1D4532]" /> Lượt mới chưa phản hồi</span>
+                <span className="rounded-full bg-[#1D4532] px-2.5 py-1 text-xs font-bold text-white">{attemptsNeedingFeedback.length}</span>
+              </Link>
               {statusRows.map((row) => {
                 const Icon = row.icon;
-                const percentage = data?.totalLessons ? (row.count / data.totalLessons) * 100 : 0;
                 return (
-                  <div key={row.status} className="rounded-xl border border-[#e8eeea] px-3.5 py-3">
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-2.5">
-                        <Icon className="h-4 w-4 text-[#64766c]" />
-                        <span className="text-sm font-medium text-[#44564d]">{row.label}</span>
-                      </div>
-                      <span className="text-sm font-bold text-[#173f2f]">{row.count}</span>
-                    </div>
-                    <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-[#edf2ef]">
-                      <div className={`h-full rounded-full ${row.color}`} style={{ width: `${percentage}%` }} />
-                    </div>
+                  <div key={row.status} className="flex items-center gap-2 rounded-lg border border-[#e8eeea] px-3 py-2">
+                    <Icon className="h-4 w-4 text-[#64766c]" />
+                    <span className="text-sm font-medium text-[#44564d]">{row.label}</span>
+                    <span className="text-sm font-bold text-[#173f2f]">{row.count}</span>
                   </div>
                 );
               })}
             </div>
           )}
-        </article>
       </section>
 
       <section className="overflow-hidden rounded-2xl border border-[#e0e9e4] bg-white shadow-[0_4px_18px_rgba(20,61,44,0.04)]">
@@ -343,20 +268,27 @@ const InstructorDashboard = () => {
         ) : (
           <div className="divide-y divide-[#edf1ef]">
             {paginatedRecentAttempts.map((attempt) => (
-              <article key={attempt.attemptId} className="grid gap-3 px-5 py-4 transition hover:bg-[#fafcfb] md:grid-cols-[minmax(180px,0.8fr)_minmax(240px,1.4fr)_120px_190px] md:items-center md:px-6">
+              <article key={attempt.attemptId} className="grid gap-3 px-5 py-4 transition hover:bg-[#fafcfb] md:grid-cols-[minmax(160px,0.8fr)_minmax(220px,1.4fr)_120px_116px_170px] md:items-center md:px-6">
                 <div className="min-w-0">
                   <p className="truncate text-sm font-semibold text-[#294c3c]">{attempt.learnerName || 'Chưa cập nhật tên'}</p>
                   <p className="mt-0.5 truncate text-xs text-[#7a8780]">Học viên</p>
                 </div>
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium text-[#354b40]">{attempt.lessonTitle || 'Chưa cập nhật bài học'}</p>
-                  <p className="mt-0.5 truncate text-xs text-[#7a8780]">{attempt.exerciseTitle || 'Chưa cập nhật bài tập'}</p>
+                  <p className="mt-0.5 truncate text-xs text-[#7a8780]">{attempt.exerciseTitle || 'Chưa cập nhật bài tập'} · Lượt #{attempt.attemptId}</p>
                 </div>
                 <div>
                   <span className="inline-flex rounded-full bg-[#edf5f1] px-2.5 py-1 text-xs font-bold text-[#1D4532]">
                     {scoreLabel(attempt.totalScore)}
                   </span>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => { setFeedbackTarget(attempt); setFeedbackText(''); setFeedbackError(''); }}
+                  className={`inline-flex items-center justify-center gap-1 rounded-lg border px-2.5 py-2 text-xs font-bold transition ${attemptsNeedingFeedback.includes(attempt.attemptId) ? 'border-[#1D4532] bg-[#1D4532] text-white hover:bg-[#163d2d]' : 'border-[#d8e4dd] text-[#365647] hover:bg-[#edf7f2]'}`}
+                >
+                  <MessageSquare className="h-3.5 w-3.5" /> Phản hồi
+                </button>
                 <time className="text-xs text-[#718078]" dateTime={attempt.createdAt}>
                   {attempt.createdAt ? new Date(attempt.createdAt).toLocaleString('vi-VN') : 'Chưa cập nhật thời gian'}
                 </time>
@@ -364,17 +296,69 @@ const InstructorDashboard = () => {
             ))}
             <div className="flex flex-col gap-3 px-5 py-4 text-sm text-[#66756d] sm:flex-row sm:items-center sm:justify-between md:px-6">
               <span>
-                Hiển thị {(recentPage - 1) * RECENT_PAGE_SIZE + 1}–{Math.min(recentPage * RECENT_PAGE_SIZE, data?.recentAttempts.length ?? 0)} trong {data?.recentAttempts.length ?? 0} lượt luyện tập
+                Hiển thị {recentAttemptTotal === 0 ? 0 : (recentPage - 1) * RECENT_PAGE_SIZE + 1}–{Math.min(recentPage * RECENT_PAGE_SIZE, recentAttemptTotal)} trong {recentAttemptTotal} lượt luyện tập
               </span>
-              <div className="flex items-center gap-2">
-                <button type="button" disabled={recentPage === 1} onClick={() => setRecentPage((page) => Math.max(1, page - 1))} className="h-9 rounded-lg border border-[#d8e4dd] px-3 font-semibold text-[#365647] disabled:opacity-40">Trước</button>
-                <span className="min-w-20 text-center font-semibold text-[#294c3c]">Trang {recentPage}/{recentTotalPages}</span>
-                <button type="button" disabled={recentPage === recentTotalPages} onClick={() => setRecentPage((page) => Math.min(recentTotalPages, page + 1))} className="h-9 rounded-lg border border-[#d8e4dd] px-3 font-semibold text-[#365647] disabled:opacity-40">Sau</button>
+              <div className="flex gap-2">
+                <button type="button" aria-label="Trang trước" disabled={recentPage === 1} onClick={() => setRecentPage((page) => Math.max(1, page - 1))} className="p-2 border border-outline-variant rounded hover:bg-[#EDF7F2] transition-colors disabled:opacity-40">
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                {recentPageNumbers.map((page) => (
+                  <button
+                    key={page}
+                    type="button"
+                    aria-label={`Trang ${page}`}
+                    aria-current={page === recentPage ? 'page' : undefined}
+                    onClick={() => setRecentPage(page)}
+                    className={`px-3 py-1 rounded font-bold transition-colors ${page === recentPage ? 'bg-[#1D4532] text-white' : 'border border-outline-variant hover:bg-[#EDF7F2]'}`}
+                  >
+                    {page}
+                  </button>
+                ))}
+                <button type="button" aria-label="Trang sau" disabled={recentPage === recentTotalPages} onClick={() => setRecentPage((page) => Math.min(recentTotalPages, page + 1))} className="p-2 border border-outline-variant rounded hover:bg-[#EDF7F2] transition-colors disabled:opacity-40">
+                  <ChevronRight className="h-4 w-4" />
+                </button>
               </div>
             </div>
           </div>
         )}
       </section>
+
+      {feedbackTarget && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/45 p-4" role="dialog" aria-modal="true" aria-labelledby="feedback-title">
+          <form
+            onSubmit={(event) => { event.preventDefault(); void submitFeedback(); }}
+            className="w-full max-w-lg rounded-2xl bg-white p-5 shadow-2xl"
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 id="feedback-title" className="text-lg font-bold text-[#173f2f]">Phản hồi lượt luyện tập</h2>
+                <p className="mt-1 text-sm text-[#718078]">{feedbackTarget.learnerName} · {feedbackTarget.lessonTitle}</p>
+              </div>
+              <button type="button" onClick={() => { setFeedbackTarget(null); setFeedbackError(''); }} className="rounded-lg p-2 text-[#607268] hover:bg-[#edf5f1]" aria-label="Đóng"><X className="h-5 w-5" /></button>
+            </div>
+            <div className="mt-4 grid grid-cols-2 gap-3 rounded-xl bg-[#f7fbf8] p-3 text-sm">
+              <span>Điểm tổng: <strong className="text-[#173f2f]">{scoreLabel(feedbackTarget.totalScore)}</strong></span>
+              <span>Kết quả: <strong className="text-[#173f2f]">{feedbackTarget.isPassed ? 'Đạt' : 'Cần luyện thêm'}</strong></span>
+            </div>
+            <label className="mt-4 block text-sm font-semibold text-[#365647]">Nhận xét cho học viên
+              <textarea
+                autoFocus
+                required
+                rows={5}
+                value={feedbackText}
+                onChange={(event) => setFeedbackText(event.target.value)}
+                placeholder="Ví dụ: Em giữ nhịp tốt. Hãy luyện chậm hơn ở đoạn chuyển ngón thứ hai."
+                className="mt-2 w-full resize-none rounded-xl border border-[#d8e4dd] px-3 py-2.5 text-sm font-normal outline-none focus:border-[#1D4532] focus:ring-2 focus:ring-[#1D4532]/15"
+              />
+            </label>
+            {feedbackError && <p className="mt-2 text-sm font-medium text-rose-700" role="alert">{feedbackError}</p>}
+            <div className="mt-4 flex justify-end gap-2">
+              <button type="button" onClick={() => { setFeedbackTarget(null); setFeedbackError(''); }} className="rounded-lg border border-[#d8e4dd] px-4 py-2.5 text-sm font-bold text-[#365647] hover:bg-[#f7fbf8]">Hủy</button>
+              <button disabled={sendingFeedback || !feedbackText.trim()} className="inline-flex items-center gap-1.5 rounded-lg bg-[#1D4532] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#163d2d] disabled:opacity-50"><Send className="h-4 w-4" /> {sendingFeedback ? 'Đang gửi…' : 'Gửi phản hồi'}</button>
+            </div>
+          </form>
+        </div>
+      )}
     </div>
   );
 };

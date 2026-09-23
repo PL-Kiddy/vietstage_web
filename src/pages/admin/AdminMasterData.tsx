@@ -18,7 +18,6 @@ import {
   skillLevelManagementApi,
   techniqueManagementApi,
   type InstrumentInput,
-  type SkillLevelInput,
   type Technique,
   type TechniqueInput,
 } from '../../api/management';
@@ -27,7 +26,6 @@ import type { Instrument, SkillLevel } from '../../api/types';
 type Tab = 'instruments' | 'skill-levels' | 'techniques';
 
 const emptyInstrument: InstrumentInput = { name: '', description: '', iconUrl: '' };
-const emptySkillLevel: SkillLevelInput = { levelCode: '', levelName: '', orderIndex: 1 };
 const emptyTechnique: TechniqueInput = {
   name: '',
   description: '',
@@ -47,8 +45,6 @@ const AdminMasterData = () => {
   // Form states
   const [instrumentForm, setInstrumentForm] = useState<InstrumentInput>(emptyInstrument);
   const [instrumentEditingId, setInstrumentEditingId] = useState<number | null>(null);
-  const [skillForm, setSkillForm] = useState<SkillLevelInput>(emptySkillLevel);
-  const [skillEditingId, setSkillEditingId] = useState<number | null>(null);
   const [techniqueForm, setTechniqueForm] = useState<TechniqueInput>(emptyTechnique);
   const [techniqueEditingId, setTechniqueEditingId] = useState<number | null>(null);
   const [techniqueInstrumentFilter, setTechniqueInstrumentFilter] = useState(0);
@@ -107,12 +103,11 @@ const AdminMasterData = () => {
   // Open Drawer helpers
   // Mở drawer thêm mới theo tab đang chọn
   const handleAddNewClick = () => {
+    if (tab === 'skill-levels') return;
     if (tab === 'instruments') {
       setInstrumentForm(emptyInstrument);
       setInstrumentEditingId(null);
-    } else if (tab === 'skill-levels') {
-      setSkillForm(emptySkillLevel);
-      setSkillEditingId(null);
+
     } else if (tab === 'techniques') {
       setTechniqueForm({
         ...emptyTechnique,
@@ -183,46 +178,6 @@ const AdminMasterData = () => {
     setCurrentPage(1);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Không thể tải kỹ thuật của nhạc cụ.');
-    }
-  };
-
-  // Submit / Edit / Delete Skill Level
-  // Tạo hoặc cập nhật trình độ (POST/PUT /api/skill-levels)
-  const submitSkillLevel = async (event: FormEvent) => {
-    event.preventDefault();
-    try {
-      if (skillEditingId) {
-        await skillLevelManagementApi.update(skillEditingId, skillForm);
-      } else {
-        await skillLevelManagementApi.create(skillForm);
-      }
-      setIsDrawerOpen(false);
-      setSkillEditingId(null);
-      setSkillForm(emptySkillLevel);
-      await loadAll();
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'Không thể lưu trình độ.');
-    }
-  };
-
-  const editSkillLevel = async (id: number) => {
-    try {
-      const item = await skillLevelManagementApi.get(id);
-      setSkillEditingId(id);
-      setSkillForm(item);
-      setIsDrawerOpen(true);
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'Không thể tải trình độ.');
-    }
-  };
-
-  const deleteSkillLevel = async (id: number) => {
-    if (!confirm('Xóa trình độ này?')) return;
-    try {
-      await skillLevelManagementApi.remove(id);
-      await loadAll();
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'Không thể xóa trình độ.');
     }
   };
 
@@ -381,12 +336,12 @@ const AdminMasterData = () => {
           </div>
 
           {/* Thêm mới */}
-          <button
+          {tab !== 'skill-levels' && <button
             onClick={handleAddNewClick}
             className="bg-[#1D4532] text-white px-lg py-sm rounded-lg font-medium text-sm hover:bg-[#1D4532]/95 transition-all flex items-center gap-xs shadow-md ml-auto"
           >
             <Plus className="w-4 h-4" /> Thêm {getTabLabel()}
-          </button>
+          </button>}
         </div>
       </div>
 
@@ -500,68 +455,12 @@ const AdminMasterData = () => {
           )}
 
           {tab === 'skill-levels' && (
-            <div className="bg-white rounded-xl border border-outline-variant/20 overflow-visible shadow-sm">
-              <table className="w-full text-left">
-                <thead className="bg-[#EDF7F2]">
-                  <tr>
-                    <th className="p-md font-semibold text-[#1D4532]">Thứ tự</th>
-                    <th className="p-md font-semibold text-[#1D4532]">Mã trình độ</th>
-                    <th className="p-md font-semibold text-[#1D4532]">Tên trình độ</th>
-                    <th className="p-md font-semibold text-[#1D4532] text-right">Thao tác</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-outline-variant/10">
-                  {pagedItems.map((item: SkillLevel) => (
-                    <tr key={item.id} className="hover:bg-[#EDF7F2]/30 transition-colors">
-                      <td className="p-md text-sm">{item.orderIndex}</td>
-                      <td className="p-md text-sm">{item.levelCode}</td>
-                      <td className="p-md font-semibold text-[#1D4532] text-sm">{item.levelName}</td>
-                      <td className="p-md text-right relative" onClick={(e) => e.stopPropagation()}>
-                        <button
-                          onClick={() =>
-                            setOpenActionMenu(
-                              openActionMenu?.type === 'skill-levels' && openActionMenu?.id === item.id
-                                ? null
-                                : { type: 'skill-levels', id: item.id }
-                            )
-                          }
-                          className="p-2 hover:bg-[#EDF7F2] rounded-full transition-colors text-on-surface-variant hover:text-on-surface"
-                        >
-                          <MoreVertical className="w-5 h-5" />
-                        </button>
-                        {openActionMenu?.type === 'skill-levels' && openActionMenu?.id === item.id && (
-                          <>
-                            <div className="fixed inset-0 z-10" onClick={() => setOpenActionMenu(null)} />
-                            <div className="absolute right-4 mt-1 w-48 bg-white border border-[#d1e4fb] rounded-xl shadow-lg py-1 z-20 text-left">
-                              <button
-                                onClick={() => {
-                                  setOpenActionMenu(null);
-                                  void editSkillLevel(item.id);
-                                }}
-                                className="w-full flex items-center gap-xs px-4 py-2 hover:bg-[#EDF7F2] text-[13px] text-on-surface transition-colors"
-                              >
-                                <Edit2 className="w-4 h-4 text-[#1D4532] mr-2" />
-                                Sửa trình độ
-                              </button>
-                              <button
-                                onClick={() => {
-                                  setOpenActionMenu(null);
-                                  void deleteSkillLevel(item.id);
-                                }}
-                                className="w-full flex items-center gap-xs px-4 py-2 hover:bg-red-50 text-[13px] text-red-700 transition-colors border-t border-[#d1e4fb]/40"
-                              >
-                                <Trash2 className="w-4 h-4 text-red-600 mr-2" />
-                                Xóa trình độ
-                              </button>
-                            </div>
-                          </>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
+            <section className="rounded-xl border bg-white p-5">
+              <p className="mb-4 text-sm text-on-surface-variant">Ba cấp độ dùng chung cho giáo trình: Cơ bản, Trung cấp, Nâng cao. Không thêm, xóa hoặc đổi mã cấp độ tại đây.</p>
+              <table className="w-full text-left"><thead><tr><th className="p-3">Thứ tự</th><th className="p-3">Mã cấp độ</th><th className="p-3">Tên cấp độ</th></tr></thead>
+                <tbody>{pagedItems.map((item: SkillLevel) => <tr key={item.id} className="border-t"><td className="p-3">{item.orderIndex}</td><td className="p-3">{item.levelCode}</td><td className="p-3">{item.levelName}</td></tr>)}</tbody>
               </table>
-            </div>
+            </section>
           )}
 
           {tab === 'techniques' && (
@@ -752,7 +651,6 @@ const AdminMasterData = () => {
                 <div>
                   <h4 className="text-headline-md font-bold text-[#1D4532] font-sans">
                     {tab === 'instruments' && (instrumentEditingId ? 'Sửa nhạc cụ' : 'Thêm nhạc cụ mới')}
-                    {tab === 'skill-levels' && (skillEditingId ? 'Sửa trình độ' : 'Thêm trình độ mới')}
                     {tab === 'techniques' && (techniqueEditingId ? 'Sửa kỹ thuật' : 'Thêm kỹ thuật mới')}
                   </h4>
                   <p className="text-[12px] text-on-surface-variant mt-xs">
@@ -797,62 +695,6 @@ const AdminMasterData = () => {
                         placeholder="https://..."
                         value={instrumentForm.iconUrl}
                         onChange={(e) => setInstrumentForm({ ...instrumentForm, iconUrl: e.target.value })}
-                        className={fieldClass}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Drawer Footer Actions */}
-                  <div className="px-xl py-lg border-t border-outline-variant/10 bg-[#f5f3ee]/40 flex gap-md -mx-xl -mb-xl mt-xl">
-                    <button
-                      type="button"
-                      onClick={handleCloseDrawer}
-                      className="flex-1 flex items-center justify-center gap-sm bg-[#e1dfdb] text-on-surface py-lg rounded-xl font-bold hover:bg-[#c8c6c2] transition-all border border-outline-variant/30"
-                    >
-                      <X className="w-5 h-5" /> Hủy bỏ
-                    </button>
-                    <button
-                      type="submit"
-                      className="flex-1 flex items-center justify-center gap-sm bg-[#1D4532] text-white py-lg rounded-xl font-bold hover:bg-[#1D4532]/90 transition-all shadow-md"
-                    >
-                      <Check className="w-5 h-5" /> Xác nhận
-                    </button>
-                  </div>
-                </form>
-              )}
-
-              {/* Form Body for Skill Levels */}
-              {tab === 'skill-levels' && (
-                <form onSubmit={submitSkillLevel} className="flex-grow flex flex-col justify-between overflow-y-auto p-xl space-y-xl">
-                  <div className="bg-white/95 border border-outline-variant/10 rounded-2xl p-lg shadow-sm space-y-lg">
-                    <div className="flex flex-col gap-xs">
-                      <label className={labelClass}>Mã trình độ <span className="text-red-500">*</span></label>
-                      <input
-                        required
-                        placeholder="Ví dụ: SL-01, SL-02..."
-                        value={skillForm.levelCode}
-                        onChange={(e) => setSkillForm({ ...skillForm, levelCode: e.target.value })}
-                        className={fieldClass}
-                      />
-                    </div>
-                    <div className="flex flex-col gap-xs">
-                      <label className={labelClass}>Tên trình độ <span className="text-red-500">*</span></label>
-                      <input
-                        required
-                        placeholder="Ví dụ: Cơ bản, Trung cấp..."
-                        value={skillForm.levelName}
-                        onChange={(e) => setSkillForm({ ...skillForm, levelName: e.target.value })}
-                        className={fieldClass}
-                      />
-                    </div>
-                    <div className="flex flex-col gap-xs">
-                      <label className={labelClass}>Thứ tự hiển thị <span className="text-red-500">*</span></label>
-                      <input
-                        required
-                        type="number"
-                        min="1"
-                        value={skillForm.orderIndex}
-                        onChange={(e) => setSkillForm({ ...skillForm, orderIndex: Number(e.target.value) })}
                         className={fieldClass}
                       />
                     </div>

@@ -1,6 +1,7 @@
 import { apiRequest } from './client';
 
 export interface Exercise {
+  configJson?: string;
   id: number;
   lessonId: number;
   title: string;
@@ -11,6 +12,7 @@ export interface Exercise {
 }
 
 export interface ExerciseInput {
+  configJson?: string;
   title: string;
   description?: string;
   beatMapAssetId?: number;

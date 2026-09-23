@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAxiosRequest } from '../../hooks/useAxiosRequest';
-import { lessonsApi, learnerProgressApi, instructorStudentsApi } from '../../api/services';
-import type { FeedbackResponse, PracticeAttempt } from '../../api/types';
+import { lessonsApi, learnerProgressApi, instructorStudentsApi, masterDataApi } from '../../api/services';
+import type { FeedbackResponse, PracticeAttempt, Instrument } from '../../api/types';
 import { Search, X, BookOpen, ChevronRight, Users, Loader2, Check, HelpCircle, User, CalendarDays, BarChart3, Clock3, MessageSquareText, Send } from 'lucide-react';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
@@ -9,6 +9,8 @@ interface LessonProgress {
   lessonId: number;
   stars: number;
   completed: boolean;
+  learningStatus?: 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED';
+  isUnlocked?: boolean;
   totalPracticeAttempts: number;
   bestPracticeScore: number;
   totalQuizAttempts: number;
@@ -16,7 +18,21 @@ interface LessonProgress {
   error: boolean;
 }
 
-const toDateInputValue = (date: Date) => date.toISOString().slice(0, 10);
+interface FeedbackAttempt extends PracticeAttempt {
+  exerciseTitle?: string;
+}
+
+const toDateInputValue = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const toPercentage = (score?: number) => {
+  if (typeof score !== 'number' || !Number.isFinite(score)) return null;
+  return Math.max(0, Math.min(100, score <= 1 ? score * 100 : score));
+};
 
 const getInitialDateFrom = () => {
   const date = new Date();
@@ -56,11 +72,11 @@ const StarDisplay = ({ count }: { count: number }) => (
 const InstructorStudents = () => {
   const [selectedStudentId, setSelectedStudentId] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [instrumentFilter, setInstrumentFilter] = useState('ALL');
+  const [instrumentFilter, setInstrumentFilter] = useState('');
   const [studentPage, setStudentPage] = useState(1);
   const studentsPerPage = 5;
   const [lessonProgressMap, setLessonProgressMap] = useState<Record<number, LessonProgress>>({});
-  const [practiceAttempts, setPracticeAttempts] = useState<PracticeAttempt[]>([]);
+  const [practiceAttempts, setPracticeAttempts] = useState<FeedbackAttempt[]>([]);
   const [practiceAttemptsLoading, setPracticeAttemptsLoading] = useState(false);
   const [practiceAttemptsError, setPracticeAttemptsError] = useState('');
   const [practiceDateFrom, setPracticeDateFrom] = useState(getInitialDateFrom);
@@ -72,20 +88,33 @@ const InstructorStudents = () => {
   const [feedbackSaving, setFeedbackSaving] = useState(false);
   const [feedbackError, setFeedbackError] = useState('');
 
+  const { data: instruments = [], loading: instrumentsLoading, error: instrumentsError } = useAxiosRequest<Instrument[]>(
+    signal => masterDataApi.instruments({ signal }), { auto: true, initialData: [] },
+  );
+  const chooseInstrument = (value: string) => {
+    setInstrumentFilter(value);
+    setSelectedStudentId(null);
+    setSelectedAttemptId(null);
+    setLessonProgressMap({});
+    setPracticeAttempts([]);
+    setAttemptFeedbacks([]);
+    setFeedbackComment('');
+    setStudentPage(1);
+  };
+  useEffect(() => { setStudentPage(1); }, [searchQuery]);
+
   // Track currently selected instrument to filter the selected student's progress
   const [selectedStudentInstrument, setSelectedStudentInstrument] = useState<string>('');
 
   // The learner list must come from the server; never substitute demo identities
   // when an authorization or connectivity error occurs.
   const { data: learnersPage, loading: usersLoading, error: usersError } = useAxiosRequest(
-    (signal) => instructorStudentsApi.listStudents(0, 100, undefined, { signal }),
+    (signal) => instructorStudentsApi.listAllStudents({ signal }),
     { auto: true },
   );
 
   const allStudents = useMemo(() => {
-    const rawList = Array.isArray((learnersPage as any)?.content)
-      ? (learnersPage as any).content
-      : [];
+    const rawList = learnersPage ?? [];
 
     const mapped = rawList.map((u: any) => ({
       id: u.id,
@@ -108,7 +137,7 @@ const InstructorStudents = () => {
         (s.userCode && s.userCode.toLowerCase().includes(searchQuery.toLowerCase()));
 
       const matchesInstrument =
-        instrumentFilter === 'ALL' ||
+        !!instrumentFilter &&
         s.instrumentsList.some((inst: string) => inst.toLowerCase() === instrumentFilter.toLowerCase());
 
       return matchesSearch && matchesInstrument;
@@ -131,22 +160,15 @@ const InstructorStudents = () => {
     setSelectedAttemptId(null);
     if (selectedStudent) {
       // Default to the first instrument they learn
-      setSelectedStudentInstrument(selectedStudent.instrumentsList[0] || 'Đàn Tranh');
+      setSelectedStudentInstrument(instrumentFilter);
     } else {
       setSelectedStudentInstrument('');
     }
-  }, [selectedStudent]);
+  }, [selectedStudent, instrumentFilter]);
 
   // 2. Fetch instructor's lesson list
-  const lessonParams = useMemo(() => {
-    const p = new URLSearchParams();
-    p.set('page', '0');
-    p.set('size', '50');
-    return p;
-  }, []);
-
-  const { data: lessonsRaw, loading: lessonsLoading } = useAxiosRequest(
-    (signal) => lessonsApi.list(lessonParams, { signal }),
+  const { data: lessonsRaw, loading: lessonsLoading, error: lessonsError } = useAxiosRequest(
+    (signal) => lessonsApi.listAll({ signal }),
     { auto: true }
   );
 
@@ -160,19 +182,22 @@ const InstructorStudents = () => {
   // 3. Fetch per-lesson progress for selected learner
   // Tải tiến độ của học viên cho từng bài học (gọi 1 request/bài)
   const fetchLessonProgress = useCallback(
-    async (learnerId: number, lessonId: number) => {
+    async (learnerId: number, lessonId: number, signal: AbortSignal) => {
       setLessonProgressMap((prev) => ({
         ...prev,
         [lessonId]: { lessonId, stars: 0, completed: false, totalPracticeAttempts: 0, bestPracticeScore: 0, totalQuizAttempts: 0, loading: true, error: false },
       }));
       try {
-        const result = await learnerProgressApi.getLessonLearnerProgress(lessonId, learnerId);
+        const result = await learnerProgressApi.getLessonLearnerProgress(lessonId, learnerId, { signal });
+        if (signal.aborted) return;
         setLessonProgressMap((prev) => ({
           ...prev,
           [lessonId]: {
             lessonId,
             stars: (result as any)?.stars ?? 0,
             completed: (result as any)?.completed ?? false,
+            learningStatus: (result as any)?.learningStatus,
+            isUnlocked: (result as any)?.isUnlocked,
             totalPracticeAttempts: (result as any)?.totalPracticeAttempts ?? 0,
             bestPracticeScore: (result as any)?.bestPracticeScore ?? 0,
             totalQuizAttempts: (result as any)?.totalQuizAttempts ?? 0,
@@ -181,6 +206,7 @@ const InstructorStudents = () => {
           },
         }));
       } catch {
+        if (signal.aborted) return;
         setLessonProgressMap((prev) => ({
           ...prev,
           [lessonId]: { lessonId, stars: 0, completed: false, totalPracticeAttempts: 0, bestPracticeScore: 0, totalQuizAttempts: 0, loading: false, error: true },
@@ -202,13 +228,15 @@ const InstructorStudents = () => {
   }, [lessons, selectedStudent, selectedStudentInstrument]);
 
   useEffect(() => {
+    const controller = new AbortController();
+    setLessonProgressMap({});
     if (!selectedStudentId || studentLessons.length === 0) {
-      setLessonProgressMap({});
-      return;
+      return () => controller.abort();
     }
     studentLessons.forEach((lesson: any) => {
-      fetchLessonProgress(selectedStudentId, lesson.id);
+      void fetchLessonProgress(selectedStudentId, lesson.id, controller.signal);
     });
+    return () => controller.abort();
   }, [selectedStudentId, studentLessons, fetchLessonProgress]);
 
   // Load attempts via the Instructor endpoint. Both feedback and frequency
@@ -235,7 +263,7 @@ const InstructorStudents = () => {
       setPracticeAttemptsError('');
       setSelectedAttemptId(null);
       try {
-        const attempts: PracticeAttempt[] = [];
+        const attempts: FeedbackAttempt[] = [];
         let page = 0;
         let totalPages = 1;
         while (page < totalPages) {
@@ -249,10 +277,11 @@ const InstructorStudents = () => {
             },
             { signal: controller.signal },
           );
-          attempts.push(...(result.content ?? []).map((attempt) => ({
+          attempts.push(...(result.content ?? []).filter(attempt => studentLessons.some((lesson: { id: number }) => lesson.id === attempt.lessonId)).map((attempt) => ({
             id: attempt.attemptId,
             createdAt: attempt.createdAt,
             lessonName: attempt.lessonTitle,
+            exerciseTitle: attempt.exerciseTitle,
             overall_score: attempt.totalScore,
             pitch_score: attempt.pitchScore,
             rhythm_score: attempt.rhythmScore,
@@ -273,7 +302,7 @@ const InstructorStudents = () => {
     };
     void loadAttempts();
     return () => controller.abort();
-  }, [selectedStudentId, practiceDateFrom, practiceDateTo]);
+  }, [selectedStudentId, practiceDateFrom, practiceDateTo, studentLessons]);
 
   // Tải danh sách phản hồi của lượt tập được chọn
   useEffect(() => {
@@ -321,7 +350,7 @@ const InstructorStudents = () => {
       totalStars: filteredRows.reduce((acc, r) => acc + (r.stars || 0), 0),
       totalLessons: studentLessons.length,
       avgScore: filteredRows.length > 0
-        ? ((filteredRows.reduce((acc, r) => acc + (r.bestPracticeScore || 0), 0) / filteredRows.length) * 100).toFixed(0)
+        ? (filteredRows.reduce((acc, r) => acc + (toPercentage(r.bestPracticeScore) ?? 0), 0) / filteredRows.length).toFixed(0)
         : null,
     };
   }, [lessonProgressMap, studentLessons]);
@@ -403,6 +432,11 @@ const InstructorStudents = () => {
         </p>
       </div>
 
+      <section className="mb-6 flex flex-col gap-4 rounded-2xl border border-[#d5e9dd] bg-[#f5faf7] p-5 sm:flex-row sm:items-center sm:justify-between">
+        <div><p className="text-xs font-semibold uppercase tracking-widest text-[#5e7770]">Nhạc cụ đang theo dõi</p><h3 className="mt-1 text-xl font-bold text-[#1D4532]">{instrumentFilter || 'Chọn nhạc cụ'}</h3><p className="mt-2 text-sm text-on-surface-variant">Chọn nhạc cụ trước, sau đó chọn học viên để xem tiến độ và phản hồi.</p></div>
+        <label className="flex w-full flex-col gap-2 text-sm sm:w-72">Chuyển nhạc cụ<select aria-label="Chọn nhạc cụ theo dõi" value={instrumentFilter} disabled={instrumentsLoading} onChange={event => chooseInstrument(event.target.value)} className="rounded-xl border border-[#c8ded0] bg-white px-4 py-3 font-semibold text-[#1D4532]"><option value="">{instrumentsLoading ? 'Đang tải nhạc cụ…' : 'Chọn nhạc cụ'}</option>{instruments.map(item => <option key={item.id} value={item.name}>{item.name}</option>)}</select></label>
+      </section>
+      {instrumentsError && <p role="alert" className="mb-4 text-sm text-red-700">Chưa tải được danh sách nhạc cụ. Vui lòng tải lại trang.</p>}
       <div className="grid grid-cols-12 gap-gutter">
         <section className="col-span-12 lg:col-span-3 flex flex-col gap-md">
           <div className="flex items-center justify-between px-base">
@@ -435,17 +469,7 @@ const InstructorStudents = () => {
               )}
             </div>
 
-            {/* Instrument Filter */}
-            <select
-              value={instrumentFilter}
-              onChange={(e) => setInstrumentFilter(e.target.value)}
-              className="bg-white border border-[#d1e4fb] text-xs font-semibold text-[#1D4532] rounded-xl px-3 py-2 outline-none focus:ring-1 focus:ring-[#1D4532]"
-            >
-              <option value="ALL">Tất cả nhạc cụ</option>
-              <option value="Đàn Bầu">Đàn Bầu</option>
-              <option value="Đàn Tranh">Đàn Tranh</option>
-              <option value="Sáo Trúc">Sáo Trúc</option>
-            </select>
+
           </div>
 
           <div className="flex flex-col gap-sm overflow-y-auto max-h-[calc(100vh-380px)] pr-1 custom-scrollbar">
@@ -453,13 +477,13 @@ const InstructorStudents = () => {
               <div className="flex items-center justify-center py-8">
                 <Loader2 className="w-5 h-5 animate-spin text-[#1D4532]" />
               </div>
-            ) : usersError ? (
+            ) : usersError || lessonsError ? (
               <p className="text-xs text-rose-500 italic px-base py-md text-center">
-                Lỗi tải danh sách: {usersError}
+                Lỗi tải danh sách: {usersError || lessonsError}
               </p>
             ) : filteredStudents.length === 0 ? (
               <p className="text-xs text-on-surface-variant italic px-base py-md text-center">
-                Không tìm thấy học viên phù hợp.
+                {instrumentFilter ? 'Không tìm thấy học viên phù hợp với nhạc cụ đã chọn.' : 'Chọn nhạc cụ để xem danh sách học viên.'}
               </p>
             ) : (
               paginatedStudents.map((st: any) => {
@@ -534,7 +558,7 @@ const InstructorStudents = () => {
               <Users className="w-10 h-10 opacity-70" />
             </div>
             <h3 className="text-xl font-bold text-[#1D4532] mb-2">
-              Vui lòng chọn học viên từ danh sách
+              {instrumentFilter ? 'Vui lòng chọn học viên từ danh sách' : 'Vui lòng chọn nhạc cụ trước'}
             </h3>
             <p className="text-sm text-[#5e5e5b] max-w-md">
               Chọn một học viên ở cột bên trái để xem tiến độ học tập theo từng bài giảng.
@@ -560,21 +584,8 @@ const InstructorStudents = () => {
                   <span className="text-xs text-white/80">{selectedStudent.email}</span>
                   <span className="text-white/40">•</span>
 
-                  {/* Multi-instrument Toggle Dropdown */}
-                  <div className="flex items-center gap-1 bg-white/15 px-2 py-0.5 rounded-lg border border-white/10">
-                    <span className="text-[11px] font-medium text-white/80">Xem nhạc cụ:</span>
-                    <select
-                      value={selectedStudentInstrument}
-                      onChange={(e) => setSelectedStudentInstrument(e.target.value)}
-                      className="bg-transparent border-none text-xs font-bold text-[#ffe088] focus:ring-0 cursor-pointer outline-none p-0 pr-4"
-                    >
-                      {selectedStudent.instrumentsList.map((inst: string) => (
-                        <option key={inst} value={inst} className="text-on-surface font-semibold text-xs bg-white text-[#1D4532]">
-                          {inst}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                  <span className="text-xs text-white/80">{instrumentFilter}</span>
+
                 </div>
               </div>
               <div className="flex gap-xl ml-auto flex-shrink-0 flex-wrap">
@@ -620,7 +631,7 @@ const InstructorStudents = () => {
                     <thead>
                       <tr className="bg-[#F8FAF9] text-xs text-[#5e5e5b] uppercase tracking-wider border-b border-outline-variant/10">
                         <th className="text-left px-lg py-md font-semibold">Tên bài giảng</th>
-                        <th className="text-center px-md py-md font-semibold">Hoàn thành</th>
+                        <th className="text-center px-md py-md font-semibold">Trạng thái học</th>
                         <th className="text-center px-md py-md font-semibold">Sao đạt được</th>
                         <th className="text-center px-md py-md font-semibold">Lượt thực hành</th>
                         <th className="text-center px-md py-md font-semibold">Điểm tốt nhất</th>
@@ -630,6 +641,7 @@ const InstructorStudents = () => {
                     <tbody className="divide-y divide-outline-variant/5">
                       {progressRows.map((row: { id: number; title: string; progress: LessonProgress | null }) => {
                         const p = row.progress;
+                        const bestScore = toPercentage(p?.bestPracticeScore);
                         return (
                           <tr key={row.id} className="hover:bg-[#EDF7F2]/30 transition-colors">
                             <td className="px-lg py-md">
@@ -640,15 +652,25 @@ const InstructorStudents = () => {
                                 <Loader2 className="w-3.5 h-3.5 animate-spin text-[#1D4532]/40 mx-auto" />
                               ) : p.error ? (
                                 <span className="text-[10px] text-on-surface-variant/40">—</span>
-                              ) : p.completed ? (
+                              ) : p.learningStatus === 'COMPLETED' || p.completed ? (
                                 <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold bg-[#EDF7F2] text-[#1D4532]">
                                   <Check className="w-3 h-3 text-[#1D4532]" />
-                                  Đạt
+                                  Hoàn thành
+                                </span>
+                              ) : p.learningStatus === 'IN_PROGRESS' ? (
+                                <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold bg-amber-50 text-amber-700">
+                                  <Clock3 className="w-3 h-3" />
+                                  Đang học
+                                </span>
+                              ) : p.learningStatus === 'NOT_STARTED' ? (
+                                <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold bg-gray-100 text-gray-500">
+                                  <HelpCircle className="w-3 h-3 text-gray-400" />
+                                  Chưa học
                                 </span>
                               ) : (
                                 <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold bg-gray-100 text-gray-500">
                                   <HelpCircle className="w-3 h-3 text-gray-400" />
-                                  Chưa đạt
+                                  Chưa có trạng thái
                                 </span>
                               )}
                             </td>
@@ -678,11 +700,11 @@ const InstructorStudents = () => {
                               ) : p.error ? (
                                 <span className="text-on-surface-variant/40 text-xs">—</span>
                               ) : (
-                                <span className={`text-xs font-bold ${p.bestPracticeScore >= 0.8 ? 'text-emerald-600'
-                                  : p.bestPracticeScore >= 0.5 ? 'text-amber-600'
+                                <span className={`text-xs font-bold ${(bestScore ?? 0) >= 80 ? 'text-emerald-600'
+                                  : (bestScore ?? 0) >= 50 ? 'text-amber-600'
                                     : 'text-rose-500'
                                   }`}>
-                                  {(p.bestPracticeScore * 100).toFixed(0)}%
+                                  {bestScore === null ? '—' : `${bestScore.toFixed(0)}%`}
                                 </span>
                               )}
                             </td>
@@ -723,6 +745,7 @@ const InstructorStudents = () => {
                       const selected = selectedAttemptId === attempt.id;
                       return <button type="button" key={attempt.id} onClick={() => setSelectedAttemptId(attempt.id)} className={`w-full text-left p-4 flex items-center justify-between gap-3 transition-colors ${selected ? 'bg-[#EDF7F2] border-l-4 border-l-[#1D4532]' : 'hover:bg-[#fbf9f4]'}`}>
                         <div className="min-w-0"><p className="text-xs font-bold text-[#1D4532]">{attempt.lessonName || 'Bài học'} · Lượt #{attempt.id}</p><p className="text-xs text-on-surface-variant mt-1 inline-flex items-center gap-1"><Clock3 className="w-3 h-3" />{attempt.createdAt ? new Date(attempt.createdAt).toLocaleString('vi-VN') : 'Chưa có thời gian'}</p></div>
+                        {attempt.exerciseTitle && <p className="mt-0.5 truncate text-[11px] text-on-surface-variant">{attempt.exerciseTitle}</p>}
                         <span className="shrink-0 rounded-full bg-[#f7f5ef] px-2.5 py-1 text-xs font-bold text-[#574500]">{typeof rawScore === 'number' ? `${Math.round(rawScore * (rawScore <= 1 ? 100 : 1))}%` : '—'}</span>
                       </button>;
                     })}
@@ -735,7 +758,7 @@ const InstructorStudents = () => {
                       </div>
                       {feedbackError && <p className="mb-3 text-xs text-red-700">{feedbackError}</p>}
                       <label className="block text-xs font-semibold text-on-surface-variant mb-2">Nhận xét cho lượt tập này</label>
-                      <textarea value={feedbackComment} onChange={(event) => setFeedbackComment(event.target.value)} maxLength={2000} placeholder="Ví dụ: Cần giữ nhịp đều hơn ở ô nhịp thứ hai." className="w-full min-h-24 rounded-xl border border-outline-variant/25 bg-white p-3 text-sm outline-none focus:border-[#1D4532]" />
+                      <textarea value={feedbackComment} onChange={(event) => setFeedbackComment(event.target.value)} placeholder="Ví dụ: Cần giữ nhịp đều hơn ở ô nhịp thứ hai." className="w-full min-h-24 rounded-xl border border-outline-variant/25 bg-white p-3 text-sm outline-none focus:border-[#1D4532]" />
                       <button type="button" disabled={feedbackSaving || !feedbackComment.trim()} onClick={() => void submitFeedback()} className="mt-3 inline-flex items-center gap-2 rounded-xl bg-[#1D4532] px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50"><Send className="w-4 h-4" />{feedbackSaving ? 'Đang gửi...' : 'Gửi phản hồi'}</button>
                     </>}
                   </div>
@@ -749,7 +772,7 @@ const InstructorStudents = () => {
                   <BarChart3 className="w-4 h-4 text-[#1D4532]" />
                   <div>
                     <h3 className="text-sm font-bold text-[#1D4532]">Báo cáo tần suất luyện tập</h3>
-                    <p className="text-xs text-on-surface-variant mt-0.5">Tổng hợp toàn bộ lượt tập của học viên theo ngày trong khoảng đã chọn.</p>
+                    <p className="text-xs text-on-surface-variant mt-0.5">Tổng hợp lượt tập của nhạc cụ đã chọn theo ngày trong khoảng đã chọn.</p>
                   </div>
                 </div>
                 <div className="flex flex-wrap items-center gap-2 text-xs">

@@ -105,6 +105,9 @@ export interface Lesson {
   title: string;
   description?: string;
   status: 'DRAFT' | 'PENDING' | 'APPROVED' | 'REJECTED';
+  approvalStatus?: 'DRAFT' | 'PENDING' | 'APPROVED' | 'REJECTED';
+  isVisible?: boolean;
+  contents?: { id: number; contentType?: string; contentText?: string; payloadJson?: string; orderIndex: number; assetId?: number; schemaVersion?: string }[];
   orderIndex: number;
   skillLevel?: { id: number; levelName: string };
   instrument?: { id: number; instrumentCode?: string; name: string; iconUrl?: string };
@@ -125,6 +128,10 @@ export interface Lesson {
     description?: string;
     passThreshold?: number;
     orderIndex?: number;
+    exerciseType?: string;
+    practiceMode?: string;
+    configJson?: string;
+    schemaVersion?: string;
   }[];
 }
 
@@ -265,6 +272,7 @@ export interface LessonAsset {
   title?: string;
   tempo_bpm?: number;
   duration_sec?: number;
+  mime_type?: string;
 }
 
 // Số liệu tổng quan cho Dashboard giảng viên

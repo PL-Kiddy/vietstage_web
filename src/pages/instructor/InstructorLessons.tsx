@@ -1,9 +1,11 @@
-import { useState, useEffect, useCallback, type FormEvent } from 'react';
+import LessonBodyEditor from '../../components/instructor/LessonBodyEditor';
+import { canEditLesson } from '../../api/lessonPermissions';
+import { useInstructorIdentity } from '../../hooks/useInstructorIdentity';
+import { EMPTY_PRACTICE_SHEET, type PracticeSheetConfig } from '../../components/instructor/PracticeSheetComposer';
+import { useSearchParams } from 'react-router-dom';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
-  Music,
-  FileText,
   X,
-  Check,
   BookOpen,
   RefreshCw,
   AlertCircle,
@@ -11,41 +13,71 @@ import {
   MoreVertical,
   ChevronLeft,
   ChevronRight,
-  UploadCloud,
+  Pencil,
+  Eye,
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { lessonsApi, lessonAssetsApi, lessonTechniquesApi } from '../../api/services';
+import { lessonsApi, masterDataApi } from '../../api/services';
 import { lessonDetailApi } from '../../api/management';
-import type { Lesson as ApiLesson } from '../../api/types';
+import type { Instrument, Lesson as ApiLesson, SkillLevel } from '../../api/types';
 import { useAxiosRequest } from '../../hooks/useAxiosRequest';
+import SubmitLessonReviewButton from '../../components/instructor/SubmitLessonReviewButton';
 
 interface Lesson {
+  createdById?: number;
   id: string;
   title: string;
   module: string;
   instrument: string;
+  instrumentId?: number;
+  skillLevel?: ApiLesson['skillLevel'];
   difficulty: number;
   updatedAt: string;
   status: ApiLesson['status'];
   description: string;
   orderIndex: number;
   backendStatus?: ApiLesson['status'];
+  isVisible?: boolean;
+  contentCount?: number;
+  exerciseCount?: number;
 }
 
 const mapLesson = (lesson: ApiLesson): Lesson => ({
+  createdById: lesson.createdBy?.id,
   id: String(lesson.id),
   title: lesson.title,
+  instrumentId: lesson.instrument?.id,
+  skillLevel: lesson.skillLevel,
   module: lesson.skillLevel?.levelName ?? 'Chưa phân cấp',
   instrument: lesson.instrument?.name ?? 'Chưa chọn nhạc cụ',
   difficulty: lesson.skillLevel?.id ?? 1,
   updatedAt: lesson.updatedAt
     ? new Date(lesson.updatedAt).toLocaleDateString('vi-VN')
     : '',
-  status: lesson.status,
+  status: lesson.approvalStatus ?? lesson.status,
+  isVisible: lesson.isVisible,
+  contentCount: lesson.contents?.length,
+  exerciseCount: lesson.exercises?.length,
   backendStatus: lesson.status,
   description: lesson.description ?? '',
   orderIndex: lesson.orderIndex ?? 0,
 });
+
+type CurriculumLevelKey = 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED';
+const CURRICULUM_LEVELS: Array<{ key: CurriculumLevelKey; number: number; label: string }> = [
+  { key: 'BEGINNER', number: 1, label: 'Cơ bản' },
+  { key: 'INTERMEDIATE', number: 2, label: 'Trung cấp' },
+  { key: 'ADVANCED', number: 3, label: 'Nâng cao' },
+];
+const normalizeLevelText = (value?: string) => (value ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+const getCurriculumLevelKey = (level?: Partial<SkillLevel> | null): CurriculumLevelKey => {
+  const code = level?.levelCode?.toUpperCase();
+  if (code === 'INTERMEDIATE') return 'INTERMEDIATE';
+  if (code === 'ADVANCED') return 'ADVANCED';
+  const name = normalizeLevelText(level?.levelName);
+  if (name.includes('trung cap') || name.includes('intermediate') || level?.orderIndex === 2) return 'INTERMEDIATE';
+  if (name.includes('nang cao') || name.includes('cao cap') || name.includes('advanced') || level?.orderIndex === 3) return 'ADVANCED';
+  return 'BEGINNER';
+};
 
 const getStatusMeta = (status: ApiLesson['status']) => {
   switch (status) {
@@ -72,22 +104,37 @@ const getInstrumentTranslation = (instName: string) => {
 
 // Trang Nội dung & Học liệu: danh sách bài giảng, quản lý học liệu (upload âm thanh/sheet, lưu ghi chú)
 const InstructorLessons = () => {
+  const { data: instructor } = useInstructorIdentity();
+  const [sheetDrafts, setSheetDrafts] = useState<Record<string, PracticeSheetConfig>>({});
+  const [searchParams, setSearchParams] = useSearchParams();
+  // Local draft only: never send notation through the narration API.
+
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
-  const [newDescription, setNewDescription] = useState('');
   const [editingLesson, setEditingLesson] = useState<Lesson | null>(null);
+  const [readOnly, setReadOnly] = useState(false);
+  const materialRequest = useRef(0);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedInstrumentFilter, setSelectedInstrumentFilter] = useState('Tất cả');
+  const [selectedInstrumentId, setSelectedInstrumentId] = useState<number | null>(null);
+  const [selectedCurriculumLevel, setSelectedCurriculumLevel] = useState<CurriculumLevelKey>('BEGINNER');
   const [selectedStatusFilter, setSelectedStatusFilter] = useState('Tất cả');
   const [currentPage, setCurrentPage] = useState(1);
   const [perPage, setPerPage] = useState(5);
   const [openActionMenuLessonId, setOpenActionMenuLessonId] = useState<string | null>(null);
 
+  const { data: instruments = [] } = useAxiosRequest<Instrument[]>(
+    (signal) => masterDataApi.instruments({ signal }),
+    { auto: true, initialData: [] },
+  );
+
+  useEffect(() => {
+    if (selectedInstrumentId === null && instruments.length > 0) setSelectedInstrumentId(instruments[0].id);
+  }, [instruments, selectedInstrumentId]);
+
   const { execute: requestLessons } = useAxiosRequest<Lesson[]>(async (signal) => {
-    const params = new URLSearchParams({ page: '1', size: '100' });
-    const response = await lessonsApi.list(params, { signal });
-    return Array.isArray(response.content) ? response.content.map(mapLesson) : [];
+    const response = await lessonsApi.listAll({ signal });
+    return response.map(mapLesson);
   }, { auto: false });
 
   // Tải danh sách bài giảng từ GET /api/lessons (page 1, size 100)
@@ -116,47 +163,31 @@ const InstructorLessons = () => {
     };
   }, [loadLessons]);
 
-  // Mở drawer quản lý học liệu: tải chi tiết bài giảng vào form
-  const handleEditClick = async (lesson: Lesson) => {
-    try {
-      const detail = await lessonDetailApi.get(Number(lesson.id));
+  const handleEditClick = (lesson: Lesson, viewOnly = false) => {
+    materialRequest.current++;
+    setReadOnly(viewOnly || !canEditLesson(instructor, lesson));
+    setEditingLesson(lesson);
+  };
+  const requestedLessonId = searchParams.get('editLesson');
+  useEffect(() => {
+    if (!requestedLessonId || !/^\d+$/.test(requestedLessonId)) return;
+    let cancelled = false;
+    const requestId = ++materialRequest.current;
+    lessonDetailApi.get(Number(requestedLessonId)).then(detail => {
+      if (cancelled || requestId !== materialRequest.current) return;
       const mapped = mapLesson(detail);
+      setReadOnly(!canEditLesson(instructor, mapped));
       setEditingLesson(mapped);
-      setNewDescription(mapped.description);
-    } catch (error) {
-      alert(error instanceof Error ? error.message : 'Không thể tải chi tiết bài giảng.');
-    }
-  };
+      setSelectedInstrumentId(mapped.instrumentId ?? null);
+      setSelectedCurriculumLevel(getCurriculumLevelKey(mapped.skillLevel));
+    }).catch(error => { if (!cancelled && requestId === materialRequest.current) setLoadError(error instanceof Error ? error.message : 'Không thể mở bài học.'); });
+    return () => { cancelled = true; };
+  }, [requestedLessonId, instructor]);
 
-  // Đóng drawer và reset mô tả
   const handleCloseModal = () => {
-    setNewDescription('');
+    materialRequest.current++;
     setEditingLesson(null);
-  };
-
-  // Lưu ghi chú: tạo Technique cho bài học (POST /api/lessons/{id}/techniques)
-  const handleSaveAssets = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!editingLesson) return;
-
-    try {
-      if (newDescription.trim()) {
-        const lessonIdNum = Number(editingLesson.id);
-        try {
-          await lessonTechniquesApi.create(lessonIdNum, {
-            name: 'Ghi chú kỹ thuật gảy/thổi',
-            description: newDescription.trim(),
-          });
-        } catch {
-          // fallback
-        }
-      }
-      alert('Đã lưu thông tin học liệu thành công!');
-      await loadLessons();
-      handleCloseModal();
-    } catch (error) {
-      alert(error instanceof Error ? error.message : 'Không thể lưu học liệu.');
-    }
+    if (requestedLessonId) setSearchParams({}, { replace: true });
   };
 
   // Filter and arrange curriculum order
@@ -166,9 +197,8 @@ const InstructorLessons = () => {
       lesson.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
       lesson.instrument.toLowerCase().includes(searchQuery.toLowerCase()) ||
       lesson.updatedAt.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesInstrument =
-      selectedInstrumentFilter === 'Tất cả' ||
-      lesson.instrument.toLowerCase() === selectedInstrumentFilter.toLowerCase();
+    const matchesInstrument = selectedInstrumentId === null || Number(lesson.instrumentId) === selectedInstrumentId;
+    const matchesLevel = getCurriculumLevelKey(lesson.skillLevel) === selectedCurriculumLevel;
 
     let matchesStatus = true;
     if (selectedStatusFilter === 'Chờ duyệt') {
@@ -181,7 +211,7 @@ const InstructorLessons = () => {
       matchesStatus = lesson.status !== 'PENDING' && lesson.status !== 'APPROVED' && lesson.status !== 'REJECTED';
     }
 
-    return matchesSearch && matchesInstrument && matchesStatus;
+    return matchesSearch && matchesInstrument && matchesLevel && matchesStatus;
   });
 
   const parseDate = (dStr: string) => {
@@ -196,6 +226,8 @@ const InstructorLessons = () => {
   const sortedLessons = [...filteredLessons].sort((a, b) => parseDate(b.updatedAt) - parseDate(a.updatedAt));
   const totalPages = Math.max(1, Math.ceil(sortedLessons.length / perPage));
   const paginatedLessons = sortedLessons.slice((currentPage - 1) * perPage, currentPage * perPage);
+  const activeInstrument = instruments.find((instrument) => instrument.id === selectedInstrumentId);
+  const lessonsForActiveInstrument = selectedInstrumentId === null ? lessons : lessons.filter((lesson) => Number(lesson.instrumentId) === selectedInstrumentId);
 
   return (
     <div className="max-w-[1400px] mx-auto">
@@ -203,16 +235,52 @@ const InstructorLessons = () => {
       <div className="mb-lg flex flex-col gap-md">
         <div>
           <h1 className="text-headline-lg font-bold text-[#1D4532]">
-            Nội dung & Học liệu
+            Nội dung &amp; Học liệu
           </h1>
           <p className="text-body-md text-on-surface-variant mt-xs">
-            Tổ chức, đăng tải học liệu (âm thanh mẫu, bản ký âm sheet nhạc) và quản lý thông tin bài giảng của bạn.
+            Xem và chỉnh sửa lời cô Mai hướng dẫn cùng khuông thực hành của từng bài học.
           </p>
         </div>
 
-        {/* Controls Row: Search + Filter + Add Button */}
+        <section aria-label="Phạm vi nhạc cụ" className="flex flex-col gap-3 rounded-2xl border border-[#d8eadf] bg-[#f7fbf8] p-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.12em] text-[#567364]">Nhạc cụ</p>
+            <p className="mt-1 text-lg font-bold text-[#1D4532]">{activeInstrument ? getInstrumentTranslation(activeInstrument.name) : 'Đang tải nhạc cụ…'}</p>
+            <p className="mt-1 text-xs text-on-surface-variant">Chọn nhạc cụ và cấp độ để tìm bài học cần biên soạn.</p>
+          </div>
+          <label className="flex min-w-[250px] flex-col gap-1 text-xs font-semibold text-[#52605a]">
+            Chuyển nhạc cụ
+            <select
+              value={selectedInstrumentId ?? ''}
+              onChange={(e) => { setSelectedInstrumentId(Number(e.target.value)); setCurrentPage(1); }}
+              className="rounded-lg border border-[#c9ddcf] bg-white px-3 py-2.5 text-sm font-bold text-[#1D4532] outline-none focus:ring-2 focus:ring-[#1D4532]/20"
+            >
+              {instruments.map((instrument) => <option key={instrument.id} value={instrument.id}>{getInstrumentTranslation(instrument.name)}</option>)}
+            </select>
+          </label>
+        </section>
+
+        <section aria-label="Ba cấp giáo trình cố định" className="flex flex-wrap gap-2 rounded-xl border border-outline-variant/15 bg-white p-2">
+          {CURRICULUM_LEVELS.map((level) => {
+            const isSelected = level.key === selectedCurriculumLevel;
+            const lessonCount = lessonsForActiveInstrument.filter((lesson) => getCurriculumLevelKey(lesson.skillLevel) === level.key).length;
+            return (
+              <button
+                key={level.key}
+                type="button"
+                onClick={() => { setSelectedCurriculumLevel(level.key); setCurrentPage(1); }}
+                className={`flex min-w-[175px] flex-1 items-center justify-between rounded-lg px-4 py-3 text-left transition-all ${isSelected ? 'bg-[#1D4532] text-white shadow-sm' : 'text-[#1D4532] hover:bg-[#edf7f2]'}`}
+              >
+                <span><span className={`mr-2 inline-flex rounded-full px-2 py-0.5 text-[11px] font-extrabold ${isSelected ? 'bg-white/20 text-white' : 'bg-[#f2eee1] text-[#665126]'}`}>Cấp {level.number}</span><span className="text-sm font-bold">{level.label}</span></span>
+                <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${isSelected ? 'bg-white/15 text-white' : 'bg-[#edf7f2] text-[#1D4532]'}`}>{lessonCount} bài</span>
+              </button>
+            );
+          })}
+        </section>
+
+        {/* Controls Row: Search + Filter */}
         <div className="flex flex-col md:flex-row md:items-center gap-sm w-full">
-          {/* Search Bar - Kéo dài chiếm khoảng trống bên trái */}
+          {/* Search Bar */}
           <div className="flex items-center gap-xs px-md h-[42px] bg-white border border-[#d1e4fb] rounded-lg flex-grow shadow-sm focus-within:ring-1 focus-within:ring-[#1D4532] transition-all">
             <Search className="w-5 h-5 text-[#5e5e5b] flex-shrink-0" />
             <input
@@ -238,26 +306,6 @@ const InstructorLessons = () => {
             )}
           </div>
 
-          {/* Instrument Filter */}
-          <div className="flex items-center justify-between gap-xs px-md h-[42px] bg-white border border-[#d1e4fb] rounded-lg shadow-sm shrink-0 w-[260px]">
-            <span className="font-label-md text-[#5e5e5b] text-sm font-medium whitespace-nowrap">Nhạc cụ:</span>
-            <select
-              value={selectedInstrumentFilter}
-              onChange={(e) => {
-                setSelectedInstrumentFilter(e.target.value);
-                setCurrentPage(1);
-              }}
-              className="bg-transparent border-none text-label-md font-semibold text-[#1D4532] focus:ring-0 cursor-pointer outline-none text-sm pr-6 py-1 leading-normal w-[160px]"
-            >
-              <option value="Tất cả">Tất cả nhạc cụ</option>
-              {Array.from(new Set(lessons.map((l) => l.instrument))).filter(Boolean).map((ins) => (
-                <option key={ins} value={ins}>
-                  {getInstrumentTranslation(ins)}
-                </option>
-              ))}
-            </select>
-          </div>
-
           {/* Status Filter */}
           <div className="flex items-center justify-between gap-xs px-md h-[42px] bg-white border border-[#d1e4fb] rounded-lg shadow-sm shrink-0 w-[225px]">
             <span className="font-label-md text-[#5e5e5b] text-sm font-medium whitespace-nowrap">Trạng thái:</span>
@@ -276,7 +324,6 @@ const InstructorLessons = () => {
               <option value="Bản nháp">Bản nháp</option>
             </select>
           </div>
-
         </div>
       </div>
 
@@ -297,20 +344,17 @@ const InstructorLessons = () => {
         <div className="col-span-12 flex flex-col gap-gutter">
           <div className="bg-white rounded-xl border border-outline-variant/10 overflow-hidden shadow-sm">
             <div className="overflow-x-auto custom-scrollbar">
-              <table className="w-full min-w-[1080px] border-collapse">
+              <table className="w-full min-w-[930px] border-collapse">
                 <thead>
                   <tr className="bg-[#EDF7F2]/60">
                     <th className="text-center whitespace-nowrap py-md px-lg font-label-sm text-label-sm text-[#1D4532] font-semibold border-b border-outline-variant/10 w-16">
                       STT
                     </th>
                     <th className="text-left whitespace-nowrap py-md px-xl font-label-sm text-label-sm text-[#1D4532] font-semibold border-b border-outline-variant/10">
-                      Tên bài giảng & Kỹ thuật
+                      Tên bài giảng &amp; Kỹ thuật
                     </th>
                     <th className="text-center whitespace-nowrap py-md px-md font-label-sm text-label-sm text-[#1D4532] font-semibold border-b border-outline-variant/10">
                       Học liệu Media
-                    </th>
-                    <th className="text-center whitespace-nowrap py-md px-md font-label-sm text-label-sm text-[#1D4532] font-semibold border-b border-outline-variant/10">
-                      Nhạc cụ
                     </th>
                     <th className="text-center whitespace-nowrap py-md px-md font-label-sm text-label-sm text-[#1D4532] font-semibold border-b border-outline-variant/10">
                       Ngày cập nhật
@@ -326,14 +370,14 @@ const InstructorLessons = () => {
                 <tbody className="divide-y divide-outline-variant/10">
                   {isLoading ? (
                     <tr>
-                      <td colSpan={7} className="px-xl py-14 text-center">
+                      <td colSpan={6} className="px-xl py-14 text-center">
                         <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-2 border-[#1D4532]/20 border-t-[#1D4532]" />
                         <p className="text-on-surface-variant">Đang tải danh sách bài giảng...</p>
                       </td>
                     </tr>
                   ) : paginatedLessons.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="px-xl py-16 text-center">
+                      <td colSpan={6} className="px-xl py-16 text-center">
                         <div className="mx-auto flex max-w-md flex-col items-center">
                           <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#1D4532]/10 text-[#1D4532]">
                             <BookOpen className="h-7 w-7" />
@@ -344,9 +388,6 @@ const InstructorLessons = () => {
                       </td>
                     </tr>
                   ) : paginatedLessons.map((lesson, idx) => {
-                    const rawInst = lesson.instrument || '';
-                    const instFormatted = getInstrumentTranslation(rawInst) || 'Đàn Tranh';
-
                     return (
                       <tr
                         key={lesson.id}
@@ -366,28 +407,24 @@ const InstructorLessons = () => {
                           </div>
                         </td>
                         <td className="py-lg px-md text-center whitespace-nowrap">
-                          <div className="flex items-center justify-center gap-xs whitespace-nowrap">
-                            <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 whitespace-nowrap" title="File âm thanh mẫu">
-                              <Music className="w-3 h-3 flex-shrink-0" /> Âm thanh
-                            </span>
-                            <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 whitespace-nowrap" title="Ký âm / Sheet nhạc">
-                              <FileText className="w-3 h-3 flex-shrink-0" /> Sheet
-                            </span>
-                          </div>
-                        </td>
-                        <td className="py-lg px-md whitespace-nowrap text-center">
-                          <span className="px-md py-xs bg-[#ffe088]/25 text-[#574500] rounded-full text-label-sm font-bold text-xs border border-[#ffe088]/40 whitespace-nowrap inline-block">
-                            {instFormatted}
-                          </span>
+                          <span className="text-xs text-on-surface-variant">{lesson.contentCount === undefined ? '—' : `${lesson.contentCount} nội dung`} · {lesson.exerciseCount === undefined ? '—' : `${lesson.exerciseCount} bài tập`}</span>
                         </td>
                         <td className="py-lg px-md text-on-surface-variant font-label-md text-xs text-center">
                           {lesson.updatedAt}
                         </td>
                         <td className="py-lg px-md text-center">
-                          <span className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-bold whitespace-nowrap ${getStatusMeta(lesson.status).className}`}>
-                            <span className={`h-2 w-2 rounded-full ${getStatusMeta(lesson.status).dot}`} />
-                            {getStatusMeta(lesson.status).label}
-                          </span>
+                          <div className="flex flex-col items-center gap-1">
+                            <span className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-bold whitespace-nowrap ${getStatusMeta(lesson.status).className}`}>
+                              <span className={`h-2 w-2 rounded-full ${getStatusMeta(lesson.status).dot}`} />
+                              {getStatusMeta(lesson.status).label}
+                            </span>
+                            {lesson.isVisible !== undefined && (
+                              <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold whitespace-nowrap ${lesson.isVisible ? 'bg-blue-50 text-blue-700 border border-blue-200' : 'bg-slate-50 text-slate-500 border border-slate-200'}`}>
+                                <span className={`h-1.5 w-1.5 rounded-full ${lesson.isVisible ? 'bg-blue-500' : 'bg-slate-400'}`} />
+                                {lesson.isVisible ? 'Hiển thị App' : 'Ẩn trên App'}
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td className="py-lg px-xl text-right relative" onClick={(e) => e.stopPropagation()}>
                           <button
@@ -403,16 +440,18 @@ const InstructorLessons = () => {
                               <div className={`absolute right-4 w-52 bg-white border border-[#d1e4fb] rounded-xl shadow-lg py-1 z-20 text-left ${
                                 idx >= paginatedLessons.length - 2 && paginatedLessons.length > 2 ? 'bottom-[85%] mb-1' : 'top-full mt-1'
                               }`}>
-                                <button
+                                <button type="button" onClick={() => { setOpenActionMenuLessonId(null); handleEditClick(lesson, true); }} className="flex w-full items-center gap-2 px-4 py-2 text-left text-[13px] font-medium text-[#1D4532] hover:bg-[#EDF7F2]"><Eye className="h-4 w-4" /> Xem bài học</button>
+                                {canEditLesson(instructor, lesson) && <button
                                   onClick={() => {
                                     setOpenActionMenuLessonId(null);
                                     void handleEditClick(lesson);
                                   }}
                                   className="w-full flex items-center gap-2 px-4 py-2 hover:bg-[#EDF7F2] text-[13px] text-on-surface transition-colors font-medium text-[#1D4532]"
                                 >
-                                  <UploadCloud className="w-4 h-4 text-[#1D4532]" />
-                                  Quản lý học liệu
-                                </button>
+                                  <Pencil className="w-4 h-4 text-[#1D4532]" />
+                                  Chỉnh sửa bài học
+                                </button>}
+                                <SubmitLessonReviewButton id={Number(lesson.id)} title={lesson.title} status={lesson.status} createdById={lesson.createdById} onSubmitted={async () => { const response = await requestLessons(); if (!response) throw new Error('Không tải được danh sách'); setLessons(response); }} />
                               </div>
                             </>
                           )}
@@ -487,149 +526,7 @@ const InstructorLessons = () => {
         </div>
       )}
 
-      {/* Drawer Form Overlay - Slide from right */}
-      <AnimatePresence>
-        {Boolean(editingLesson) && (
-          <>
-            {/* Backdrop Blur Overlay */}
-            <motion.div
-              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={handleCloseModal}
-            />
-
-            {/* Slide-in Drawer */}
-            <motion.div
-              className="fixed top-0 right-0 h-full w-[100%] sm:w-[75%] md:w-[65%] lg:w-[50%] bg-[#fbf9f4] border-l border-outline-variant/15 shadow-2xl z-50 overflow-hidden flex flex-col"
-              initial={{ x: '100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: '100%' }}
-              transition={{ type: 'spring', damping: 25, stiffness: 220 }}
-            >
-              {/* Drawer Header */}
-              <div className="px-xl py-lg border-b border-outline-variant/10 flex justify-between items-center bg-[#EDF7F2]">
-                <div>
-                  <h4 className="text-headline-md font-bold text-[#1D4532] font-sans">
-                    Quản lý Học liệu
-                  </h4>
-                  <p className="text-label-sm text-on-surface-variant text-[13px] mt-xs">
-                    Đăng tải file âm thanh, sheet nhạc và mô tả kỹ thuật.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleCloseModal}
-                  className="p-md hover:bg-[#1D4532]/10 rounded-full text-on-surface-variant hover:text-on-surface transition-colors"
-                >
-                  <X className="w-6 h-6" />
-                </button>
-              </div>
-
-              {/* Drawer Body */}
-              <form onSubmit={handleSaveAssets} className="flex-1 overflow-y-auto p-xl space-y-xl custom-scrollbar flex flex-col justify-between">
-                <div className="bg-white/95 backdrop-blur-md border border-outline-variant/10 rounded-2xl p-lg shadow-sm space-y-lg">
-                  {/* Context Info */}
-                  <div className="bg-[#f8f9fa] rounded-xl p-4 border border-outline-variant/10">
-                     <p className="text-sm font-semibold text-[#1D4532] mb-1">Bài học: <span className="text-on-surface ml-1">{editingLesson?.title}</span></p>
-                     <p className="text-sm font-semibold text-[#1D4532]">Nhạc cụ: <span className="text-on-surface ml-1">{editingLesson?.instrument}</span></p>
-                  </div>
-
-                  {/* Description */}
-                  <div className="flex flex-col gap-xs border-t border-outline-variant/10 pt-md">
-                    <label className="font-label-sm text-on-surface-variant font-semibold uppercase tracking-wider text-xs">
-                      Mô tả kỹ thuật biểu diễn
-                    </label>
-                    <textarea
-                      value={newDescription}
-                      onChange={(e) => setNewDescription(e.target.value)}
-                      placeholder="Mô tả kỹ thuật rung dây, nhấn vuốt, gảy ngón..."
-                      className="w-full bg-[#fbf9f4] border border-outline-variant/30 rounded-xl p-md text-body-md focus:border-primary focus:ring-1 focus:ring-primary transition-all outline-none text-on-surface h-24"
-                    />
-                  </div>
-
-                  {/* Upload Section */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-md border-t border-outline-variant/10 pt-md">
-                    <div className="flex flex-col gap-xs">
-                      <label className="font-label-sm text-on-surface-variant font-semibold uppercase tracking-wider text-xs">
-                        Âm thanh (.wav/.mp3)
-                      </label>
-                      <label className="border border-dashed border-outline-variant/40 rounded-xl p-md flex flex-col items-center justify-center bg-[#fbf9f4] hover:bg-[#ffe088]/10 transition-all cursor-pointer relative">
-                        <input
-                          type="file"
-                          accept="audio/*"
-                          className="hidden"
-                          onChange={async (e) => {
-                            const file = e.target.files?.[0];
-                            if (file) {
-                              try {
-                                if (editingLesson) {
-                                  await lessonAssetsApi.uploadAsset(Number(editingLesson.id), file, 'REFERENCE_AUDIO');
-                                  alert(`Đã tải lên âm thanh: ${file.name}`);
-                                }
-                              } catch (err) {
-                                alert(`Tải âm thanh thất bại: ${err instanceof Error ? err.message : 'Lỗi không xác định'}`);
-                              }
-                            }
-                          }}
-                        />
-                        <Music className="w-8 h-8 text-primary mb-xs" />
-                        <span className="font-label-sm text-primary font-bold text-xs">Tải lên file âm thanh</span>
-                      </label>
-                    </div>
-                    <div className="flex flex-col gap-xs">
-                      <label className="font-label-sm text-on-surface-variant font-semibold uppercase tracking-wider text-xs">
-                        Ký âm / Sheet nhạc
-                      </label>
-                      <label className="border border-dashed border-outline-variant/40 rounded-xl p-md flex flex-col items-center justify-center bg-[#fbf9f4] hover:bg-[#ffe088]/10 transition-all cursor-pointer relative">
-                        <input
-                          type="file"
-                          accept="image/*,.pdf"
-                          className="hidden"
-                          onChange={async (e) => {
-                            const file = e.target.files?.[0];
-                            if (file) {
-                              try {
-                                if (editingLesson) {
-                                  await lessonAssetsApi.uploadAsset(Number(editingLesson.id), file, 'SHEET_MUSIC');
-                                  alert(`Đã tải lên ký âm: ${file.name}`);
-                                }
-                              } catch (err) {
-                                alert(`Tải ký âm thất bại: ${err instanceof Error ? err.message : 'Lỗi không xác định'}`);
-                              }
-                            }
-                          }}
-                        />
-                        <FileText className="w-8 h-8 text-primary mb-xs" />
-                        <span className="font-label-sm text-primary font-bold text-xs">Tải lên bản ký âm</span>
-                      </label>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Drawer Footer Actions */}
-                <div className="px-xl py-lg border-t border-outline-variant/10 bg-[#f5f3ee]/40 flex gap-md -mx-xl -mb-xl mt-xl">
-                  <button
-                    type="button"
-                    onClick={handleCloseModal}
-                    className="flex-1 flex items-center justify-center gap-sm bg-white border border-[#d1e4fb] text-[#1D4532] py-lg rounded-xl font-bold hover:bg-[#EDF7F2] active:scale-[0.98] transition-all shadow-sm"
-                  >
-                    Đóng
-                  </button>
-                  <button
-                    type="submit"
-                    className="flex-1 flex items-center justify-center gap-sm bg-[#1b5e20] text-white py-lg rounded-xl font-bold hover:bg-[#154618] active:scale-[0.98] transition-all shadow-sm"
-                  >
-                    <Check className="w-5 h-5" />
-                    Lưu Ghi chú
-                  </button>
-                </div>
-              </form>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
+      {editingLesson && <LessonBodyEditor key={`${editingLesson.id}:${readOnly}`} lesson={editingLesson} readOnly={readOnly} initialSheet={sheetDrafts[editingLesson.id] ?? EMPTY_PRACTICE_SHEET} onSaveSheet={sheet => setSheetDrafts(current => ({ ...current, [editingLesson.id]: sheet }))} onClose={handleCloseModal} />}
     </div>
   );
 };
