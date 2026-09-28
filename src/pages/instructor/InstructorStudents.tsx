@@ -1,15 +1,16 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAxiosRequest } from '../../hooks/useAxiosRequest';
 import { lessonsApi, learnerProgressApi, instructorStudentsApi, masterDataApi } from '../../api/services';
+import type { LearningStatus } from '../../api/services';
 import type { FeedbackResponse, PracticeAttempt, Instrument } from '../../api/types';
-import { Search, X, BookOpen, ChevronRight, Users, Loader2, Check, HelpCircle, User, CalendarDays, BarChart3, Clock3, MessageSquareText, Send } from 'lucide-react';
+import { Search, X, BookOpen, ChevronRight, Users, Loader2, Check, HelpCircle, User, CalendarDays, BarChart3, Clock3, MessageSquareText, Send, LockKeyhole, Unlock } from 'lucide-react';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 interface LessonProgress {
   lessonId: number;
   stars: number;
   completed: boolean;
-  learningStatus?: 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED';
+  learningStatus?: LearningStatus;
   isUnlocked?: boolean;
   totalPracticeAttempts: number;
   bestPracticeScore: number;
@@ -194,13 +195,13 @@ const InstructorStudents = () => {
           ...prev,
           [lessonId]: {
             lessonId,
-            stars: (result as any)?.stars ?? 0,
-            completed: (result as any)?.completed ?? false,
-            learningStatus: (result as any)?.learningStatus,
-            isUnlocked: (result as any)?.isUnlocked,
-            totalPracticeAttempts: (result as any)?.totalPracticeAttempts ?? 0,
-            bestPracticeScore: (result as any)?.bestPracticeScore ?? 0,
-            totalQuizAttempts: (result as any)?.totalQuizAttempts ?? 0,
+            stars: result.stars ?? 0,
+            completed: result.completed ?? false,
+            learningStatus: result.learningStatus,
+            isUnlocked: result.isUnlocked,
+            totalPracticeAttempts: result.totalPracticeAttempts ?? 0,
+            bestPracticeScore: result.bestPracticeScore ?? 0,
+            totalQuizAttempts: result.totalQuizAttempts ?? 0,
             loading: false,
             error: false,
           },
@@ -631,6 +632,7 @@ const InstructorStudents = () => {
                     <thead>
                       <tr className="bg-[#F8FAF9] text-xs text-[#5e5e5b] uppercase tracking-wider border-b border-outline-variant/10">
                         <th className="text-left px-lg py-md font-semibold">Tên bài giảng</th>
+                        <th className="text-center px-md py-md font-semibold">Quyền học</th>
                         <th className="text-center px-md py-md font-semibold">Trạng thái học</th>
                         <th className="text-center px-md py-md font-semibold">Sao đạt được</th>
                         <th className="text-center px-md py-md font-semibold">Lượt thực hành</th>
@@ -646,6 +648,28 @@ const InstructorStudents = () => {
                           <tr key={row.id} className="hover:bg-[#EDF7F2]/30 transition-colors">
                             <td className="px-lg py-md">
                               <p className="font-medium text-on-surface text-xs">{row.title}</p>
+                            </td>
+                            <td className="px-md py-md text-center">
+                              {!p || p.loading ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin text-[#1D4532]/40 mx-auto" />
+                              ) : p.error ? (
+                                <span className="text-[10px] text-on-surface-variant/40">—</span>
+                              ) : p.isUnlocked === true ? (
+                                <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold bg-emerald-50 text-emerald-700" title="Học viên có thể vào bài này">
+                                  <Unlock className="w-3 h-3" />
+                                  Đã mở
+                                </span>
+                              ) : p.isUnlocked === false ? (
+                                <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold bg-slate-100 text-slate-600" title="Học viên chưa đủ điều kiện vào bài này">
+                                  <LockKeyhole className="w-3 h-3" />
+                                  Đang khóa
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold bg-gray-100 text-gray-500">
+                                  <HelpCircle className="w-3 h-3 text-gray-400" />
+                                  Chưa có dữ liệu
+                                </span>
+                              )}
                             </td>
                             <td className="px-md py-md text-center">
                               {!p || p.loading ? (

@@ -208,21 +208,24 @@ export const reviewsApi = {
 };
 
 // ── Tiến độ học viên (learner) ──
+export type LearningStatus = 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED';
+
+export interface InstructorLessonProgress {
+  lessonId: number;
+  learnerId: number;
+  isUnlocked: boolean;
+  learningStatus: LearningStatus;
+  stars: number;
+  completed: boolean;
+  totalPracticeAttempts: number;
+  bestPracticeScore: number;
+  totalQuizAttempts: number;
+}
+
 export const learnerProgressApi = {
   // GET /api/lessons/{id}/learners/{learner_id}/progress
   getLessonLearnerProgress: (lessonId: number, learnerId: number, options?: RequestOptions) =>
-    apiRequest<{
-      lessonId: number;
-      learnerId: number;
-      stars: number;
-      completed: boolean;
-      /** Available after the learning-access backend contract is deployed. */
-      learningStatus?: 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED';
-      isUnlocked?: boolean;
-      totalPracticeAttempts: number;
-      bestPracticeScore: number;
-      totalQuizAttempts: number;
-    }>(`/api/lessons/${lessonId}/learners/${learnerId}/progress`, options),
+    apiRequest<InstructorLessonProgress>(`/api/lessons/${lessonId}/learners/${learnerId}/progress`, options),
 
   // GET /api/users/me/progress
   getMyProgress: (instrumentId?: number, skillLevelId?: number, options?: RequestOptions) => {
@@ -232,7 +235,6 @@ export const learnerProgressApi = {
     const query = params.toString();
     return apiRequest<{
       lessonId: number; title: string; stars: number; completed: boolean;
-      learningStatus?: 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED'; isUnlocked?: boolean;
     }[]>(
       `/api/users/me/progress${query ? `?${query}` : ''}`,
       options
