@@ -253,7 +253,7 @@ const AdminDashboard = () => {
         ? `Khoảng thời gian truy vấn không được vượt quá ${MAX_DASHBOARD_RANGE_DAYS} ngày.`
         : '';
   const invalidDateRange = dateRangeError !== '';
-  const isDashboardLoading = loading || !data;
+  const isDashboardLoading = loading;
 
   const cards = useMemo(() => [
     {
@@ -343,6 +343,10 @@ const AdminDashboard = () => {
           {invalidDateRange && (
             <p className="mt-2 text-sm font-medium text-red-700">{dateRangeError}</p>
           )}
+          <p className="mt-2 text-xs leading-5 text-[#687870]">
+            Người dùng hoạt động: học viên có hoạt động học trong kỳ. Nhạc cụ phổ biến: theo lượt luyện tập đã ghi nhận.
+            Thời lượng phiên: trung bình các phiên đã kết thúc. Duy trì: tỷ lệ học viên hoạt động kỳ trước quay lại ở kỳ hiện tại.
+          </p>
         </div>
       </header>
 
