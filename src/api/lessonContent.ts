@@ -21,6 +21,15 @@ export interface ExerciseInput {
 }
 
 export type QuizQuestionType = 'NOTE_IDENTIFICATION' | 'GENERAL';
+export type ActivityContentStatus = 'ACTIVE' | 'INACTIVE' | 'ARCHIVED';
+
+export interface ActivityStatistics {
+  learnersCount: number;
+  totalAttempts: number;
+  averageScore: number;
+  averageStars: number;
+  passRate: number;
+}
 
 export interface Quiz {
   id: number;
@@ -32,6 +41,7 @@ export interface Quiz {
   options: string;
   correctAnswer?: string;
   orderIndex: number;
+  status?: ActivityContentStatus;
 }
 
 export interface QuizInput {
@@ -56,6 +66,7 @@ export interface Minigame {
   orderIndex: number;
   contentJson?: string;
   referenceAssetId?: number;
+  status?: ActivityContentStatus;
 }
 
 export interface MinigameInput {
@@ -191,4 +202,11 @@ export const minigamesApi = {
   update: (id: number, body: MinigameInput) =>
     apiRequest<Minigame>(`/api/minigames/${id}`, { method: 'PUT', body }),
   remove: (id: number) => apiRequest<void>(`/api/minigames/${id}`, { method: 'DELETE' }),
+};
+
+export const activityStatisticsApi = {
+  lessonQuizzes: (lessonId: number) =>
+    apiRequest<ActivityStatistics>(`/api/instructor/statistics/lessons/${lessonId}/quizzes`),
+  lessonMinigames: (lessonId: number) =>
+    apiRequest<ActivityStatistics>(`/api/instructor/statistics/lessons/${lessonId}/minigames`),
 };

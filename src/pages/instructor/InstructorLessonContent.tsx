@@ -26,6 +26,7 @@ import { lessonAssetsApi } from '../../api/services';
 import type { LessonAsset, Lesson } from '../../api/types';
 import {
   exercisesApi,
+  activityStatisticsApi,
   minigamesApi,
   quizzesApi,
   MELODY_COMPLETE_CONFIG,
@@ -33,6 +34,7 @@ import {
   getMeasureDurationBeats,
   getTimeSignatureLabel,
   type Exercise,
+  type ActivityStatistics,
   type ExerciseInput,
   type MelodyCompleteConfig,
   type RhythmMatchConfig,
@@ -115,6 +117,14 @@ const getChallengeTypeLabel = (type: string) => {
       return 'Mini game 2 — Hoàn thiện giai điệu';
     default:
       return type;
+  }
+};
+
+const getContentStatusLabel = (status?: string) => {
+  switch (status) {
+    case 'INACTIVE': return 'Tạm ẩn';
+    case 'ARCHIVED': return 'Đã lưu trữ';
+    default: return 'Đang phát hành';
   }
 };
 
@@ -308,6 +318,8 @@ const InstructorLessonContent = () => {
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
   const [minigames, setMinigames] = useState<Minigame[]>([]);
+  const [quizStatistics, setQuizStatistics] = useState<ActivityStatistics | null>(null);
+  const [minigameStatistics, setMinigameStatistics] = useState<ActivityStatistics | null>(null);
   const [tab, setTab] = useState<Tab>('exercises');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -359,6 +371,12 @@ const InstructorLessonContent = () => {
       setExercises(exerciseData.sort((a, b) => a.orderIndex - b.orderIndex));
       setQuizzes(quizData.sort((a, b) => a.orderIndex - b.orderIndex));
       setMinigames(minigameData.sort((a, b) => a.orderIndex - b.orderIndex));
+      const statistics = await Promise.allSettled([
+        activityStatisticsApi.lessonQuizzes(lessonId),
+        activityStatisticsApi.lessonMinigames(lessonId),
+      ]);
+      setQuizStatistics(statistics[0].status === 'fulfilled' ? statistics[0].value : null);
+      setMinigameStatistics(statistics[1].status === 'fulfilled' ? statistics[1].value : null);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Không thể tải nội dung bài giảng.');
     } finally {
@@ -554,6 +572,7 @@ const InstructorLessonContent = () => {
     { id: 'quizzes' as const, label: 'Quiz', count: quizzes.length, icon: HelpCircle },
     { id: 'minigames' as const, label: 'Minigame', count: minigames.length, icon: Gamepad2 },
   ];
+  const currentStatistics = tab === 'quizzes' ? quizStatistics : tab === 'minigames' ? minigameStatistics : null;
 
   const itemActions = (id: number, onEdit: () => void) => canEdit ? (
     <div className="flex gap-2 shrink-0">
@@ -619,6 +638,23 @@ const InstructorLessonContent = () => {
         </button>
       </div>
 
+      {currentStatistics && (
+        <section className="mb-5 grid grid-cols-2 lg:grid-cols-5 gap-3" aria-label="Thống kê hoạt động học viên">
+          {[
+            ['Học viên đã làm', currentStatistics.learnersCount],
+            ['Tổng lượt làm', currentStatistics.totalAttempts],
+            ['Điểm trung bình', Number(currentStatistics.averageScore ?? 0).toFixed(1)],
+            ['Sao trung bình', Number(currentStatistics.averageStars ?? 0).toFixed(1)],
+            ['Tỷ lệ đạt', `${Number(currentStatistics.passRate ?? 0).toFixed(1)}%`],
+          ].map(([label, value]) => (
+            <div key={String(label)} className="rounded-xl border border-outline-variant/10 bg-white px-4 py-3 shadow-sm">
+              <p className="text-xs text-on-surface-variant">{label}</p>
+              <p className="mt-1 text-lg font-bold text-[#1D4532]">{value}</p>
+            </div>
+          ))}
+        </section>
+      )}
+
       <section className="bg-white rounded-2xl border border-outline-variant/10 shadow-sm overflow-hidden">
         {loading ? (
           <div className="p-12 text-center text-on-surface-variant">Đang tải nội dung...</div>
@@ -643,6 +679,7 @@ const InstructorLessonContent = () => {
                     <p className="text-[11px] uppercase tracking-[0.18em] font-bold text-[#1D4532]/70 mb-1.5">
                       Câu hỏi <span className="tabular-nums">#{item.orderIndex}</span> · {getQuestionTypeLabel(item.questionType)}
                     </p>
+                    <span className="inline-flex rounded-full bg-[#f0eee9] px-2 py-1 text-[11px] font-semibold text-on-surface-variant">{getContentStatusLabel(item.status)}</span>
                     <h3 className="font-bold text-lg leading-snug text-pretty">{item.title || item.question}</h3>
                     {item.title && <p className="text-sm text-on-surface-variant mt-0.5 text-pretty">{item.question}</p>}
                     {item.questionType === 'NOTE_IDENTIFICATION' && item.note && (
@@ -691,6 +728,7 @@ const InstructorLessonContent = () => {
                         </span>
                       </div>
                       <h3 className="font-bold text-lg">{item.title}</h3>
+                      <span className="mt-1 inline-flex rounded-full bg-[#f0eee9] px-2 py-1 text-[11px] font-semibold text-on-surface-variant">{getContentStatusLabel(item.status)}</span>
 
                       {isRhythm && rhythmConfig && (
                         <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-on-surface-variant">
