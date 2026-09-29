@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { AlertCircle, Check, Music4, Plus, Trash2 } from 'lucide-react';
-import type { Quiz, QuizInput, QuizQuestionType } from '../../api/lessonContent';
+import type { ActivityContentStatus, Quiz, QuizInput, QuizQuestionType } from '../../api/lessonContent';
 import type { LessonAsset } from '../../api/types';
 
 const MIN_OPTIONS = 4;
@@ -51,6 +51,7 @@ const QuizEditor = ({ initial, defaultOrderIndex, saving, apiError, audioAssets 
     return index >= 0 ? index : null;
   });
   const [orderIndex, setOrderIndex] = useState(initial?.orderIndex ?? defaultOrderIndex);
+  const [status, setStatus] = useState<ActivityContentStatus>(initial?.status ?? 'ACTIVE');
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const clearError = (key: string) => {
@@ -131,6 +132,7 @@ const QuizEditor = ({ initial, defaultOrderIndex, saving, apiError, audioAssets 
       options: JSON.stringify(filledOptions),
       correctAnswer: selectedCorrect,
       orderIndex,
+      status,
     });
   };
 
@@ -207,6 +209,15 @@ const QuizEditor = ({ initial, defaultOrderIndex, saving, apiError, audioAssets 
               <div className="hidden sm:block" />
             )}
           </div>
+
+          <label className="block">
+            <span className="block text-sm font-semibold mb-2 text-on-surface-variant">Trạng thái phát hành</span>
+            <select value={status} onChange={(event) => setStatus(event.target.value as ActivityContentStatus)} className="input cursor-pointer">
+              <option value="ACTIVE">Đang phát hành</option>
+              <option value="INACTIVE">Tạm ẩn</option>
+              <option value="ARCHIVED">Lưu trữ</option>
+            </select>
+          </label>
 
           {/* TÙY CHỌN NÂNG CAO CHO AUDIO QUIZ */}
           <details className="group rounded-xl border border-dashed border-[#1D4532]/25 bg-white/60 p-3.5 transition-all">

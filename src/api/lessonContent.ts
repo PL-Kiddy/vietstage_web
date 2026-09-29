@@ -53,6 +53,7 @@ export interface QuizInput {
   options: string;
   correctAnswer: string;
   orderIndex: number;
+  status?: ActivityContentStatus;
 }
 
 export type MinigameChallengeType = 'RHYTHM_MATCH' | 'MELODY_COMPLETE';
@@ -77,6 +78,7 @@ export interface MinigameInput {
   difficulty?: string;
   maxScore: number;
   orderIndex: number;
+  status?: ActivityContentStatus;
 }
 
 export type RhythmEventMode = 'SAMPLE' | 'TARGET';

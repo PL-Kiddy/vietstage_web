@@ -306,6 +306,7 @@ const emptyMinigame: MinigameInput = {
   difficulty: 'BEGINNER',
   maxScore: 100,
   orderIndex: 1,
+  status: 'ACTIVE',
   contentJson: '{}',
 };
 
@@ -406,6 +407,7 @@ const InstructorLessonContent = () => {
         difficulty: 'BEGINNER',
         maxScore: 100,
         orderIndex: nextOrderIndex,
+        status: 'ACTIVE',
       });
       setRhythmDraft({ ...RHYTHM_MATCH_CONFIG, rounds: [newRhythmRound(1, lesson?.instrument)] });
       setMelodyDraft(MELODY_COMPLETE_CONFIG);
@@ -448,6 +450,7 @@ const InstructorLessonContent = () => {
       difficulty: item.difficulty ?? 'BEGINNER',
       maxScore: item.maxScore,
       orderIndex: item.orderIndex,
+      status: item.status ?? 'ACTIVE',
       contentJson: item.contentJson ?? '{}',
     });
 
@@ -905,6 +908,14 @@ const InstructorLessonContent = () => {
                           className="input"
                           placeholder={minigameForm.challengeType === 'RHYTHM_MATCH' ? 'Ví dụ: Gõ nhịp 4/4 bài Trống Cơm' : 'Ví dụ: Điền nốt khuyết — Lý Cây Đa'}
                         />
+                      </Field>
+
+                      <Field label="Trạng thái phát hành">
+                        <select value={minigameForm.status ?? 'ACTIVE'} onChange={(e) => setMinigameForm({ ...minigameForm, status: e.target.value as MinigameInput['status'] })} className="input cursor-pointer">
+                          <option value="ACTIVE">Đang phát hành</option>
+                          <option value="INACTIVE">Tạm ẩn</option>
+                          <option value="ARCHIVED">Lưu trữ</option>
+                        </select>
                       </Field>
 
                       {minigameForm.challengeType === 'RHYTHM_MATCH' && (
