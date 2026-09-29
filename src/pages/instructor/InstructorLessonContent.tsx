@@ -312,6 +312,7 @@ const InstructorLessonContent = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
 
@@ -448,6 +449,7 @@ const InstructorLessonContent = () => {
     if (!canEdit || saving) return;
     setSaving(true);
     setError('');
+    setSuccessMessage('');
     try {
       if (tab === 'exercises') {
         const body: ExerciseInput = {
@@ -500,6 +502,7 @@ const InstructorLessonContent = () => {
       }
       setEditorOpen(false);
       await loadContent();
+      setSuccessMessage(editingId ? 'Đã lưu thay đổi.' : 'Đã tạo nội dung mới.');
     } catch (cause) {
       setError(cause instanceof SyntaxError ? 'Cấu hình dữ liệu của minigame không hợp lệ.' : cause instanceof Error ? cause.message : 'Không thể lưu nội dung.');
     } finally {
@@ -512,11 +515,13 @@ const InstructorLessonContent = () => {
     if (!canEdit || saving) return;
     setSaving(true);
     setError('');
+    setSuccessMessage('');
     try {
       if (editingId) await quizzesApi.update(editingId, body);
       else await quizzesApi.create(lessonId, body);
       setEditorOpen(false);
       await loadContent();
+      setSuccessMessage(editingId ? 'Đã lưu thay đổi câu hỏi.' : 'Đã tạo câu hỏi mới.');
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Không thể lưu câu hỏi.');
     } finally {
@@ -528,14 +533,19 @@ const InstructorLessonContent = () => {
   const remove = async (id: number) => {
     if (!canEdit || saving) return;
     if (!window.confirm('Bạn có chắc muốn xóa nội dung này?')) return;
+    setSaving(true);
     setError('');
+    setSuccessMessage('');
     try {
       if (tab === 'exercises') await exercisesApi.remove(id);
       else if (tab === 'quizzes') await quizzesApi.remove(id);
       else await minigamesApi.remove(id);
       await loadContent();
+      setSuccessMessage('Đã xóa nội dung.');
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Không thể xóa nội dung.');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -549,6 +559,7 @@ const InstructorLessonContent = () => {
     <div className="flex gap-2 shrink-0">
       <button
         onClick={onEdit}
+        disabled={saving}
         className="p-2 rounded-lg border border-outline-variant/20 text-[#1D4532] hover:bg-[#1D4532]/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1D4532]/30 transition-all duration-200 active:scale-90"
         title="Chỉnh sửa"
       >
@@ -556,6 +567,7 @@ const InstructorLessonContent = () => {
       </button>
       <button
         onClick={() => void remove(id)}
+        disabled={saving}
         className="p-2 rounded-lg border border-red-200 text-red-700 hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-200 transition-all duration-200 active:scale-90"
         title="Xóa"
       >
@@ -582,6 +594,7 @@ const InstructorLessonContent = () => {
       </section>
 
       {error && <div className="mb-5 rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-red-800">{error}</div>}
+      {successMessage && <div role="status" className="mb-5 rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-emerald-800">{successMessage}</div>}
       {!loading && lesson && !canEdit && <p className="mb-4 text-sm text-on-surface-variant">Chế độ xem. Chỉ người phụ trách được sửa bài nháp hoặc bài bị từ chối.</p>}
 
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5">
