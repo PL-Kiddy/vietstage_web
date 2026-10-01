@@ -46,6 +46,8 @@ import {
   type QuizInput,
 } from '../../api/lessonContent';
 import QuizEditor from '../../components/instructor/QuizEditor';
+import PracticeStaffPreview from '../../components/instructor/PracticeStaffPreview';
+import type { PracticeSheetEvent } from '../../components/instructor/PracticeSheetComposer';
 import { canEditLesson } from '../../api/lessonPermissions';
 import { useInstructorIdentity } from '../../hooks/useInstructorIdentity';
 
@@ -184,6 +186,12 @@ const NOTE_DURATIONS = [
   { value: 0.5, label: 'Móc đơn · ½ phách' },
   { value: 0.25, label: 'Móc đôi · ¼ phách' },
 ] as const;
+
+// Presentation only: keep the activity's original notes, modes and beat values.
+const previewEvent = (note: string, beats = 1): PracticeSheetEvent => ({
+  notes: [note], fingering: [], technique: 'none',
+  duration: beats === 4 ? 'whole' : beats === 2 ? 'half' : beats === 0.5 ? 'eighth' : beats === 0.25 ? 'sixteenth' : 'quarter',
+});
 
 const parseTimeSig = (rawSig: unknown): TimeSignature => {
   if (Array.isArray(rawSig) && rawSig.length >= 2) {
@@ -791,13 +799,14 @@ const InstructorLessonContent = () => {
 
       {editorOpen && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex justify-end animate-[fadeIn_0.25s_ease-out]" onMouseDown={() => setEditorOpen(false)}>
-          <div className="w-full max-w-xl md:max-w-2xl h-full bg-white p-6 md:p-8 overflow-y-auto shadow-2xl custom-scrollbar animate-[slideIn_0.32s_cubic-bezier(0.22,1,0.36,1)]" onMouseDown={(event) => event.stopPropagation()}>
-            <div className="flex justify-between items-start mb-6">
+          <div role="dialog" aria-modal="true" aria-labelledby="activity-editor-title" className="flex h-full w-full flex-col bg-[#fbf9f4] shadow-2xl sm:w-4/5 lg:w-1/2 animate-[slideIn_0.32s_cubic-bezier(0.22,1,0.36,1)]" onMouseDown={(event) => event.stopPropagation()}>
+            <div className="flex shrink-0 items-start justify-between gap-3 border-b border-[#dce8df] bg-[#EDF7F2] p-4 sm:p-6">
               <div>
                 <p className="text-xs tracking-widest text-[#1D4532] font-bold uppercase">{editingId ? 'Chỉnh sửa' : 'Tạo mới'}</p>
-                <h2 className="text-2xl font-bold mt-1">{tabs.find((item) => item.id === tab)?.label}</h2>
+                <h2 id="activity-editor-title" className="mt-1 text-xl font-bold text-[#1D4532]">{tabs.find((item) => item.id === tab)?.label}</h2>
+                <p className="mt-1 text-sm text-on-surface-variant break-words">{lesson?.title}</p>
               </div>
-              <button onClick={() => setEditorOpen(false)} className="p-2 rounded-full hover:bg-[#f0eee9] transition-colors duration-200 active:scale-90">
+              <button type="button" aria-label="Đóng biểu mẫu" onClick={() => setEditorOpen(false)} className="shrink-0 rounded-lg p-2 text-[#1D4532] hover:bg-white transition-colors duration-200 active:scale-90">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -807,6 +816,7 @@ const InstructorLessonContent = () => {
                 initial={editingId ? quizzes.find((item) => item.id === editingId) ?? null : null}
                 defaultOrderIndex={quizzes.length + 1}
                 audioAssets={audioAssets}
+                instrument={normalizeInstrumentKey(lesson?.instrument) === 'sao_truc' ? 'sao_truc' : 'dan_tranh'}
                 saving={saving}
                 apiError={error}
                 onCancel={() => setEditorOpen(false)}
@@ -814,9 +824,9 @@ const InstructorLessonContent = () => {
               />
             ) : (
               <>
-                {error && <div className="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 font-medium">{error}</div>}
-
-                <form onSubmit={(event) => void submit(event)} className="space-y-5">
+                <form onSubmit={(event) => void submit(event)} className="flex min-h-0 flex-1 flex-col">
+                  <div className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain p-4 sm:p-6 custom-scrollbar">
+                  {error && <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 font-medium">{error}</div>}
                   {tab === 'exercises' && (
                     <>
                       <Field label="Tên bài tập">
@@ -850,6 +860,8 @@ const InstructorLessonContent = () => {
                   {tab === 'minigames' && (
                     <>
                       {/* BỘ CHỌN LOẠI MINIGAME TRỰC QUAN */}
+                      <section className="space-y-4 rounded-2xl border border-[#e4e9e5] bg-white p-4 sm:p-5">
+                      <h3 className="text-xs font-bold uppercase tracking-[0.18em] text-[#1D4532]">Thông tin minigame</h3>
                       <div>
                         <span className="block text-sm font-semibold mb-2 text-on-surface-variant">Chọn loại Minigame</span>
                         <div className="grid grid-cols-2 gap-3">
@@ -917,9 +929,10 @@ const InstructorLessonContent = () => {
                           <option value="ARCHIVED">Lưu trữ</option>
                         </select>
                       </Field>
+                      </section>
 
                       {minigameForm.challengeType === 'RHYTHM_MATCH' && (
-                        <section className="rounded-2xl border border-[#1D4532]/20 bg-[#fbf9f4] p-4 sm:p-5 space-y-4">
+                        <section className="rounded-2xl border border-[#e4e9e5] bg-white p-4 sm:p-5 space-y-4">
                           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#1D4532]/10 pb-3">
                             <div>
                               <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#1D4532]">
@@ -1036,18 +1049,25 @@ const InstructorLessonContent = () => {
                                     );
                                   })()}
 
+                                  <div className="min-w-0 overflow-x-auto rounded-xl border border-[#eadfc2] bg-[#fffef9] p-3">
+                                    <PracticeStaffPreview
+                                      instrument={normalizeInstrumentKey(lesson?.instrument) === 'sao_truc' ? 'sao_truc' : 'dan_tranh'}
+                                      events={round.events.map(event => previewEvent(event.note, event.duration_beats))}
+                                      timeSignature={{ numerator: (round.time_signature ?? [4, 4])[0], denominator: (round.time_signature ?? [4, 4])[1] }}
+                                      annotations={round.events.map((event, index) => `${index + 1} · ${event.mode === 'SAMPLE' ? 'Mẫu' : 'Chơi'}`)}
+                                    />
+                                  </div>
+                                  <p className="text-xs text-on-surface-variant">Mở từng nốt bên dưới để chỉnh cao độ, trường độ và vai trò. Khuông nhạc cập nhật ngay.</p>
                                   <div className="space-y-2">
-                                    <div className="grid grid-cols-[1.5rem_6.5rem_minmax(0,1fr)_7.5rem_1.75rem] sm:grid-cols-[1.5rem_7.5rem_minmax(0,1fr)_8.5rem_1.75rem] gap-2 items-center px-1 text-[11px] font-bold uppercase tracking-wider text-on-surface-variant">
-                                      <span className="text-center">#</span>
-                                      <span>Loại</span>
-                                      <span>Nốt</span>
-                                      <span>Trường độ</span>
-                                      <span />
-                                    </div>
                                     {round.events.map((event, noteIndex) => (
-                                      <div key={noteIndex} className="grid grid-cols-[1.5rem_6.5rem_minmax(0,1fr)_7.5rem_1.75rem] sm:grid-cols-[1.5rem_7.5rem_minmax(0,1fr)_8.5rem_1.75rem] gap-2 items-center">
-                                        <span className="text-center text-xs font-bold text-[#1D4532]">{noteIndex + 1}</span>
+                                      <details key={noteIndex} className="rounded-xl border border-[#e9d9a8] bg-[#fffdf6]">
+                                        <summary className="cursor-pointer px-3 py-3 text-sm font-semibold text-[#1D4532]">
+                                          #{noteIndex + 1} · {noteOptionLabel(lesson?.instrument, event.note)}
+                                          <span className="ml-2 text-xs font-normal text-on-surface-variant">{event.mode === 'SAMPLE' ? 'Nghe mẫu' : 'Cần chơi'} · {NOTE_DURATIONS.find(item => item.value === event.duration_beats)?.label}</span>
+                                        </summary>
+                                      <div className="grid grid-cols-1 gap-3 border-t border-[#eadfc2] p-3 sm:grid-cols-[7.5rem_minmax(0,1fr)_8.5rem_2rem]">
                                         <select
+                                          aria-label={`Vai trò nốt ${noteIndex + 1}`}
                                           value={event.mode}
                                           onChange={(e) => {
                                             const events = [...round.events];
@@ -1060,6 +1080,7 @@ const InstructorLessonContent = () => {
                                           <option value="TARGET">Cần chơi</option>
                                         </select>
                                         <select
+                                          aria-label={`Cao độ nốt ${noteIndex + 1}`}
                                           value={event.note}
                                           onChange={(e) => {
                                             const events = [...round.events];
@@ -1076,6 +1097,7 @@ const InstructorLessonContent = () => {
                                           ))}
                                         </select>
                                         <select
+                                          aria-label={`Trường độ nốt ${noteIndex + 1}`}
                                           value={event.duration_beats}
                                           onChange={(e) => {
                                             const events = [...round.events];
@@ -1100,6 +1122,7 @@ const InstructorLessonContent = () => {
                                           <X className="h-4 w-4" />
                                         </button>
                                       </div>
+                                      </details>
                                     ))}
                                   </div>
 
@@ -1130,7 +1153,7 @@ const InstructorLessonContent = () => {
 
                       {/* FORM 2: HOÀN THIỆN GIAI ĐIỆU (MELODY_COMPLETE) */}
                       {minigameForm.challengeType === 'MELODY_COMPLETE' && (
-                        <section className="rounded-xl border border-purple-100 bg-white p-4 space-y-4">
+                        <section className="rounded-2xl border border-[#e4e9e5] bg-white p-4 sm:p-5 space-y-4">
                           <div className="flex items-center justify-between">
                             <p className="inline-flex items-center gap-1.5 text-sm font-bold text-[#4c1d75]">
                               <Sparkles className="w-4 h-4" /> Giai điệu
@@ -1139,6 +1162,15 @@ const InstructorLessonContent = () => {
                           </div>
 
                           {/* DÃY GIAI ĐIỆU */}
+                          <div className="min-w-0 overflow-x-auto rounded-xl border border-[#eadfc2] bg-[#fffef9] p-3">
+                            <PracticeStaffPreview
+                              instrument={normalizeInstrumentKey(lesson?.instrument) === 'sao_truc' ? 'sao_truc' : 'dan_tranh'}
+                              events={melodyDraft.melody.map(note => previewEvent(note))}
+                              maskedIndices={melodyDraft.missing_positions}
+                              annotations={melodyDraft.melody.map((_, index) => `#${index + 1}`)}
+                            />
+                          </div>
+                          <p className="text-xs text-on-surface-variant">Dấu ? là vị trí học viên cần điền. Khuông thể hiện thứ tự cao độ; dạng minigame này không thiết lập trường độ từng nốt.</p>
                           <Field label={`Nốt giai điệu · ${melodyDraft.melody.length} nốt`}>
                             <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-6">
                               {notesForInstrument(lesson?.instrument).map((note) => (
@@ -1381,9 +1413,15 @@ const InstructorLessonContent = () => {
                     </datalist>
                   )}
 
+                  </div>
+                  <div className="grid shrink-0 grid-cols-2 gap-3 border-t border-[#e4e9e5] bg-white px-4 py-4 sm:px-6">
+                  <button type="button" onClick={() => setEditorOpen(false)} className="rounded-xl border border-outline-variant/40 px-5 py-3.5 font-bold text-on-surface-variant transition-colors hover:bg-[#f0eee9]">
+                    Hủy
+                  </button>
                   <button disabled={saving} className="w-full bg-[#1D4532] text-white rounded-xl py-3.5 font-bold transition-all duration-200 hover:bg-[#1D4532]/90 active:scale-[0.99] disabled:opacity-60 shadow-md">
                     {saving ? 'Đang lưu...' : editingId ? 'Lưu thay đổi' : 'Tạo nội dung'}
                   </button>
+                  </div>
                 </form>
               </>
             )}

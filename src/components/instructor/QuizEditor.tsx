@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { AlertCircle, Check, Music4, Plus, Trash2 } from 'lucide-react';
 import type { ActivityContentStatus, Quiz, QuizInput, QuizQuestionType } from '../../api/lessonContent';
 import type { LessonAsset } from '../../api/types';
+import PracticeStaffPreview from './PracticeStaffPreview';
 
 const MIN_OPTIONS = 4;
 
@@ -22,12 +23,13 @@ interface QuizEditorProps {
   saving: boolean;
   apiError?: string;
   audioAssets?: LessonAsset[];
+  instrument?: 'dan_tranh' | 'sao_truc';
   onCancel: () => void;
   onSubmit: (body: QuizInput) => void;
 }
 
 // Editor tạo/sửa câu hỏi Quiz: tiêu đề, loại (GENERAL/NOTE_IDENTIFICATION), câu hỏi, >=4 lựa chọn, đáp án đúng
-const QuizEditor = ({ initial, defaultOrderIndex, saving, apiError, audioAssets = [], onCancel, onSubmit }: QuizEditorProps) => {
+const QuizEditor = ({ initial, defaultOrderIndex, saving, apiError, audioAssets = [], instrument = 'dan_tranh', onCancel, onSubmit }: QuizEditorProps) => {
   const isEditing = initial !== null;
 
   const [title, setTitle] = useState(initial?.title ?? '');
@@ -93,6 +95,8 @@ const QuizEditor = ({ initial, defaultOrderIndex, saving, apiError, audioAssets 
   const correctPreview = correctIndex !== null ? options[correctIndex].trim() : '';
   const trimmedOptions = options.map((item) => item.trim());
   const filledOptions = trimmedOptions.filter(Boolean);
+  const previewNote = note.trim();
+  const canPreviewNote = /^(?:[A-G][#b]?\d|(?:Đô|Do|Rê|Re|Mi|Fa|Sol|La|Sib|Si)[1-4]?)$/.test(previewNote);
 
   // Validate toàn bộ form rồi build QuizInput (options dạng JSON string) để submit
   const handleSubmit = (event: FormEvent) => {
@@ -137,14 +141,15 @@ const QuizEditor = ({ initial, defaultOrderIndex, saving, apiError, audioAssets 
   };
 
   return (
-    <form onSubmit={(event) => void handleSubmit(event)} noValidate className="space-y-7">
+    <form onSubmit={(event) => void handleSubmit(event)} noValidate className="flex min-h-0 flex-1 flex-col">
+      <div className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain p-4 sm:p-6 custom-scrollbar">
       {apiError && (
         <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 font-medium">
           {apiError}
         </div>
       )}
 
-      <section>
+      <section className="space-y-4 rounded-2xl border border-[#e4e9e5] bg-white p-4 sm:p-5">
         <h3 className="mb-2.5 text-xs font-bold uppercase tracking-[0.18em] text-[#1D4532]">Thông tin cơ bản</h3>
 
         <div className="space-y-5">
@@ -210,6 +215,19 @@ const QuizEditor = ({ initial, defaultOrderIndex, saving, apiError, audioAssets 
             )}
           </div>
 
+          {questionType === 'NOTE_IDENTIFICATION' && (
+            <div className="rounded-xl border border-[#eadfc2] bg-[#fffef9] p-3">
+              <p className="text-xs font-bold uppercase tracking-wide text-[#1D4532]">Khuông nhạc câu hỏi</p>
+              <div className="overflow-x-auto">
+                <PracticeStaffPreview instrument={instrument} events={canPreviewNote ? [{
+                  notes: [instrument === 'dan_tranh' && !/\d$/.test(previewNote) ? `${previewNote}2` : previewNote],
+                  duration: 'quarter', fingering: [], technique: 'none',
+                }] : []} />
+              </div>
+              {!canPreviewNote && <p className="text-xs text-on-surface-variant">Nhập tên nốt, ví dụ A4 hoặc Đô, để xem vị trí trên khuông.</p>}
+            </div>
+          )}
+
           <label className="block">
             <span className="block text-sm font-semibold mb-2 text-on-surface-variant">Trạng thái phát hành</span>
             <select value={status} onChange={(event) => setStatus(event.target.value as ActivityContentStatus)} className="input cursor-pointer">
@@ -267,7 +285,7 @@ const QuizEditor = ({ initial, defaultOrderIndex, saving, apiError, audioAssets 
         </div>
       </section>
 
-      <section>
+      <section className="rounded-2xl border border-[#e4e9e5] bg-white p-4 sm:p-5">
         <div className="mb-2.5 flex items-center justify-between">
           <h3 className="text-xs font-bold uppercase tracking-[0.18em] text-[#1D4532]">Câu hỏi</h3>
           <span className="text-[11px] font-medium text-on-surface-variant/60">{question.length} ký tự</span>
@@ -287,7 +305,7 @@ const QuizEditor = ({ initial, defaultOrderIndex, saving, apiError, audioAssets 
         {errors.question && <FieldError message={errors.question} />}
       </section>
 
-      <section>
+      <section className="rounded-2xl border border-[#e4e9e5] bg-white p-4 sm:p-5">
         <div className="mb-2.5">
           <h3 className="text-xs font-bold uppercase tracking-[0.18em] text-[#1D4532]">Các lựa chọn</h3>
           <p className="mt-1 text-xs text-on-surface-variant/70">
@@ -367,7 +385,7 @@ const QuizEditor = ({ initial, defaultOrderIndex, saving, apiError, audioAssets 
         )}
       </section>
 
-      <section>
+      <section className="rounded-2xl border border-[#e4e9e5] bg-white p-4 sm:p-5">
         <label className="block">
           <span className="mb-2 block text-xs font-bold uppercase tracking-[0.18em] text-[#1D4532]">
             Thứ tự hiển thị
@@ -392,7 +410,8 @@ const QuizEditor = ({ initial, defaultOrderIndex, saving, apiError, audioAssets 
         ))}
       </datalist>
 
-      <div className="grid grid-cols-2 gap-3 border-t border-outline-variant/20 pt-6">
+      </div>
+      <div className="grid shrink-0 grid-cols-2 gap-3 border-t border-[#e4e9e5] bg-white px-4 py-4 sm:px-6">
         <button
           type="button"
           onClick={onCancel}
