@@ -122,8 +122,6 @@ const InstructorStudents = () => {
       name: u.fullName,
       email: u.email,
       userCode: u.userCode,
-      instrument: u.instrumentName,
-      instrumentsList: u.instrumentName ? [u.instrumentName] : [],
     }));
 
     return mapped;
@@ -137,11 +135,13 @@ const InstructorStudents = () => {
         (s.email && s.email.toLowerCase().includes(searchQuery.toLowerCase())) ||
         (s.userCode && s.userCode.toLowerCase().includes(searchQuery.toLowerCase()));
 
-      const matchesInstrument =
-        !!instrumentFilter &&
-        s.instrumentsList.some((inst: string) => inst.toLowerCase() === instrumentFilter.toLowerCase());
+      // A learner can study more than one instrument. The selected instrument
+      // determines which lesson progress is shown after selecting the learner;
+      // it must not remove the learner from the list based on a single,
+      // optional profile field returned by the API.
+      const hasSelectedInstrument = Boolean(instrumentFilter);
 
-      return matchesSearch && matchesInstrument;
+      return matchesSearch && hasSelectedInstrument;
     });
   }, [allStudents, searchQuery, instrumentFilter]);
 

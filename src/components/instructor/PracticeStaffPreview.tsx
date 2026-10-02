@@ -9,9 +9,11 @@ export function staffPosition(note: string): number {
   return ((Number(match[2]) - 2) * 7 + ['Do', 'Re', 'Mi', 'Fa', 'Sol', 'La', 'Si'].indexOf(match[1]) - 2) / 2;
 }
 
-export default function PracticeStaffPreview({ events, instrument = 'dan_tranh', timeSignature }: { events: PracticeSheetEvent[]; instrument?: 'dan_tranh' | 'sao_truc'; timeSignature?: PracticeSheetConfig['timeSignature'] }) {
+export default function PracticeStaffPreview({ events, instrument = 'dan_tranh', timeSignature, annotations, maskedIndices = [] }: { events: PracticeSheetEvent[]; instrument?: 'dan_tranh' | 'sao_truc'; timeSignature?: PracticeSheetConfig['timeSignature']; annotations?: string[]; maskedIndices?: number[] }) {
   const isFlute = instrument === 'sao_truc';
   const positionOf = (note: string) => {
+    const scientific = /^([A-G])([#b]?)(\d)$/.exec(note);
+    if (scientific) return ((Number(scientific[3]) - 4) * 7 + ['C', 'D', 'E', 'F', 'G', 'A', 'B'].indexOf(scientific[1]) - 2) / 2;
     if (!isFlute) return staffPosition(note);
     const plain = note.replace('Sib', 'Si');
     // Godot renders flute Do at -1 and Do2 at 2.5 (written octave).
@@ -38,6 +40,7 @@ export default function PracticeStaffPreview({ events, instrument = 'dan_tranh',
       </g>}
       {events.map((event, index) => {
         const x = (timeSignature ? 150 : 112) + index * 62;
+        if (maskedIndices.includes(index)) return <g key={index}><rect x={x - 19} y={y(4) - 12} width="38" height="88" rx="8" fill="#fff8df" stroke="#bb8c2b" strokeDasharray="4 3" /><text x={x} y={y(2) + 9} textAnchor="middle" fontSize="30" fill="#88601b">?</text></g>;
         if (event.notes[0] === 'REST') return <g key={index} fill="#151515"><title>Dấu lặng</title>{event.duration === 'whole' || event.duration === 'half' ? <rect x={x - 8} y={event.duration === 'whole' ? y(3) : y(2) - 5} width="16" height="5" /> : <text x={x} y={y(2) + 13} fontFamily="Segoe UI Symbol, serif" textAnchor="middle" fontSize="40">{event.duration === 'eighth' ? '𝄾' : event.duration === 'sixteenth' ? '𝄿' : '𝄽'}</text>}</g>;
         const notes = event.notes.map((note, noteIndex) => ({ note, noteIndex, position: positionOf(note) })).sort((a, b) => a.position - b.position);
         const low = notes[0]?.position ?? 0;
@@ -55,6 +58,7 @@ export default function PracticeStaffPreview({ events, instrument = 'dan_tranh',
           {event.duration !== 'whole' && <line x1={stemX} x2={stemX} y1={up ? y(low) : y(high)} y2={tip} stroke="#151515" strokeWidth="1.8" />}
           {(event.duration === 'eighth' || event.duration === 'sixteenth') && Array.from({ length: event.duration === 'sixteenth' ? 2 : 1 }, (_, i) => <path key={i} d={`M ${stemX} ${tip + (up ? 1 : -1) * i * 8} q 19 ${up ? 10 : -10} 8 ${up ? 24 : -24}`} fill="none" stroke="#151515" strokeWidth="3" />)}
           {notes.filter(n => n.note.includes('Sib')).map(n => <text key={n.noteIndex} x={x - 25} y={y(n.position) + 5} fontSize="24">♭</text>)}
+          {notes.filter(n => /^[A-G][#b]\d$/.test(n.note)).map(n => <text key={`accidental-${n.noteIndex}`} x={x - 25} y={y(n.position) + 5} fontSize="24">{n.note.includes('#') ? '♯' : '♭'}</text>)}
           {notes.map(({ noteIndex, position }, i) => {
             // Adjacent chord tones sit on opposite sides of the shared stem.
             const displaced = i > 0 && position - notes[i - 1].position === 0.5 && i % 2 === 1;
@@ -77,6 +81,7 @@ export default function PracticeStaffPreview({ events, instrument = 'dan_tranh',
           {!isFlute && event.fingering.map((finger, i) => <text key={i} x={x} y={fingerY + i * 18} textAnchor="middle" fontSize="15" fontWeight="bold">{finger}</text>)}
         </g>;
       })}
+      {annotations?.map((label, index) => <text key={index} x={(timeSignature ? 150 : 112) + index * 62} y={height - 8} textAnchor="middle" fontSize="10" fill="#43574a">{label}</text>)}
       {events.length === 0 && <text x="148" y={fingerY} fontSize="12" fill="#718078">Thêm nốt để xem trước.</text>}
     </svg>
   );
