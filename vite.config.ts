@@ -14,6 +14,8 @@ export default defineConfig(({ mode }) => {
           target: proxyTarget,
           changeOrigin: true,
           secure: false,
+          // Render currently accepts localhost:5173 for local web development.
+          headers: { origin: 'http://localhost:5173' },
         }
       }
     }

@@ -90,7 +90,6 @@ const QuizEditor = ({ initial, defaultOrderIndex, saving, apiError, audioAssets 
     clearError('correct');
   };
 
-  const correctPreview = correctIndex !== null ? options[correctIndex].trim() : '';
   const trimmedOptions = options.map((item) => item.trim());
   const filledOptions = trimmedOptions.filter(Boolean);
 
@@ -108,14 +107,14 @@ const QuizEditor = ({ initial, defaultOrderIndex, saving, apiError, audioAssets 
     if (!question.trim()) nextErrors.question = 'Vui lòng nhập nội dung câu hỏi.';
 
     if (filledOptions.length < MIN_OPTIONS) {
-      nextErrors.options = `Hệ thống yêu cầu tối thiểu ${MIN_OPTIONS} lựa chọn (hiện có ${filledOptions.length}).`;
+      nextErrors.options = `Nhập ít nhất ${MIN_OPTIONS} lựa chọn.`;
     } else if (new Set(filledOptions).size !== filledOptions.length) {
       nextErrors.options = 'Các lựa chọn không được trùng nhau.';
     }
 
     const selectedCorrect = correctIndex !== null ? options[correctIndex].trim() : '';
     if (!selectedCorrect || !filledOptions.includes(selectedCorrect)) {
-      nextErrors.correct = 'Vui lòng đánh dấu một đáp án đúng bằng vòng tròn bên cạnh lựa chọn.';
+      nextErrors.correct = 'Chọn một đáp án đúng.';
     }
 
     if (Object.keys(nextErrors).length > 0) {
@@ -145,7 +144,7 @@ const QuizEditor = ({ initial, defaultOrderIndex, saving, apiError, audioAssets 
       )}
 
       <section>
-        <h3 className="mb-2.5 text-xs font-bold uppercase tracking-[0.18em] text-[#1D4532]">Thông tin cơ bản</h3>
+        <h3 className="mb-2.5 text-xs font-bold uppercase tracking-[0.18em] text-[#1D4532]">Nội dung quiz</h3>
 
         <div className="space-y-5">
           <div>
@@ -176,13 +175,10 @@ const QuizEditor = ({ initial, defaultOrderIndex, saving, apiError, audioAssets 
                   }}
                   className="input cursor-pointer"
                 >
-                  <option value="GENERAL">Kiến thức chung (General)</option>
-                  <option value="NOTE_IDENTIFICATION">Nhận diện nốt nhạc (Note Identification)</option>
+                  <option value="GENERAL">Kiến thức chung</option>
+                  <option value="NOTE_IDENTIFICATION">Nhận diện nốt nhạc</option>
                 </select>
               </label>
-              <span className="mt-1.5 block text-xs text-on-surface-variant">
-                Loại câu hỏi quyết định giao diện hiển thị cho học viên.
-              </span>
             </div>
 
             {questionType === 'NOTE_IDENTIFICATION' ? (
@@ -210,19 +206,9 @@ const QuizEditor = ({ initial, defaultOrderIndex, saving, apiError, audioAssets 
             )}
           </div>
 
-          <label className="block">
-            <span className="block text-sm font-semibold mb-2 text-on-surface-variant">Trạng thái phát hành</span>
-            <select value={status} onChange={(event) => setStatus(event.target.value as ActivityContentStatus)} className="input cursor-pointer">
-              <option value="ACTIVE">Đang phát hành</option>
-              <option value="INACTIVE">Tạm ẩn</option>
-              <option value="ARCHIVED">Lưu trữ</option>
-            </select>
-          </label>
-
-          {/* TÙY CHỌN NÂNG CAO CHO AUDIO QUIZ */}
           <details className="group rounded-xl border border-dashed border-[#1D4532]/25 bg-white/60 p-3.5 transition-all">
             <summary className="flex cursor-pointer items-center justify-between text-xs font-bold text-[#1D4532] select-none">
-              <span>⚙️ Tùy chọn nâng cao: File audio phát kèm câu hỏi (không bắt buộc)</span>
+              <span>Thêm âm thanh cho câu hỏi</span>
               <span className="text-neutral-400 group-open:rotate-180 transition-transform">▼</span>
             </summary>
             <div className="mt-3 pt-3 border-t border-outline-variant/15 space-y-2">
@@ -241,10 +227,10 @@ const QuizEditor = ({ initial, defaultOrderIndex, saving, apiError, audioAssets 
                   }}
                   className="input cursor-pointer"
                 >
-                  <option value="">-- Không dùng audio --</option>
+                  <option value="">Không dùng âm thanh</option>
                   {audioAssets.map((asset) => (
                     <option key={asset.id} value={asset.id}>
-                      Asset #{asset.id} · {asset.title || 'Audio bài học'}
+                      {asset.title || 'Âm thanh bài học'}
                     </option>
                   ))}
                 </select>
@@ -259,9 +245,6 @@ const QuizEditor = ({ initial, defaultOrderIndex, saving, apiError, audioAssets 
                   className="input"
                 />
               )}
-              <span className="block text-[11px] text-on-surface-variant">
-                Chỉ sử dụng nếu câu hỏi yêu cầu học viên nghe một đoạn âm thanh mẫu để trả lời.
-              </span>
             </div>
           </details>
         </div>
@@ -270,7 +253,6 @@ const QuizEditor = ({ initial, defaultOrderIndex, saving, apiError, audioAssets 
       <section>
         <div className="mb-2.5 flex items-center justify-between">
           <h3 className="text-xs font-bold uppercase tracking-[0.18em] text-[#1D4532]">Câu hỏi</h3>
-          <span className="text-[11px] font-medium text-on-surface-variant/60">{question.length} ký tự</span>
         </div>
         <textarea
           autoFocus
@@ -291,7 +273,7 @@ const QuizEditor = ({ initial, defaultOrderIndex, saving, apiError, audioAssets 
         <div className="mb-2.5">
           <h3 className="text-xs font-bold uppercase tracking-[0.18em] text-[#1D4532]">Các lựa chọn</h3>
           <p className="mt-1 text-xs text-on-surface-variant/70">
-            Hệ thống yêu cầu tối thiểu {MIN_OPTIONS} lựa chọn — bấm vòng tròn để đánh dấu đáp án đúng.
+            Nhập ít nhất {MIN_OPTIONS} lựa chọn và chọn một đáp án đúng.
           </p>
         </div>
 
@@ -359,18 +341,22 @@ const QuizEditor = ({ initial, defaultOrderIndex, saving, apiError, audioAssets 
         {errors.options && <FieldError message={errors.options} />}
         {errors.correct && <FieldError message={errors.correct} />}
 
-        {correctPreview && (
-          <p className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-[#1D4532]/8 px-3 py-1.5 text-xs font-medium text-[#1D4532]">
-            <Check className="h-3.5 w-3.5" strokeWidth={3} />
-            Đáp án đúng: <span className="font-bold">{correctPreview}</span>
-          </p>
-        )}
       </section>
 
-      <section>
+      <details className="rounded-xl border border-outline-variant/30 px-4 py-3">
+        <summary className="cursor-pointer text-sm font-semibold text-[#1D4532]">Thiết lập hiển thị</summary>
+        <div className="mt-4 space-y-4">
+          <label className="block">
+            <span className="block text-sm font-semibold mb-2 text-on-surface-variant">Trạng thái</span>
+            <select value={status} onChange={(event) => setStatus(event.target.value as ActivityContentStatus)} className="input cursor-pointer">
+              <option value="ACTIVE">Hiển thị cho học viên</option>
+              <option value="INACTIVE">Tạm ẩn</option>
+              <option value="ARCHIVED">Lưu trữ</option>
+            </select>
+          </label>
         <label className="block">
           <span className="mb-2 block text-xs font-bold uppercase tracking-[0.18em] text-[#1D4532]">
-            Thứ tự hiển thị
+            Thứ tự câu hỏi
           </span>
           <input
             type="number"
@@ -380,11 +366,9 @@ const QuizEditor = ({ initial, defaultOrderIndex, saving, apiError, audioAssets 
             onChange={(event) => setOrderIndex(Number(event.target.value))}
             className="input tabular-nums"
           />
-          <span className="mt-2 block text-xs text-on-surface-variant/70">
-            Câu hỏi sẽ xuất hiện dưới dạng &ldquo;CÂU HỎI #{orderIndex}&rdquo; trong danh sách.
-          </span>
         </label>
-      </section>
+        </div>
+      </details>
 
       <datalist id="quiz-note-suggestions">
         {['C1', 'D1', 'E1', 'F1', 'G1', 'A1', 'B1', 'C2', 'D2', 'E2', 'F2', 'G2', 'A2', 'B2', 'C3', 'D3', 'E3', 'F3', 'G3', 'A3', 'B3', 'C4', 'D4', 'E4', 'F4', 'G4', 'A4', 'B4', 'C5', 'D5', 'E5', 'F5', 'G5', 'A5', 'B5', 'C6', 'Đô', 'Rê', 'Mi', 'Fa', 'Sol', 'La', 'Si'].map((n) => (

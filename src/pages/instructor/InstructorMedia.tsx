@@ -74,7 +74,7 @@ const InstructorMedia = () => {
     lessonsApi.listAll({ signal })
     , []);
 
-  const { data: lessonsResponse, loading: lessonsLoading, execute: reloadLessons } = useAxiosRequest(
+  const { data: lessonsResponse, loading: lessonsLoading, error: lessonsError, execute: reloadLessons } = useAxiosRequest(
     fetchLessons, { auto: true }
   );
 
@@ -87,7 +87,7 @@ const InstructorMedia = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [perPage, setPerPage] = useState(5);
 
-  const { data: instruments = [] } = useAxiosRequest<any[]>(
+  const { data: instruments = [], loading: instrumentsLoading, error: instrumentsError, execute: reloadInstruments } = useAxiosRequest<any[]>(
     (signal) => masterDataApi.instruments({ signal }),
     { auto: true, initialData: [] }
   );
@@ -252,13 +252,21 @@ const InstructorMedia = () => {
           <section aria-label="Phạm vi nhạc cụ" className="flex flex-col gap-3 rounded-2xl border border-[#d8eadf] bg-[#f7fbf8] p-4 md:flex-row md:items-center md:justify-between">
             <div>
               <p className="text-xs font-bold uppercase tracking-[0.12em] text-[#567364]">Nhạc cụ đang cấu hình</p>
-              <p className="mt-1 text-lg font-bold text-[#1D4532]">{activeInstrument ? getInstrumentTranslation(activeInstrument.name) : 'Đang tải nhạc cụ…'}</p>
+              <p className="mt-1 text-lg font-bold text-[#1D4532]">
+                {activeInstrument ? getInstrumentTranslation(activeInstrument.name) : instrumentsLoading ? 'Đang tải nhạc cụ…' : instrumentsError ? 'Không tải được nhạc cụ' : 'Chưa có nhạc cụ'}
+              </p>
+              {instrumentsError && (
+                <button type="button" onClick={() => { void reloadInstruments().catch(() => undefined); }} className="mt-1 text-sm font-semibold text-red-700 underline">
+                  Thử tải lại nhạc cụ
+                </button>
+              )}
               <p className="mt-1 text-xs text-on-surface-variant">Chọn nhạc cụ trước, sau đó chọn cấp để biên soạn đúng giáo trình.</p>
             </div>
             <label className="flex min-w-[250px] flex-col gap-1 text-xs font-semibold text-[#52605a]">
               Chuyển nhạc cụ
               <select
                 value={selectedInstrumentId === 'ALL' ? '' : selectedInstrumentId}
+                disabled={instrumentsLoading || instruments.length === 0}
                 onChange={(e) => { setSelectedInstrumentId(Number(e.target.value)); setCurrentPage(1); }}
                 className="rounded-lg border border-[#c9ddcf] bg-white px-3 py-2.5 text-sm font-bold text-[#1D4532] outline-none focus:ring-2 focus:ring-[#1D4532]/20"
               >
@@ -329,6 +337,11 @@ const InstructorMedia = () => {
           {lessonsLoading ? (
             <div className="flex items-center justify-center py-xl text-[#1D4532]">
               <Loader2 className="w-6 h-6 animate-spin mr-2" /> Đang tải danh sách bài học...
+            </div>
+          ) : lessonsError ? (
+            <div role="alert" className="rounded-2xl border border-red-200 bg-red-50 p-6 text-center text-red-800">
+              <p>Không tải được danh sách bài học. {lessonsError}</p>
+              <button type="button" onClick={() => { void reloadLessons().catch(() => undefined); }} className="mt-3 font-semibold underline">Thử tải lại</button>
             </div>
           ) : sortedLessons.length === 0 ? (
             <div className="bg-white rounded-2xl border border-dashed border-[#E5E7EB] p-2xl text-center">
