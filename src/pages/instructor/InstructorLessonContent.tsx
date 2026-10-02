@@ -625,7 +625,7 @@ const InstructorLessonContent = () => {
 
       {error && <div className="mb-5 rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-red-800">{error}</div>}
       {successMessage && <div role="status" className="mb-5 rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-emerald-800">{successMessage}</div>}
-      {!loading && lesson && !canEdit && <p className="mb-4 text-sm text-on-surface-variant">Chế độ xem. Chỉ người phụ trách được sửa bài nháp hoặc bài bị từ chối.</p>}
+      {!loading && lesson && !canEdit && <p className="mb-4 text-sm text-on-surface-variant">Chế độ xem. Tài khoản hiện tại không có quyền biên soạn nội dung bài học.</p>}
 
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5">
         <div className="flex gap-2 bg-white p-1.5 rounded-xl border border-outline-variant/10 shadow-sm overflow-x-auto">
