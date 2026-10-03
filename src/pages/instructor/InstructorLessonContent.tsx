@@ -644,9 +644,15 @@ const InstructorLessonContent = () => {
             </button>
           ))}
         </div>
-        <button disabled={!canEdit || loading} onClick={openCreate} className="inline-flex justify-center items-center gap-2 bg-[#1D4532] text-white px-5 py-3 rounded-xl font-bold shadow-md hover:opacity-90 transition-all disabled:opacity-50">
-          <Plus className="w-5 h-5" /> Thêm {tabs.find((item) => item.id === tab)?.label.toLowerCase()}
-        </button>
+        {tab === 'exercises' ? (
+          <button disabled={!canEdit || loading} onClick={openCreate} className="inline-flex justify-center items-center gap-2 bg-[#1D4532] text-white px-5 py-3 rounded-xl font-bold shadow-md hover:opacity-90 transition-all disabled:opacity-50">
+            <Plus className="w-5 h-5" /> Thêm bài tập
+          </button>
+        ) : (
+          <Link to={tab === 'quizzes' ? '/instructor/quiz' : '/instructor/minigame'} className="inline-flex justify-center items-center gap-2 bg-[#1D4532] text-white px-5 py-3 rounded-xl font-bold shadow-md hover:opacity-90 transition-all">
+            <Plus className="w-5 h-5" /> Tạo {tab === 'quizzes' ? 'Quiz' : 'Minigame'} theo nhạc cụ
+          </Link>
+        )}
       </div>
 
       {currentStatistics && (

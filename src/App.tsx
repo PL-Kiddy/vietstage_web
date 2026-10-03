@@ -19,6 +19,7 @@ import InstructorLessonContent from './pages/instructor/InstructorLessonContent'
 import InstructorStudents from './pages/instructor/InstructorStudents';
 import InstructorMedia from './pages/instructor/InstructorMedia';
 import InstructorProfile from './pages/instructor/InstructorProfile';
+import InstructorActivities from './pages/instructor/InstructorActivities';
 
 function App() {
   // Show loading screen for 2.5s on initial app load
@@ -60,6 +61,8 @@ function App() {
               <Route path="lessons/:lessonId/content" element={<InstructorLessonContent />} />
               <Route path="students" element={<InstructorStudents />} />
               <Route path="media" element={<InstructorMedia />} />
+              <Route path="quiz" element={<InstructorActivities />} />
+              <Route path="minigame" element={<InstructorActivities />} />
               <Route path="profile" element={<InstructorProfile />} />
             </Route>
           </Route>

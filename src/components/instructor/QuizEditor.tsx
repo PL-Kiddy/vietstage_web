@@ -21,6 +21,8 @@ interface QuizEditorProps {
   initial: Quiz | null;
   defaultOrderIndex: number;
   saving: boolean;
+  disabled?: boolean;
+  standalone?: boolean;
   apiError?: string;
   audioAssets?: LessonAsset[];
   instrument?: 'dan_tranh' | 'sao_truc';
@@ -29,7 +31,7 @@ interface QuizEditorProps {
 }
 
 // Editor tạo/sửa câu hỏi Quiz: tiêu đề, loại (GENERAL/NOTE_IDENTIFICATION), câu hỏi, >=4 lựa chọn, đáp án đúng
-const QuizEditor = ({ initial, defaultOrderIndex, saving, apiError, audioAssets = [], instrument = 'dan_tranh', onCancel, onSubmit }: QuizEditorProps) => {
+const QuizEditor = ({ initial, defaultOrderIndex, saving, disabled = false, standalone = false, apiError, audioAssets = [], instrument = 'dan_tranh', onCancel, onSubmit }: QuizEditorProps) => {
   const isEditing = initial !== null;
 
   const [title, setTitle] = useState(initial?.title ?? '');
@@ -100,6 +102,7 @@ const QuizEditor = ({ initial, defaultOrderIndex, saving, apiError, audioAssets 
   // Validate toàn bộ form rồi build QuizInput (options dạng JSON string) để submit
   const handleSubmit = (event: FormEvent) => {
     event.preventDefault();
+    if (saving || disabled) return;
     const nextErrors: Record<string, string> = {};
 
     if (!title.trim()) nextErrors.title = 'Vui lòng nhập tiêu đề câu hỏi.';
@@ -109,6 +112,7 @@ const QuizEditor = ({ initial, defaultOrderIndex, saving, apiError, audioAssets 
     }
 
     if (!question.trim()) nextErrors.question = 'Vui lòng nhập nội dung câu hỏi.';
+    if (!Number.isInteger(orderIndex) || orderIndex < 0) nextErrors.order = 'Thứ tự phải là số nguyên từ 0 trở lên.';
 
     if (filledOptions.length < MIN_OPTIONS) {
       nextErrors.options = `Nhập ít nhất ${MIN_OPTIONS} lựa chọn.`;
@@ -141,7 +145,7 @@ const QuizEditor = ({ initial, defaultOrderIndex, saving, apiError, audioAssets 
 
   return (
     <form onSubmit={(event) => void handleSubmit(event)} noValidate className="flex min-h-0 flex-1 flex-col">
-      <div className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain p-4 sm:p-6 custom-scrollbar">
+      <fieldset disabled={saving || disabled} className={`min-w-0 min-h-0 flex-1 space-y-5 p-4 sm:p-6 ${standalone ? '' : 'overflow-y-auto overscroll-contain custom-scrollbar'}`}>
       {apiError && (
         <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 font-medium">
           {apiError}
@@ -283,9 +287,10 @@ const QuizEditor = ({ initial, defaultOrderIndex, saving, apiError, audioAssets 
           <h3 className="text-xs font-bold uppercase tracking-[0.18em] text-[#1D4532]">Câu hỏi</h3>
         </div>
         <textarea
-          autoFocus
+          autoFocus={!standalone}
           rows={3}
           required
+          aria-label="Nội dung câu hỏi"
           value={question}
           onChange={(event) => {
             setQuestion(event.target.value);
@@ -327,6 +332,7 @@ const QuizEditor = ({ initial, defaultOrderIndex, saving, apiError, audioAssets 
                 <input
                   type="radio"
                   name="correct-option"
+                  aria-label={`Đáp án đúng ${optionLetter(index)}`}
                   className="sr-only"
                   checked={correctIndex === index}
                   onChange={() => markCorrect(index)}
@@ -339,6 +345,7 @@ const QuizEditor = ({ initial, defaultOrderIndex, saving, apiError, audioAssets 
               </span>
 
               <input
+                aria-label={`Lựa chọn ${optionLetter(index)}`}
                 value={option}
                 onChange={(event) => updateOption(index, event.target.value)}
                 placeholder={`Lựa chọn ${optionLetter(index)}`}
@@ -385,6 +392,7 @@ const QuizEditor = ({ initial, defaultOrderIndex, saving, apiError, audioAssets 
             className="input tabular-nums"
           />
         </label>
+        {errors.order && <FieldError message={errors.order} />}
       </section>
 
       <datalist id="quiz-note-suggestions">
@@ -393,17 +401,18 @@ const QuizEditor = ({ initial, defaultOrderIndex, saving, apiError, audioAssets 
         ))}
       </datalist>
 
-      </div>
+      </fieldset>
       <div className="grid shrink-0 grid-cols-2 gap-3 border-t border-[#e4e9e5] bg-white px-4 py-4 sm:px-6">
         <button
           type="button"
+          disabled={saving || disabled}
           onClick={onCancel}
           className="rounded-xl border border-outline-variant/40 px-5 py-3.5 font-bold text-on-surface-variant transition-all duration-200 hover:bg-[#f0eee9] active:scale-[0.98]"
         >
-          Hủy
+          {standalone ? 'Làm mới' : 'Hủy'}
         </button>
         <button
-          disabled={saving}
+          disabled={saving || disabled}
           className="rounded-xl bg-[#1D4532] px-5 py-3.5 font-bold text-white shadow-md shadow-[#1D4532]/20 transition-all duration-200 hover:bg-[#1D4532]/90 hover:shadow-lg hover:shadow-[#1D4532]/25 active:scale-[0.98] disabled:opacity-60 disabled:shadow-none"
         >
           {saving ? 'Đang lưu...' : isEditing ? 'Lưu thay đổi' : 'Tạo câu hỏi'}

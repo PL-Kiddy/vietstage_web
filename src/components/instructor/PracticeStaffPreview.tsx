@@ -2,16 +2,18 @@ import type { PracticeSheetEvent, PracticeSheetConfig } from './PracticeSheetCom
 
 // Same diatonic coordinates as StaffDisplay.gd's ZT_ notes:
 // Mi2/E4 = bottom staff line, Do2/C4 = first ledger below.
-export function staffPosition(note: string): number {
+function staffPosition(note: string): number {
   const normalized = note.replace(/^ZT_/, '').replace(/_/g, '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/Đ/g, 'D');
   const match = /^(Do|Re|Mi|Fa|Sol|La|Si)([1-4])$/.exec(normalized);
   if (!match) return 0;
   return ((Number(match[2]) - 2) * 7 + ['Do', 'Re', 'Mi', 'Fa', 'Sol', 'La', 'Si'].indexOf(match[1]) - 2) / 2;
 }
 
-export default function PracticeStaffPreview({ events, instrument = 'dan_tranh', timeSignature, annotations, maskedIndices = [] }: { events: PracticeSheetEvent[]; instrument?: 'dan_tranh' | 'sao_truc'; timeSignature?: PracticeSheetConfig['timeSignature']; annotations?: string[]; maskedIndices?: number[] }) {
+export type StaffClef = 'treble' | 'bass';
+
+export default function PracticeStaffPreview({ events, instrument = 'dan_tranh', timeSignature, annotations, maskedIndices = [], clef = 'treble' }: { events: PracticeSheetEvent[]; instrument?: 'dan_tranh' | 'sao_truc'; timeSignature?: PracticeSheetConfig['timeSignature']; annotations?: string[]; maskedIndices?: number[]; clef?: StaffClef }) {
   const isFlute = instrument === 'sao_truc';
-  const positionOf = (note: string) => {
+  const treblePositionOf = (note: string) => {
     const scientific = /^([A-G])([#b]?)(\d)$/.exec(note);
     if (scientific) return ((Number(scientific[3]) - 4) * 7 + ['C', 'D', 'E', 'F', 'G', 'A', 'B'].indexOf(scientific[1]) - 2) / 2;
     if (!isFlute) return staffPosition(note);
@@ -19,6 +21,8 @@ export default function PracticeStaffPreview({ events, instrument = 'dan_tranh',
     // Godot renders flute Do at -1 and Do2 at 2.5 (written octave).
     return staffPosition(plain.endsWith('2') ? plain.replace(/2$/, '3') : `${plain}2`);
   };
+  // Bass staff starts on G2, twelve diatonic steps below the treble staff's E4.
+  const positionOf = (note: string) => treblePositionOf(note) + (clef === 'bass' ? 6 : 0);
   const spacing = 16;
   const positions = events.flatMap(event => event.notes.filter(note => note !== 'REST').map(positionOf));
   const highest = Math.max(4, ...positions);
@@ -29,17 +33,22 @@ export default function PracticeStaffPreview({ events, instrument = 'dan_tranh',
   const height = fingerY + Math.max(1, ...events.map(event => event.fingering.length)) * 18 + 12;
   const width = Math.max(480, 160 + events.length * 62);
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`Khuông khóa Sol${timeSignature ? `, nhịp ${timeSignature.numerator}/${timeSignature.denominator}` : ', chưa thêm số chỉ nhịp'}`} className="block w-full" style={{ minWidth: events.length > 5 ? width : undefined, maxHeight: 280 }}>
+    <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`Khuông khóa ${clef === 'bass' ? 'Fa' : 'Sol'}${timeSignature ? `, nhịp ${timeSignature.numerator}/${timeSignature.denominator}` : ', chưa thêm số chỉ nhịp'}`} className="block w-full" style={{ minWidth: events.length > 5 ? width : undefined, maxHeight: 280 }}>
       <g stroke="#514b40" strokeWidth="1.3">
         {[0, 1, 2, 3, 4].map(position => <line key={position} x1="12" x2={width - 12} y1={y(position)} y2={y(position)} />)}
         <line x1="12" x2="12" y1={y(4)} y2={y(0)} />
       </g>
-      <text x="14" y={y(0) + 8} fontFamily="Segoe UI Symbol, Noto Music, serif" fontSize="94" fill="#151515">𝄞</text>
+      {clef === 'bass' ? <g fill="#151515" aria-label="Khóa Fa">
+        <circle cx="23" cy={y(3)} r="5" />
+        <path d={`M 23 ${y(3)} C 18 ${y(3) - 22}, 49 ${y(3) - 23}, 49 ${y(3) - 2} C 49 ${y(3) + 18}, 29 ${y(3) + 29}, 18 ${y(3) + 32} C 33 ${y(3) + 22}, 41 ${y(3) + 12}, 41 ${y(3) - 2} C 41 ${y(3) - 18}, 24 ${y(3) - 17}, 23 ${y(3)} Z`} />
+        <circle cx="58" cy={y(3) - 8} r="3" /><circle cx="58" cy={y(3) + 8} r="3" />
+      </g> : <text x="14" y={y(0) + 8} fontFamily="Segoe UI Symbol, Noto Music, serif" fontSize="94" fill="#151515">𝄞</text>}
       {timeSignature && <g fontFamily="Georgia, serif" fontSize="38" fontWeight="bold" textAnchor="middle" fill="#302d29">
         <text x="94" y={y(2) - 2}>{timeSignature.numerator}</text><text x="94" y={y(0) - 2}>{timeSignature.denominator}</text>
       </g>}
       {events.map((event, index) => {
         const x = (timeSignature ? 150 : 112) + index * 62;
+        if (event.notes.length === 0) return null;
         if (maskedIndices.includes(index)) return <g key={index}><rect x={x - 19} y={y(4) - 12} width="38" height="88" rx="8" fill="#fff8df" stroke="#bb8c2b" strokeDasharray="4 3" /><text x={x} y={y(2) + 9} textAnchor="middle" fontSize="30" fill="#88601b">?</text></g>;
         if (event.notes[0] === 'REST') return <g key={index} fill="#151515"><title>Dấu lặng</title>{event.duration === 'whole' || event.duration === 'half' ? <rect x={x - 8} y={event.duration === 'whole' ? y(3) : y(2) - 5} width="16" height="5" /> : <text x={x} y={y(2) + 13} fontFamily="Segoe UI Symbol, serif" textAnchor="middle" fontSize="40">{event.duration === 'eighth' ? '𝄾' : event.duration === 'sixteenth' ? '𝄿' : '𝄽'}</text>}</g>;
         const notes = event.notes.map((note, noteIndex) => ({ note, noteIndex, position: positionOf(note) })).sort((a, b) => a.position - b.position);
@@ -53,7 +62,7 @@ export default function PracticeStaffPreview({ events, instrument = 'dan_tranh',
         for (let p = 5; p <= high; p++) ledgers.push(p);
         const markY = Math.min(y(high) - 21, up ? tip - 10 : Infinity);
         return <g key={index} fill="#151515">
-          <title>{event.notes.join(' + ')} · {event.duration === 'half' ? 'Nốt trắng' : 'Nốt đen'}</title>
+          <title>{event.notes.join(' + ')} · {({ whole: 'Nốt tròn', half: 'Nốt trắng', quarter: 'Nốt đen', eighth: 'Nốt móc đơn', sixteenth: 'Nốt móc kép' })[event.duration]}</title>
           {ledgers.map(p => <line key={p} x1={x - 16} x2={x + 16} y1={y(p)} y2={y(p)} stroke="#514b40" strokeWidth="1.5" />)}
           {event.duration !== 'whole' && <line x1={stemX} x2={stemX} y1={up ? y(low) : y(high)} y2={tip} stroke="#151515" strokeWidth="1.8" />}
           {(event.duration === 'eighth' || event.duration === 'sixteenth') && Array.from({ length: event.duration === 'sixteenth' ? 2 : 1 }, (_, i) => <path key={i} d={`M ${stemX} ${tip + (up ? 1 : -1) * i * 8} q 19 ${up ? 10 : -10} 8 ${up ? 24 : -24}`} fill="none" stroke="#151515" strokeWidth="3" />)}

@@ -99,7 +99,7 @@ const InstructorMedia = () => {
   // ── Fetch lessons ─────────────────────────────────────────────────────
   // Tải danh sách bài học (size 100, sort theo orderIndex)
   const fetchLessons = useCallback((signal?: AbortSignal) =>
-    lessonsApi.listAll({ signal })
+    lessonsApi.listAll({ signal, timeout: 30000 })
     , []);
 
   const { data: lessonsResponse, loading: lessonsLoading, error: lessonsError, execute: reloadLessons } = useAxiosRequest(
@@ -116,12 +116,12 @@ const InstructorMedia = () => {
   const [perPage, setPerPage] = useState(5);
 
   const { data: instruments = [], loading: instrumentsLoading, error: instrumentsError, execute: reloadInstruments } = useAxiosRequest<any[]>(
-    (signal) => masterDataApi.instruments({ signal }),
+    (signal) => masterDataApi.instruments({ signal, timeout: 30000 }),
     { auto: true, initialData: [] }
   );
 
   const { data: skillLevels = [] } = useAxiosRequest<SkillLevel[]>(
-    (signal) => masterDataApi.skillLevels({ signal }),
+    (signal) => masterDataApi.skillLevels({ signal, timeout: 30000 }),
     { auto: true, initialData: [] }
   );
 
@@ -354,7 +354,8 @@ const InstructorMedia = () => {
             {/* Add Lesson Button - Right aligned inline with status filter */}
             <button
               onClick={handleOpenCreateLesson}
-              className="bg-[#1D4532] text-white px-lg h-[42px] rounded-lg font-label-md hover:bg-[#1D4532]/95 transition-all flex items-center justify-center gap-xs shadow-md shrink-0 font-bold whitespace-nowrap"
+              disabled={instrumentsLoading || !!instrumentsError || !activeInstrument}
+              className="bg-[#1D4532] text-white px-lg h-[42px] rounded-lg font-label-md hover:bg-[#1D4532]/95 transition-all flex items-center justify-center gap-xs shadow-md shrink-0 font-bold whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Plus className="w-[18px] h-[18px]" />
               Tạo bài
@@ -362,7 +363,12 @@ const InstructorMedia = () => {
           </div>
 
           {/* Lesson List Table */}
-          {lessonsLoading ? (
+          {instrumentsError ? (
+            <div role="alert" className="rounded-2xl border border-red-200 bg-red-50 p-6 text-center text-red-800">
+              <p>Chưa thể hiển thị giáo trình vì không tải được danh sách nhạc cụ. {instrumentsError}</p>
+              <button type="button" onClick={() => { void reloadInstruments().catch(() => undefined); }} className="mt-3 font-semibold underline">Thử tải lại nhạc cụ</button>
+            </div>
+          ) : lessonsLoading ? (
             <div className="flex items-center justify-center py-xl text-[#1D4532]">
               <Loader2 className="w-6 h-6 animate-spin mr-2" /> Đang tải danh sách bài học...
             </div>
