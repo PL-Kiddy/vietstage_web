@@ -12,7 +12,6 @@ import {
   Search,
   Star,
   Eye,
-  Trash2,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createPortal } from 'react-dom';
@@ -66,8 +65,11 @@ const AdminCosmetics = () => {
     setLoading(true);
     setError('');
     try {
-      const data = await cosmeticsApi.list({ itemType: 'ROOM_DECOR' });
-      setItems(Array.isArray(data) ? data : []);
+      // Some backend deployments currently fail while binding item_type even
+      // though the unfiltered admin endpoint remains available. Load the full
+      // admin catalog and keep this page scoped to room decorations locally.
+      const data = await cosmeticsApi.list();
+      setItems(Array.isArray(data) ? data.filter((item) => item.itemType === 'ROOM_DECOR') : []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Không thể tải danh sách vật phẩm từ máy chủ.');
       setItems([]);
@@ -191,19 +193,6 @@ const AdminCosmetics = () => {
       setError(err instanceof Error ? err.message : 'Không thể lưu vật phẩm.');
     } finally {
       setSaving(false);
-    }
-  };
-
-  // ── Xóa vật phẩm ──
-  const handleDelete = async (item: CosmeticItem) => {
-    setActiveMenu(null);
-    if (!confirm(`Xóa vật phẩm "${item.name}" khỏi danh sách quản lý? Vật phẩm đã có người sở hữu có thể được hệ thống chuyển sang trạng thái không hoạt động.`)) return;
-    try {
-      await cosmeticsApi.remove(item.id);
-      if (selectedItem?.id === item.id) setSelectedItem(null);
-      await loadItems();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Không thể xóa vật phẩm.');
     }
   };
 
@@ -524,14 +513,6 @@ const AdminCosmetics = () => {
                     }`}
                 />
                 {activeMenu.item.status === 'INACTIVE' ? 'Kích hoạt lại' : 'Tạm khóa / Ẩn'}
-              </button>
-              <button
-                type="button"
-                onClick={() => void handleDelete(activeMenu.item)}
-                className="w-full flex items-center gap-2.5 px-3.5 py-2 text-[13px] font-medium text-red-700 hover:bg-red-50 transition-colors border-t border-[#d1e4fb]/40"
-              >
-                <Trash2 className="w-4 h-4" />
-                Xóa vật phẩm
               </button>
             </div>
           </>,

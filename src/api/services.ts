@@ -255,12 +255,12 @@ export const learnerProgressApi = {
 
 // ── Giảng viên: danh sách học viên, lượt luyện tập, phản hồi theo attempt ──
 export const instructorStudentsApi = {
-  listAllStudents: async (options?: RequestOptions): Promise<InstructorLearner[]> => {
+  listAllStudents: async (instrumentId?: number, options?: RequestOptions): Promise<InstructorLearner[]> => {
     const learners = new Map<number, InstructorLearner>();
     let page = 0;
     let totalPages = 1;
     do {
-      const result = await instructorStudentsApi.listStudents(page, 100, undefined, options);
+      const result = await instructorStudentsApi.listStudents(page, 100, undefined, instrumentId, options);
       for (const learner of result.content) learners.set(learner.id, learner);
       totalPages = result.totalPages;
       page += 1;
@@ -268,9 +268,10 @@ export const instructorStudentsApi = {
     return [...learners.values()];
   },
   // Returns only learners the authenticated instructor is allowed to monitor.
-  listStudents: (page = 0, size = 100, search?: string, options?: RequestOptions) => {
+  listStudents: (page = 0, size = 100, search?: string, instrumentId?: number, options?: RequestOptions) => {
     const params = new URLSearchParams({ page: String(page), size: String(size) });
     if (search?.trim()) params.set('search', search.trim());
+    if (instrumentId !== undefined) params.set('instrumentId', String(instrumentId));
     return apiRequest<PageResponse<InstructorLearner>>(`/api/instructor/learners?${params.toString()}`, options);
   },
 
@@ -458,7 +459,4 @@ export const cosmeticsApi = {
   update: (id: number, body: CosmeticRequest, options?: RequestOptions) =>
     apiRequest<CosmeticItem>(`/api/admin/cosmetics/${id}`, { ...options, method: 'PUT', body }),
 
-  // DELETE /api/admin/cosmetics/{id}
-  remove: (id: number, options?: RequestOptions) =>
-    apiRequest<string>(`/api/admin/cosmetics/${id}`, { ...options, method: 'DELETE' }),
 };

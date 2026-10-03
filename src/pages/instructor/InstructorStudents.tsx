@@ -102,6 +102,10 @@ const InstructorStudents = () => {
     setFeedbackComment('');
     setStudentPage(1);
   };
+  const selectedInstrument = useMemo(
+    () => instruments.find((item) => item.name === instrumentFilter),
+    [instruments, instrumentFilter],
+  );
   useEffect(() => { setStudentPage(1); }, [searchQuery]);
 
   // Track currently selected instrument to filter the selected student's progress
@@ -109,10 +113,20 @@ const InstructorStudents = () => {
 
   // The learner list must come from the server; never substitute demo identities
   // when an authorization or connectivity error occurs.
-  const { data: learnersPage, loading: usersLoading, error: usersError } = useAxiosRequest(
-    (signal) => instructorStudentsApi.listAllStudents({ signal }),
-    { auto: true },
+  const { data: learnersPage = [], loading: usersLoading, error: usersError, execute: loadLearners, setData: setLearnersPage } = useAxiosRequest(
+    (signal) => instructorStudentsApi.listAllStudents(selectedInstrument?.id, { signal }),
+    { auto: false, initialData: [] },
   );
+
+  useEffect(() => {
+    if (!selectedInstrument) {
+      setLearnersPage([]);
+      return;
+    }
+    const controller = new AbortController();
+    void loadLearners(controller.signal).catch(() => undefined);
+    return () => controller.abort();
+  }, [selectedInstrument, loadLearners, setLearnersPage]);
 
   const allStudents = useMemo(() => {
     const rawList = learnersPage ?? [];
@@ -122,10 +136,15 @@ const InstructorStudents = () => {
       name: u.fullName,
       email: u.email,
       userCode: u.userCode,
+      instrumentsList: Array.isArray(u.instrumentsList)
+        ? u.instrumentsList
+        : u.instrumentName && !['All', 'Selected Instrument'].includes(u.instrumentName)
+          ? [u.instrumentName]
+          : instrumentFilter ? [instrumentFilter] : [],
     }));
 
     return mapped;
-  }, [learnersPage]);
+  }, [learnersPage, instrumentFilter]);
 
   const filteredStudents = useMemo(() => {
     return allStudents.filter((s: any) => {
@@ -139,11 +158,9 @@ const InstructorStudents = () => {
       // determines which lesson progress is shown after selecting the learner;
       // it must not remove the learner from the list based on a single,
       // optional profile field returned by the API.
-      const hasSelectedInstrument = Boolean(instrumentFilter);
-
-      return matchesSearch && hasSelectedInstrument;
+      return matchesSearch && Boolean(selectedInstrument);
     });
-  }, [allStudents, searchQuery, instrumentFilter]);
+  }, [allStudents, searchQuery, selectedInstrument]);
 
   const totalStudentPages = Math.ceil(filteredStudents.length / studentsPerPage) || 1;
   const paginatedStudents = useMemo(() => {
@@ -222,11 +239,12 @@ const InstructorStudents = () => {
   const studentLessons = useMemo(() => {
     if (!selectedStudent || !selectedStudentInstrument) return [];
     return lessons.filter((lesson: any) => {
+      const lessonInstrumentId = Number((lesson as any).instrument?.id ?? (lesson as any).instrumentId ?? 0);
+      if (selectedInstrument?.id && lessonInstrumentId > 0) return lessonInstrumentId === selectedInstrument.id;
       const lessonInstName = (lesson as any).instrument?.name ?? (lesson as any).instrumentName ?? '';
-      if (!lessonInstName) return false;
-      return lessonInstName.toLowerCase().trim() === selectedStudentInstrument.toLowerCase().trim();
+      return Boolean(lessonInstName) && lessonInstName.toLowerCase().trim() === selectedStudentInstrument.toLowerCase().trim();
     });
-  }, [lessons, selectedStudent, selectedStudentInstrument]);
+  }, [lessons, selectedStudent, selectedStudentInstrument, selectedInstrument]);
 
   useEffect(() => {
     const controller = new AbortController();

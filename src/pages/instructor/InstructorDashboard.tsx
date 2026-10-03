@@ -56,7 +56,7 @@ const InstructorDashboard = () => {
   // Tải toàn bộ dữ liệu dashboard (profile, students, attempts, lessons của chính giảng viên) — cho phép lỗi từng phần
   const fetchDashboard = useCallback(async (signal?: AbortSignal): Promise<InstructorDashboardData> => {
     const profilePromise = profileApi.get({ signal });
-    const studentsPromise = instructorStudentsApi.listStudents(0, 1, undefined, { signal });
+    const studentsPromise = instructorStudentsApi.listStudents(0, 1, undefined, undefined, { signal });
     const recentAttemptsPromise = (async () => {
       // Dashboard chỉ lấy các lượt mới nhất; không tải toàn bộ lịch sử chỉ để đếm.
       const response = await instructorStudentsApi.getInstructorAttempts({ page: recentPage - 1, size: RECENT_PAGE_SIZE }, { signal });
