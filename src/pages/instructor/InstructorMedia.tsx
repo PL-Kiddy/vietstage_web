@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, type FormEvent } from 'react';
+import { useState, useCallback, useEffect, useLayoutEffect, useRef, type FormEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -67,6 +67,34 @@ const InstructorMedia = () => {
   // ── Curriculum List State ─────────────────────────────────────────────
   const [searchQuery, setSearchQuery] = useState('');
   const [openActionMenuId, setOpenActionMenuId] = useState<number | null>(null);
+  const [actionMenuAnchor, setActionMenuAnchor] = useState<{ top: number; bottom: number; right: number } | null>(null);
+  const [actionMenuPosition, setActionMenuPosition] = useState({ top: 0, left: 0 });
+  const actionMenuRef = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    if (openActionMenuId === null || !actionMenuAnchor || !actionMenuRef.current) return;
+    const menu = actionMenuRef.current;
+    const gap = 4;
+    const top = actionMenuAnchor.bottom + menu.offsetHeight + gap <= window.innerHeight - 12
+      ? actionMenuAnchor.bottom + gap
+      : Math.max(12, actionMenuAnchor.top - menu.offsetHeight - gap);
+    const left = Math.max(12, Math.min(actionMenuAnchor.right - menu.offsetWidth, window.innerWidth - menu.offsetWidth - 12));
+    setActionMenuPosition({ top, left });
+  }, [openActionMenuId, actionMenuAnchor]);
+
+  useEffect(() => {
+    if (openActionMenuId === null) return;
+    const close = () => setOpenActionMenuId(null);
+    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === 'Escape') close(); };
+    window.addEventListener('scroll', close, true);
+    window.addEventListener('resize', close);
+    window.addEventListener('keydown', closeOnEscape);
+    return () => {
+      window.removeEventListener('scroll', close, true);
+      window.removeEventListener('resize', close);
+      window.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [openActionMenuId]);
 
   // ── Fetch lessons ─────────────────────────────────────────────────────
   // Tải danh sách bài học (size 100, sort theo orderIndex)
@@ -409,19 +437,38 @@ const InstructorMedia = () => {
                           })()}
                         </td>
                         {/* Thao tác Menu (3 dấu chấm) */}
-                        <td className="py-md px-md text-right relative pr-6" onClick={(e) => e.stopPropagation()}>
+                        <td className="py-md px-md text-right pr-6" onClick={(e) => e.stopPropagation()}>
                           <button
-                            onClick={() => setOpenActionMenuId(openActionMenuId === lesson.id ? null : lesson.id)}
+                            type="button"
+                            onClick={(event) => {
+                              if (openActionMenuId === lesson.id) {
+                                setOpenActionMenuId(null);
+                              } else {
+                                const rect = event.currentTarget.getBoundingClientRect();
+                                setActionMenuAnchor({ top: rect.top, bottom: rect.bottom, right: rect.right });
+                                setActionMenuPosition({ top: rect.bottom + 4, left: Math.max(12, rect.right - 288) });
+                                setOpenActionMenuId(lesson.id);
+                              }
+                            }}
                             className="p-2 hover:bg-[#EDF7F2] rounded-full transition-colors text-on-surface-variant hover:text-on-surface"
                             title="Thao tác"
+                            aria-label={`Thao tác cho bài ${lesson.title}`}
+                            aria-haspopup="menu"
+                            aria-expanded={openActionMenuId === lesson.id}
                           >
                             <MoreVertical className="w-5 h-5" />
                           </button>
 
-                          {openActionMenuId === lesson.id && (
+                          {openActionMenuId === lesson.id && createPortal(
                             <>
-                              <div className="fixed inset-0 z-10" onClick={() => setOpenActionMenuId(null)} />
-                              <div className="absolute right-6 mt-1 w-72 bg-white border border-[#d1e4fb] rounded-xl shadow-lg py-1 z-20 text-left overflow-hidden">
+                              <div className="fixed inset-0 z-[100]" onClick={() => setOpenActionMenuId(null)} />
+                              <div
+                                ref={actionMenuRef}
+                                role="menu"
+                                aria-label={`Thao tác cho bài ${lesson.title}`}
+                                className="fixed z-[101] w-72 max-w-[calc(100vw-24px)] max-h-[calc(100vh-24px)] overflow-y-auto bg-white border border-[#d1e4fb] rounded-xl shadow-lg py-1 text-left"
+                                style={{ top: actionMenuPosition.top, left: actionMenuPosition.left }}
+                              >
                                 {canEditLesson(instructor, lesson) && <button
                                   onClick={() => handleOpenEditLesson(lesson)}
                                   className="w-full flex items-center gap-2.5 px-4 py-2.5 hover:bg-[#EDF7F2] text-[13px] font-medium text-on-surface transition-colors whitespace-nowrap"
@@ -441,7 +488,8 @@ const InstructorMedia = () => {
                                   Bài tập, Quiz & Ngưỡng đạt
                                 </Link>
                               </div>
-                            </>
+                            </>,
+                            document.body
                           )}
                         </td>
                       </tr>
