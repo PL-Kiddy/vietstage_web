@@ -34,12 +34,17 @@ const CURRICULUM_LEVELS: Array<{ key: CurriculumLevelKey; number: number; label:
 
 const normalizeLevelText = (value?: string) => (value ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 
-const getCurriculumLevelKey = (level?: Partial<SkillLevel> | null): CurriculumLevelKey => {
+const getCurriculumLevelKey = (level?: Partial<SkillLevel> | null, catalog: SkillLevel[] = []): CurriculumLevelKey => {
+  // Lesson responses contain only the level ID/name; resolve the full master data.
+  level = { ...level, ...catalog.find(item => item.id === level?.id) };
   const code = level?.levelCode?.toUpperCase();
   if (code === 'INTERMEDIATE') return 'INTERMEDIATE';
   if (code === 'ADVANCED') return 'ADVANCED';
   if (code === 'BEGINNER') return 'BEGINNER';
   const name = normalizeLevelText(level?.levelName);
+  const numberedLevel = `${code ?? ''} ${name}`.match(/(?:level|cap|bac)[\s_-]*([123])\b/i)?.[1];
+  if (numberedLevel === '2') return 'INTERMEDIATE';
+  if (numberedLevel === '3') return 'ADVANCED';
   if (name.includes('trung cap') || name.includes('intermediate')) return 'INTERMEDIATE';
   if (name.includes('cao cap') || name.includes('nang cao') || name.includes('advanced')) return 'ADVANCED';
   if (level?.orderIndex === 2) return 'INTERMEDIATE';
@@ -154,7 +159,7 @@ const InstructorMedia = () => {
     setLessonTitle('');
     setLessonInstrumentId(selectedInstrumentId);
     setLessonSkillLevelId(getBackendSkillLevelId(selectedCurriculumLevel));
-    const scoped = lessons.filter(l => l.instrument?.id === selectedInstrumentId && getCurriculumLevelKey(l.skillLevel) === selectedCurriculumLevel);
+    const scoped = lessons.filter(l => l.instrument?.id === selectedInstrumentId && getCurriculumLevelKey(l.skillLevel, skillLevels) === selectedCurriculumLevel);
     setLessonOrderIndex(Math.max(0, ...scoped.map(l => l.orderIndex ?? 0)) + 1);
     setLessonModalOpen(true);
   };
@@ -167,7 +172,7 @@ const InstructorMedia = () => {
     setLessonTitle(lesson.title);
     setLessonInstrumentId((lesson as any).instrument?.id ?? (lesson as any).instrument_id ?? instruments[0]?.id ?? null);
     const lessonLevel = ((lesson as any).skillLevel ?? (lesson as any).skill_level) as Partial<SkillLevel> | undefined;
-    const curriculumLevel = getCurriculumLevelKey(lessonLevel);
+    const curriculumLevel = getCurriculumLevelKey(lessonLevel, skillLevels);
     setLessonSkillLevelId(lessonLevel?.id ?? getBackendSkillLevelId(curriculumLevel));
     setLessonOrderIndex((lesson as any).orderIndex ?? (lesson as any).order_index ?? 1);
     setOpenActionMenuId(null);
@@ -222,7 +227,7 @@ const InstructorMedia = () => {
 
   const filteredLessons = lessons.filter((lesson) => {
     // Tập trung đúng một trong ba cấp cố định để giảng viên chỉnh giáo trình.
-    if (getCurriculumLevelKey((lesson as any).skillLevel ?? (lesson as any).skill_level) !== selectedCurriculumLevel) return false;
+    if (getCurriculumLevelKey((lesson as any).skillLevel ?? (lesson as any).skill_level, skillLevels) !== selectedCurriculumLevel) return false;
     // 1. Instrument filter
     if (selectedInstrumentId !== 'ALL') {
       const instId = (lesson as any).instrument?.id ?? (lesson as any).instrument_id;
@@ -306,7 +311,7 @@ const InstructorMedia = () => {
           <section aria-label="Ba cấp giáo trình cố định" className="flex flex-wrap gap-2 rounded-xl border border-outline-variant/15 bg-white p-2">
             {CURRICULUM_LEVELS.map((level) => {
               const isSelected = level.key === selectedCurriculumLevel;
-              const lessonCount = lessonsForActiveInstrument.filter((lesson) => getCurriculumLevelKey((lesson as any).skillLevel ?? (lesson as any).skill_level) === level.key).length;
+              const lessonCount = lessonsForActiveInstrument.filter((lesson) => getCurriculumLevelKey((lesson as any).skillLevel ?? (lesson as any).skill_level, skillLevels) === level.key).length;
               return (
                 <button
                   key={level.key}
