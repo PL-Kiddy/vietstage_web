@@ -9,6 +9,9 @@ import QuizEditor from '../../components/instructor/QuizEditor';
 import MinigameComposer from '../../components/instructor/MinigameComposer';
 
 const emptyMinigame: MinigameInput = { title: '', challengeType: 'RHYTHM_MATCH', difficulty: 'BEGINNER', maxScore: 100, orderIndex: 1, status: 'ACTIVE', contentJson: '{}' };
+const statusLabel: Record<string, string> = { ACTIVE: 'Đang phát hành', INACTIVE: 'Tạm ẩn', ARCHIVED: 'Lưu trữ' };
+const challengeLabel: Record<string, string> = { RHYTHM_MATCH: 'Khớp nhịp', MELODY_COMPLETE: 'Hoàn thiện giai điệu' };
+const quizLabel: Record<string, string> = { GENERAL: 'Kiến thức chung', NOTE_IDENTIFICATION: 'Nhận diện nốt nhạc' };
 const message = (error: unknown, action: string) => error instanceof ApiError && error.status === 403 ? 'Bạn không có quyền quản lý hoạt động này.' : error instanceof ApiError && error.status === 401 ? 'Phiên đăng nhập đã hết hạn.' : `Không thể ${action}. Vui lòng thử lại.`;
 
 export default function InstructorActivities() {
@@ -95,7 +98,7 @@ function Manager({ kind }: { kind: 'quiz' | 'minigame' }) {
     <section aria-label={`Danh sách ${label}`} className="overflow-hidden rounded-2xl border border-[#d8eadf] bg-white">
       <div className="flex items-center justify-between gap-3 border-b p-4"><div><h3 className="font-bold text-[#1D4532]">{label} của {instrument?.name ?? 'nhạc cụ'}</h3><p className="text-xs text-on-surface-variant">{items.length} hoạt động</p></div><button type="button" disabled={listLoading || !instrumentId} onClick={() => setReload(value => value + 1)} className="rounded-lg border px-3 py-2 text-sm disabled:opacity-50">Tải lại</button></div>
       {listLoading ? <p className="p-5 text-sm">Đang tải danh sách…</p> : items.length === 0 ? <p className="p-5 text-sm">Chưa có {label} cho nhạc cụ này.</p> : <ul className="divide-y">{items.map(item => <li key={item.id} className="flex flex-wrap items-center justify-between gap-3 p-4">
-        <div><p className="font-semibold text-[#1D4532]">{item.title}</p><p className="text-xs text-on-surface-variant">#{item.id} · {kind === 'quiz' ? (item as Quiz).questionType : (item as Minigame).challengeType} · {item.status ?? 'ACTIVE'} · Thứ tự {item.orderIndex}</p></div>
+        <div><p className="font-semibold text-[#1D4532]">{item.title}</p><p className="text-xs text-on-surface-variant">{kind === 'quiz' ? quizLabel[(item as Quiz).questionType] ?? (item as Quiz).questionType : challengeLabel[(item as Minigame).challengeType] ?? (item as Minigame).challengeType} · {statusLabel[item.status ?? 'ACTIVE'] ?? item.status} · Thứ tự {item.orderIndex}</p></div>
         <div className="flex gap-2"><button type="button" disabled={busy} onClick={() => { setEditing(item); setFormKey(value => value + 1); setError(''); }} className="rounded-lg border px-3 py-2 text-sm font-semibold disabled:opacity-50">Sửa</button><button type="button" disabled={busy} onClick={() => setDeleting(item)} className="rounded-lg border border-red-200 px-3 py-2 text-sm font-semibold text-red-700 disabled:opacity-50">Xóa</button></div>
       </li>)}</ul>}
     </section>

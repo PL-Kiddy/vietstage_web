@@ -52,6 +52,8 @@ Frontend/app đã chuyển sang contract endpoint theo nhạc cụ. Chưa xác n
 
 ## Rà soát lỗi quyền tại `/instructor/quiz` — 04/10/2026
 
+**Cập nhật trạng thái:** phần `created_at=NULL` dưới đây ghi lại một lần POST lỗi trước đó. Source BE hiện đã gán `createdAt` khi tạo Quiz và entity có `@CreationTimestamp`; yêu cầu BE hiện hành nằm tại [quiz-instrument-backend-requirements.md](quiz-instrument-backend-requirements.md). Cần kiểm tra bản Render và DB trước khi kết luận lỗi còn tái diễn.
+
 ### Kết luận cập nhật từ Response POST do người dùng cung cấp
 
 **Đã xác định nguyên nhân POST tạo Quiz thất bại: `created_at` được INSERT với giá trị null, vi phạm NOT NULL của bảng `quizzes`.** Response người dùng cung cấp có `null value in column "created_at" of relation "quizzes" violates not-null constraint` và câu INSERT liệt kê rõ `created_at`. Đây là lỗi lưu DB; response quyền của request `feedback` trong ảnh là vấn đề riêng. Request đã đi đến bước INSERT, nên lỗi quyền không phải nguyên nhân của lần tạo Quiz trong log này.
@@ -108,3 +110,25 @@ Response POST đã được người dùng cung cấp và xác định lỗi con
 Build FE `npm run build` đã thành công trong lần rà soát này (có cảnh báo chunk lớn của Vite). Không thay đổi UI hoặc logic FE; thay đổi duy nhất của nhiệm vụ là tài liệu này.
 
 Chỉ cập nhật tài liệu FE này. Không sửa code, cấu hình hoặc dữ liệu BE; không xác nhận tạo Quiz thành công với tài khoản người dùng khi chưa tái hiện được.
+
+## Rà soát POST tạo Minigame theo nhạc cụ — 04/10/2026
+
+### Bằng chứng và phạm vi
+
+- Ảnh người dùng tại `localhost:5173/instructor/minigame` cho thấy `POST /api/instruments/3/minigames` nhận **HTTP 500**. Ảnh không hiển thị Response body hoặc log server, nên chưa xác định được exception cụ thể.
+- FE gọi đúng endpoint qua `instrumentMinigamesApi.create` (`src/api/lessonContent.ts`) và Vite proxy chuyển `/api` đến `https://vietstage-web-backend.onrender.com` theo `.env`. Không có bằng chứng request được gửi trực tiếp đến BE local.
+- `MinigameComposer` gửi `title`, `challengeType`, `difficulty`, `maxScore`, `orderIndex`, `status`, và `contentJson` dạng JSON string. Với `RHYTHM_MATCH`, form hiện sinh `rounds[0].tempo_bpm` và mảng `rounds[0].beats` có ít nhất hai vị trí nếu có ít nhất hai nốt. Các trường này tương ứng DTO và nhánh validation trong source BE. Cần xem Request Payload trong Network để xác nhận đúng dữ liệu của lần lỗi trên ảnh.
+- Không có phiên INSTRUCTOR trong trình duyệt kiểm thử và không nộp dữ liệu thử lên Render. Lần gọi GET `/api-docs` qua localhost:5173 trong phiên rà soát này bị timeout; không coi đây là xác nhận phiên bản BE đang triển khai.
+
+### Lỗi rõ trong source BE đã commit, cần BE sửa
+
+- `MinigameServiceImpl.createMinigameByInstrument` trên HEAD của repo BE tạo `MinigameChallenge.builder()` **không gán `instrument`** dù nhận `instrumentId`. Vì vậy bản ghi được tạo có `instrument_id` null hoặc thất bại ở DB; dù INSERT thành công, GET theo nhạc cụ cũng không trả hoạt động vừa tạo. Cần tra cứu nhạc cụ theo ID, trả lỗi không tìm thấy nếu thiếu, và `.instrument(instrument)` trước khi lưu.
+- `MinigameServiceImpl.updateMinigame` và `deleteMinigame` trên HEAD gọi `validateLessonOwnership(actor, challenge.getLesson())`. Mini game độc lập theo nhạc cụ có `lesson == null`, nên thao tác quản lý sau tạo có nguy cơ `NullPointerException`/500. Cần kiểm tra quyền theo nguồn liên kết thực tế (lesson hoặc instrument).
+- Source BE local hiện có **thay đổi chưa commit từ nhiệm vụ trước** nhằm gắn instrument và xử lý quyền cho Mini game độc lập. Không thay đổi file BE trong lần rà soát này. Source local chưa chứng minh bản Render đang chạy thay đổi đó.
+- `spring.jpa.hibernate.ddl-auto=none`; cần kiểm tra schema Render đã áp dụng `update_instrument_schema.sql`: bảng `minigame_challenges` phải có `instrument_id` và cho phép `lesson_id` null. Nếu chưa, INSERT Mini game độc lập có thể nhận 500 do lỗi cột hoặc ràng buộc NOT NULL. Đây là khả năng cần đối chiếu log/DB, chưa phải nguyên nhân đã xác nhận.
+
+### BE cần đối chiếu và kiểm thử
+
+1. Lấy Response body của POST trong tab Network và log Render cùng thời điểm. Kiểm tra lỗi `lesson_id NOT NULL`, thiếu `instrument_id`, hoặc exception khác trước khi chốt nguyên nhân HTTP 500. Không chia sẻ Authorization/token.
+2. Trên DB kiểm thử cô lập: dùng INSTRUCTOR tạo `RHYTHM_MATCH` và `MELODY_COMPLETE` cho nhạc cụ A; xác nhận POST thành công, `instrument_id=A`, `lesson_id=null`, GET A có bản ghi, GET B không có; sửa, đổi trạng thái và xóa/lưu trữ theo ID. Kiểm tra ID nhạc cụ không tồn tại trả 404 và LEARNER không được tạo/sửa/xóa.
+3. Sau khi sửa và triển khai BE cùng migration, kiểm thử lại form thật trên web. Hiện **chưa xác minh tạo Minigame thành công với backend triển khai**.
