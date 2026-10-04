@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback, type FormEvent, type MouseEvent } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef, type FormEvent, type MouseEvent } from 'react';
 import { useLocation } from 'react-router-dom';
 import {
   UserPlus,
@@ -104,19 +104,20 @@ const normalizeRole = (user: any): 'Admin' | 'Giảng viên' | 'Người học' 
 // Chuyển user API sang dạng hiển thị ExtendedAdminUser (thêm name/avatar/role/status chuẩn hóa)
 const mapExtendedUser = (user: ApiAdminUser): ExtendedAdminUser => ({
   ...user,
-  name: (user as any).fullName || user.name || 'Chưa cập nhật',
+  name: user.fullName || (user as any).fullName || user.name || 'Chưa cập nhật',
   email: user.email || (user as any).emailAddress || '',
   avatar:
     user.avatar ||
-    (user as any).avatarUrl ||
+    user.avatarUrl ||
     (user as any).profileImageUrl ||
     (user as any).profileImage ||
     (user as any).profile?.avatarUrl ||
     (user as any).profile?.avatar,
+  registeredAt: user.registeredAt || user.createdAt || (user as any).created_at || '',
   specialty: user.specialty ? normalizeInstrumentText(user.specialty) : user.specialty,
   instruments: user.instruments ? uniqueInstrumentOptions(user.instruments) : user.instruments,
   role: normalizeRole(user),
-  status: normalizeStatus(user.status),
+  status: normalizeStatus(user.status, user.active),
   id: String((user as any).userId ?? (user as any).user_id ?? user.id),
 });
 
@@ -125,8 +126,14 @@ const isStaffAccount = (user: any): boolean => {
   return role === 'Admin' || role === 'Giảng viên';
 };
 
-const normalizeStatus = (status?: string): ExtendedAdminUser['status'] =>
-  String(status).toUpperCase() === 'LOCKED' ? 'locked' : 'active';
+const normalizeStatus = (status?: string, active?: boolean): ExtendedAdminUser['status'] => {
+  if (status) {
+    return String(status).toUpperCase() === 'LOCKED' ? 'locked' : 'active';
+  }
+  // Nếu không có status, dùng field `active` (boolean) từ API
+  if (active === false) return 'locked';
+  return 'active';
+};
 
 // Trang quản lý người dùng (thành viên + học viên): danh sách, tìm kiếm, lọc, CRUD, khóa/mở khóa, reset mật khẩu
 const AdminUsers = () => {
@@ -216,31 +223,67 @@ const AdminUsers = () => {
     };
   }, [openActionMenuUserId]);
 
-  // Xây dựng request GET /api/admin/users với filter role/status/search + phân trang
+  // Lấy danh sách người dùng theo trang - chỉ gửi search khi có giá trị (empty string gây 500 backend)
   const loadUsersRequest = useCallback(
     async (signal?: AbortSignal) => {
-      const params = new URLSearchParams({
-        page: String(currentPage - 1),
-        size: String(perPage),
-        search: searchQuery.trim(),
-        sortBy: 'createdAt',
-        sortDir: 'desc',
-      });
+      // Xây dựng params - KHÔNG thêm search khi rỗng
+      const buildParams = (page: number, size: number) => {
+        const params = new URLSearchParams({
+          page: String(page),
+          size: String(size),
+          sortBy: 'createdAt',
+          sortDir: 'desc',
+        });
+        if (searchQuery.trim()) {
+          params.set('search', searchQuery.trim());
+        }
+        if (statusFilter !== 'ALL') {
+          params.set('status', statusFilter);
+        }
+        return params;
+      };
 
       if (isLearnersMode) {
-        params.append('roles', 'LEARNER');
-      } else if (roleFilter === 'ALL') {
-        params.append('roles', 'ADMIN');
-        params.append('roles', 'INSTRUCTOR');
-      } else {
-        params.append('roles', roleFilter);
+        // Trang học viên: gọi API không filter roles, lọc client-side
+        const params = buildParams(currentPage - 1, perPage);
+        const firstPage = await usersApi.list({ signal, params });
+        const learners = firstPage.content.filter((u) => normalizeRole(u) === 'Người học');
+        return {
+          ...firstPage,
+          content: learners,
+        } satisfies PageResponse<ApiAdminUser>;
       }
 
-      if (statusFilter !== 'ALL') {
-        params.set('status', statusFilter);
-      }
+      // Trang quản lý thành viên: lấy tất cả rồi lọc Admin+Instructor client-side
+      const allUsers: ApiAdminUser[] = [];
+      let page = 0;
+      let totalPages = 1;
+      do {
+        const params = buildParams(page, 50);
+        const result = await usersApi.list({ signal, params });
+        allUsers.push(...result.content);
+        totalPages = result.totalPages;
+        page += 1;
+      } while (page < totalPages);
 
-      return usersApi.list({ signal, params });
+      // Lọc chỉ Admin + Instructor
+      const staff = allUsers.filter((user) => {
+        const role = normalizeRole(user);
+        if (roleFilter === 'ALL') return role === 'Admin' || role === 'Giảng viên';
+        if (roleFilter === 'ADMIN') return role === 'Admin';
+        if (roleFilter === 'INSTRUCTOR') return role === 'Giảng viên';
+        return false;
+      }).sort((a, b) => ((b.registeredAt ?? b.createdAt ?? '')).localeCompare(a.registeredAt ?? a.createdAt ?? ''));
+
+      const start = (currentPage - 1) * perPage;
+      return {
+        content: staff.slice(start, start + perPage),
+        page: currentPage - 1,
+        size: perPage,
+        totalElements: staff.length,
+        totalPages: Math.ceil(staff.length / perPage) || 1,
+        last: start + perPage >= staff.length,
+      } satisfies PageResponse<ApiAdminUser>;
     },
     [currentPage, isLearnersMode, perPage, roleFilter, searchQuery, statusFilter],
   );
@@ -252,11 +295,21 @@ const AdminUsers = () => {
     execute: loadUsers,
   } = useAxiosRequest<PageResponse<ApiAdminUser>>(loadUsersRequest, { auto: false });
 
+  // Dùng useRef để theo dõi phiên bản của loadUsersRequest
+  // mỗi khi loadUsersRequest thay đổi (filter/page/search đổi) thì tăng version → useEffect re-run
+  const loadUsersRequestRef = useRef(loadUsersRequest);
+  const [loadVersion, setLoadVersion] = useState(0);
   useEffect(() => {
+    loadUsersRequestRef.current = loadUsersRequest;
+    setLoadVersion((v) => v + 1);
+  }, [loadUsersRequest]);
+
+  useEffect(() => {
+    if (loadVersion === 0) return;
     const controller = new AbortController();
     void loadUsers(controller.signal).catch(() => undefined);
     return () => controller.abort();
-  }, [loadUsers, loadUsersRequest]);
+  }, [loadUsers, loadVersion]);
 
   const { data: instruments = [] } = useAxiosRequest<Instrument[]>(
     (signal) => masterDataApi.instruments({ signal }),
@@ -266,12 +319,6 @@ const AdminUsers = () => {
   const users = useMemo(() => {
     return (usersData?.content ?? []).map(mapExtendedUser);
   }, [usersData]);
-
-  useEffect(() => {
-    if (usersError) {
-      alert(usersError);
-    }
-  }, [usersError]);
 
   const instrumentOptions = uniqueInstrumentOptions(
     instruments.length > 0 ? instruments.map((instrument) => instrument.name) : INSTRUMENT_OPTIONS,
@@ -547,6 +594,12 @@ const AdminUsers = () => {
                     <tr>
                       <td colSpan={5} className="text-center py-xl text-body-md text-[#5e5e5b]">
                         Đang tải danh sách người dùng...
+                      </td>
+                    </tr>
+                  ) : usersError ? (
+                    <tr>
+                      <td colSpan={5} className="text-center py-xl text-body-md text-red-700">
+                        Không tải được danh sách người dùng: {usersError}
                       </td>
                     </tr>
                   ) : pageUsers.length === 0 ? (

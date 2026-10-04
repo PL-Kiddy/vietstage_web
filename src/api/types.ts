@@ -56,14 +56,21 @@ export interface AuthSession extends CurrentUser {
 }
 
 // Người dùng trong danh sách quản lý (AdminUsers)
+// Hỗ trợ cả camelCase và các field thực tế từ API backend (fullName, userCode, active, createdAt)
 export interface AdminUser {
   id: number;
   name: string;
+  // Các trường thực tế từ API AdminUserResponse
+  fullName?: string;
+  userCode?: string;
   email: string;
   role: BackendRole;
+  active?: boolean;
   registeredAt: string;
+  createdAt?: string;
   status: 'ACTIVE' | 'LOCKED';
   avatar?: string;
+  avatarUrl?: string;
   initials?: string;
   specialty?: string;
   stats?: { courses: number; students: string; rating: number };

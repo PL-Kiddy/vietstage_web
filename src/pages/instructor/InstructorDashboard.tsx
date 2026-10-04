@@ -176,15 +176,6 @@ const InstructorDashboard = () => {
         </div>
       </header>
 
-      {data?.hasPartialError && (
-        <div className="flex flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 sm:flex-row sm:items-center sm:justify-between">
-          <span>Một số dữ liệu chưa thể tải. Các phần còn lại vẫn được cập nhật bình thường.</span>
-          <button type="button" onClick={() => void execute()} className="inline-flex items-center gap-1.5 font-semibold hover:underline">
-            <RefreshCw className="h-4 w-4" /> Thử lại
-          </button>
-        </div>
-      )}
-
       <section className="grid grid-cols-1 gap-3 lg:grid-cols-3" aria-label="Chỉ số tổng quan">
         {statCards.map((stat) => (
           <Link
