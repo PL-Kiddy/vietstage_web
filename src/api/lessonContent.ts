@@ -195,6 +195,13 @@ export const quizzesApi = {
   remove: (id: number) => apiRequest<void>(`/api/quizzes/${id}`, { method: 'DELETE' }),
 };
 
+export const instrumentQuizzesApi = {
+  list: (instrumentId: number, signal?: AbortSignal) => apiRequest<Quiz[]>(`/api/instruments/${instrumentId}/quizzes`, { signal }),
+  create: (instrumentId: number, body: QuizInput) => apiRequest<Quiz>(`/api/instruments/${instrumentId}/quizzes`, { method: 'POST', body }),
+  update: quizzesApi.update,
+  remove: quizzesApi.remove,
+};
+
 // ── Minigame (thử thách tương tác): CRUD theo lesson, cấu hình giai điệu lưu trong contentJson ──
 export const minigamesApi = {
   list: (lessonId: number) =>
@@ -204,6 +211,13 @@ export const minigamesApi = {
   update: (id: number, body: MinigameInput) =>
     apiRequest<Minigame>(`/api/minigames/${id}`, { method: 'PUT', body }),
   remove: (id: number) => apiRequest<void>(`/api/minigames/${id}`, { method: 'DELETE' }),
+};
+
+export const instrumentMinigamesApi = {
+  list: (instrumentId: number, signal?: AbortSignal) => apiRequest<Minigame[]>(`/api/instruments/${instrumentId}/minigames`, { signal }),
+  create: (instrumentId: number, body: MinigameInput) => apiRequest<Minigame>(`/api/instruments/${instrumentId}/minigames`, { method: 'POST', body }),
+  update: minigamesApi.update,
+  remove: minigamesApi.remove,
 };
 
 export const activityStatisticsApi = {

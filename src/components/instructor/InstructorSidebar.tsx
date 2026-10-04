@@ -13,8 +13,8 @@ const navItems = [
   { icon: LayoutDashboard, label: 'Tổng quan & Báo cáo', href: '/instructor' },
   { icon: BookOpen, label: 'Nội dung & Học liệu', href: '/instructor/lessons' },
   { icon: GraduationCap, label: 'Cấu hình Giáo trình', href: '/instructor/media' },
-  { icon: HelpCircle, label: 'Tạo Quiz', href: '/instructor/quiz' },
-  { icon: Gamepad2, label: 'Tạo Minigame', href: '/instructor/minigame' },
+  { icon: HelpCircle, label: 'Quản lý Quiz', href: '/instructor/quiz' },
+  { icon: Gamepad2, label: 'Quản lý Minigame', href: '/instructor/minigame' },
   { icon: Users, label: 'Tiến độ & Phản hồi', href: '/instructor/students' },
 ];
 

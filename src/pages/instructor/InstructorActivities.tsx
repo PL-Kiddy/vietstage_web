@@ -1,127 +1,111 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import { AlertCircle, CheckCircle2 } from 'lucide-react';
-import { apiRequest, ApiError } from '../../api/client';
+import { ApiError } from '../../api/client';
 import { masterDataApi } from '../../api/services';
+import { instrumentMinigamesApi, instrumentQuizzesApi } from '../../api/lessonContent';
+import type { Minigame, MinigameInput, Quiz, QuizInput } from '../../api/lessonContent';
 import type { Instrument } from '../../api/types';
-import type { MinigameInput, QuizInput } from '../../api/lessonContent';
 import QuizEditor from '../../components/instructor/QuizEditor';
 import MinigameComposer from '../../components/instructor/MinigameComposer';
 
-const initialMinigame: MinigameInput = {
-  title: '', challengeType: 'RHYTHM_MATCH', difficulty: 'BEGINNER',
-  maxScore: 100, orderIndex: 1, status: 'ACTIVE', contentJson: '{}',
-};
+const emptyMinigame: MinigameInput = { title: '', challengeType: 'RHYTHM_MATCH', difficulty: 'BEGINNER', maxScore: 100, orderIndex: 1, status: 'ACTIVE', contentJson: '{}' };
+const statusLabel: Record<string, string> = { ACTIVE: 'Đang phát hành', INACTIVE: 'Tạm ẩn', ARCHIVED: 'Lưu trữ' };
+const challengeLabel: Record<string, string> = { RHYTHM_MATCH: 'Khớp nhịp', MELODY_COMPLETE: 'Hoàn thiện giai điệu' };
+const quizLabel: Record<string, string> = { GENERAL: 'Kiến thức chung', NOTE_IDENTIFICATION: 'Nhận diện nốt nhạc' };
+const message = (error: unknown, action: string) => error instanceof ApiError && error.status === 403 ? 'Bạn không có quyền quản lý hoạt động này.' : error instanceof ApiError && error.status === 401 ? 'Phiên đăng nhập đã hết hạn.' : `Không thể ${action}. Vui lòng thử lại.`;
 
-const InstructorActivities = () => {
+export default function InstructorActivities() {
   const kind = useLocation().pathname.endsWith('/minigame') ? 'minigame' : 'quiz';
-  return <ActivityComposer key={kind} kind={kind} />;
-};
+  return <Manager key={kind} kind={kind} />;
+}
 
-const ActivityComposer = ({ kind }: { kind: 'quiz' | 'minigame' }) => {
+function Manager({ kind }: { kind: 'quiz' | 'minigame' }) {
   const [instruments, setInstruments] = useState<Instrument[]>([]);
   const [instrumentId, setInstrumentId] = useState<number | null>(null);
-  const [loadError, setLoadError] = useState('');
-  const [saveError, setSaveError] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
-  const [form, setForm] = useState<MinigameInput>(initialMinigame);
-  const [quizFormKey, setQuizFormKey] = useState(0);
+  const [items, setItems] = useState<Array<Quiz | Minigame>>([]);
+  const [editing, setEditing] = useState<Quiz | Minigame | null>(null);
+  const [deleting, setDeleting] = useState<Quiz | Minigame | null>(null);
+  const [formKey, setFormKey] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [retry, setRetry] = useState(0);
-  const noticeRef = useRef<HTMLParagraphElement>(null);
-  const activeInstrument = instruments.find(item => item.id === instrumentId);
-  const unavailable = loading || !!loadError || !activeInstrument;
-
-  useEffect(() => {
-    if (saved || saveError) {
-      noticeRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
-      noticeRef.current?.focus({ preventScroll: true });
-    }
-  }, [saved, saveError]);
+  const [listLoading, setListLoading] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+  const [reload, setReload] = useState(0);
+  const label = kind === 'quiz' ? 'Quiz' : 'Minigame';
+  const instrument = instruments.find(item => item.id === instrumentId);
 
   useEffect(() => {
     const controller = new AbortController();
-    masterDataApi.instruments({ signal: controller.signal })
-      .then((items) => {
-        if (controller.signal.aborted) return;
-        setInstruments(items);
-        setInstrumentId((current) => current ?? items[0]?.id ?? null);
-      })
-      .catch(() => {
-        if (!controller.signal.aborted) setLoadError('Chưa tải được danh sách nhạc cụ. Vui lòng kiểm tra kết nối và thử lại.');
-      })
+    masterDataApi.instruments({ signal: controller.signal }).then(data => {
+      if (controller.signal.aborted) return;
+      setInstruments(data); setInstrumentId(data[0]?.id ?? null);
+    }).catch(caught => { if (!controller.signal.aborted) setError(message(caught, 'tải nhạc cụ')); })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
-  }, [retry]);
+  }, []);
 
-  const create = async (body: QuizInput | MinigameInput) => {
-    if (unavailable || saving) return;
-    setSaving(true);
-    setSaved(false);
-    setSaveError('');
+  useEffect(() => {
+    if (instrumentId === null) return;
+    const controller = new AbortController();
+    setListLoading(true);
+    const request = kind === 'quiz' ? instrumentQuizzesApi.list(instrumentId, controller.signal) : instrumentMinigamesApi.list(instrumentId, controller.signal);
+    request.then(data => { if (!controller.signal.aborted) setItems(data); })
+      .catch(caught => { if (!controller.signal.aborted) { setItems([]); setError(message(caught, `tải danh sách ${label}`)); } })
+      .finally(() => { if (!controller.signal.aborted) setListLoading(false); });
+    return () => controller.abort();
+  }, [instrumentId, kind, reload, label]);
+
+  const reset = () => { setEditing(null); setFormKey(value => value + 1); };
+  const save = async (body: QuizInput | MinigameInput) => {
+    if (instrumentId === null || busy) return;
+    setBusy(true); setError(''); setNotice('');
     try {
-      // BE contract required: activities belong to an instrument, not a lesson.
-      await apiRequest(`/api/instruments/${instrumentId}/${kind === 'quiz' ? 'quizzes' : 'minigames'}`, {
-        method: 'POST', body,
-      });
-      setSaved(true);
-      if (kind === 'quiz') setQuizFormKey((key) => key + 1);
-      else { setForm(initialMinigame); setQuizFormKey(key => key + 1); }
-    } catch (error) {
-      setSaveError(error instanceof ApiError && error.status === 403
-        ? 'Bạn chưa có quyền tạo hoạt động cho nhạc cụ này. Vui lòng liên hệ quản trị viên.'
-        : error instanceof ApiError && error.status === 401
-          ? 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại để tiếp tục.'
-          : 'Chưa thể lưu hoạt động. Nội dung đã nhập vẫn được giữ lại. Vui lòng thử lại sau.');
-    } finally {
-      setSaving(false);
-    }
+      if (kind === 'quiz') {
+        if (editing) await instrumentQuizzesApi.update(editing.id, body as QuizInput);
+        else await instrumentQuizzesApi.create(instrumentId, body as QuizInput);
+      } else {
+        if (editing) await instrumentMinigamesApi.update(editing.id, body as MinigameInput);
+        else await instrumentMinigamesApi.create(instrumentId, body as MinigameInput);
+      }
+      setNotice(`${editing ? 'Đã cập nhật' : 'Đã tạo'} ${label}.`); reset(); setReload(value => value + 1);
+    } catch (caught) { setError(message(caught, `lưu ${label}`)); }
+    finally { setBusy(false); }
+  };
+  const remove = async () => {
+    if (!deleting || busy) return;
+    setBusy(true); setError(''); setNotice('');
+    try {
+      if (kind === 'quiz') await instrumentQuizzesApi.remove(deleting.id);
+      else await instrumentMinigamesApi.remove(deleting.id);
+      if (editing?.id === deleting.id) reset();
+      setDeleting(null); setNotice(`Đã xóa ${label}. Hoạt động có lượt chơi sẽ được lưu trữ để giữ lịch sử.`); setReload(value => value + 1);
+    } catch (caught) { setError(message(caught, `xóa ${label}`)); }
+    finally { setBusy(false); }
   };
 
-  return (
-    <div className="space-y-lg pb-8">
-      <header>
-        <h2 className="text-headline-lg font-bold text-[#1D4532]" style={{ fontFamily: "'Montserrat', sans-serif" }}>Biên soạn {kind === 'quiz' ? 'Quiz' : 'Minigame'}</h2>
-        <p className="mt-1 text-on-surface-variant">{kind === 'quiz' ? 'Tạo câu hỏi và đáp án để học viên củng cố kiến thức.' : 'Tạo thử thách nhịp điệu và giai điệu cho học viên luyện tập.'}</p>
-      </header>
-
-      <section aria-label="Phạm vi nhạc cụ" className="flex flex-col gap-3 rounded-2xl border border-[#d8eadf] bg-[#f7fbf8] p-4 md:flex-row md:items-center md:justify-between">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-[0.12em] text-[#567364]">Nhạc cụ đang biên soạn</p>
-          <p className="mt-1 text-lg font-bold text-[#1D4532]">{loading ? 'Đang tải nhạc cụ…' : loadError ? 'Chưa tải được nhạc cụ' : activeInstrument?.name ?? 'Chưa có nhạc cụ'}</p>
-          <p className="mt-1 text-xs text-on-surface-variant">{!loading && !loadError && !instruments.length ? 'Vui lòng liên hệ quản trị viên để thêm nhạc cụ.' : 'Hoạt động sẽ được lưu cho nhạc cụ bạn chọn.'}</p>
-          {loadError && <div role="alert" className="mt-2 text-sm text-red-700">{loadError} <button type="button" onClick={() => { setLoading(true); setLoadError(''); setRetry(value => value + 1); }} className="font-semibold underline">Thử tải lại</button></div>}
-        </div>
-        <label htmlFor="activity-instrument" className="flex min-w-0 flex-col gap-1 text-xs font-semibold text-[#52605a] md:w-[250px]">Chuyển nhạc cụ
-        <select id="activity-instrument" value={instrumentId ?? ''}
-          disabled={saving || unavailable}
-          onChange={(event) => { setInstrumentId(Number(event.target.value)); setSaved(false); setSaveError(''); }}
-          className="rounded-lg border border-[#c9ddcf] bg-white px-3 py-2.5 text-sm font-bold text-[#1D4532] outline-none focus:ring-2 focus:ring-[#1D4532]/20 disabled:opacity-60">
-          {!instruments.length && <option value="">{loading ? 'Đang tải…' : 'Chưa có nhạc cụ'}</option>}
-          {instruments.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-        </select>
-        </label>
-      </section>
-
-      {saved && <p ref={noticeRef} tabIndex={-1} role="status" className="flex items-start gap-2 rounded-xl border border-green-200 bg-green-50 p-4 text-sm text-green-800"><CheckCircle2 className="h-5 w-5 shrink-0" />Đã tạo {kind === 'quiz' ? 'Quiz' : 'Minigame'} cho {activeInstrument?.name}.</p>}
-      {saveError && <p ref={noticeRef} tabIndex={-1} role="alert" className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800"><AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />{saveError}</p>}
-
-      {kind === 'quiz' ? (
-        <section className="overflow-hidden rounded-2xl border border-outline-variant/15 bg-[#fbf9f4]">
-          <div className="border-b border-[#e4e9e5] bg-white px-4 py-4 sm:px-6"><h3 className="font-bold text-[#1D4532]">Câu hỏi mới</h3><p className="mt-1 text-xs text-on-surface-variant">Nhập câu hỏi, thêm lựa chọn và đánh dấu đáp án đúng.</p></div>
-          <QuizEditor key={quizFormKey} initial={null} defaultOrderIndex={1} saving={saving} disabled={unavailable} standalone
-            instrument={instruments.find((item) => item.id === instrumentId)?.name.toLowerCase().includes('sáo') ? 'sao_truc' : 'dan_tranh'}
-            onCancel={() => { setSaved(false); setSaveError(''); setQuizFormKey((key) => key + 1); }}
-            onSubmit={(body) => { void create(body); }} />
-        </section>
-      ) : (
-        <MinigameComposer key={quizFormKey} initial={form} saving={saving} disabled={unavailable}
-          onReset={() => { setSaveError(''); setSaved(false); setQuizFormKey(key => key + 1); }}
-          onSubmit={body => { void create(body); }} />
-      )}
-    </div>
-  );
-};
-
-export default InstructorActivities;
+  return <div className="space-y-6 pb-8">
+    <header><h2 className="text-headline-lg font-bold text-[#1D4532]">Quản lý {label}</h2><p className="mt-1 text-on-surface-variant">Tạo, xem, sửa và xóa hoạt động theo nhạc cụ.</p></header>
+    <section className="rounded-2xl border border-[#d8eadf] bg-[#f7fbf8] p-4">
+      <label htmlFor="activity-instrument" className="block text-sm font-semibold">Nhạc cụ</label>
+      <select id="activity-instrument" className="input mt-2 max-w-sm" value={instrumentId ?? ''} disabled={loading || busy} onChange={event => { setInstrumentId(Number(event.target.value)); setItems([]); setError(''); setNotice(''); setDeleting(null); reset(); }}>
+        {!instruments.length && <option value="">{loading ? 'Đang tải…' : 'Chưa có nhạc cụ'}</option>}
+        {instruments.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
+      </select>
+    </section>
+    {error && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</p>}
+    {notice && <p role="status" className="rounded-xl border border-green-200 bg-green-50 p-4 text-sm text-green-800">{notice}</p>}
+    <section aria-label={`Danh sách ${label}`} className="overflow-hidden rounded-2xl border border-[#d8eadf] bg-white">
+      <div className="flex items-center justify-between gap-3 border-b p-4"><div><h3 className="font-bold text-[#1D4532]">{label} của {instrument?.name ?? 'nhạc cụ'}</h3><p className="text-xs text-on-surface-variant">{items.length} hoạt động</p></div><button type="button" disabled={listLoading || !instrumentId} onClick={() => setReload(value => value + 1)} className="rounded-lg border px-3 py-2 text-sm disabled:opacity-50">Tải lại</button></div>
+      {listLoading ? <p className="p-5 text-sm">Đang tải danh sách…</p> : items.length === 0 ? <p className="p-5 text-sm">Chưa có {label} cho nhạc cụ này.</p> : <ul className="divide-y">{items.map(item => <li key={item.id} className="flex flex-wrap items-center justify-between gap-3 p-4">
+        <div><p className="font-semibold text-[#1D4532]">{item.title}</p><p className="text-xs text-on-surface-variant">{kind === 'quiz' ? quizLabel[(item as Quiz).questionType] ?? (item as Quiz).questionType : challengeLabel[(item as Minigame).challengeType] ?? (item as Minigame).challengeType} · {statusLabel[item.status ?? 'ACTIVE'] ?? item.status} · Thứ tự {item.orderIndex}</p></div>
+        <div className="flex gap-2"><button type="button" disabled={busy} onClick={() => { setEditing(item); setFormKey(value => value + 1); setError(''); }} className="rounded-lg border px-3 py-2 text-sm font-semibold disabled:opacity-50">Sửa</button><button type="button" disabled={busy} onClick={() => setDeleting(item)} className="rounded-lg border border-red-200 px-3 py-2 text-sm font-semibold text-red-700 disabled:opacity-50">Xóa</button></div>
+      </li>)}</ul>}
+    </section>
+    {deleting && <section role="alertdialog" aria-label={`Xóa ${label}`} className="rounded-xl border border-red-200 bg-red-50 p-4"><p className="font-semibold">Xóa “{deleting.title}”?</p><p className="mt-1 text-sm">Hoạt động đã có lượt chơi sẽ được lưu trữ để giữ lịch sử.</p><div className="mt-3 flex gap-2"><button type="button" disabled={busy} onClick={() => setDeleting(null)} className="rounded-lg border bg-white px-4 py-2 text-sm">Hủy</button><button type="button" disabled={busy} onClick={() => void remove()} className="rounded-lg bg-red-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">{busy ? 'Đang xóa…' : 'Xác nhận xóa'}</button></div></section>}
+    <section aria-label={editing ? `Sửa ${label}` : `Tạo ${label}`}>
+      {kind === 'quiz' ? <QuizEditor key={formKey} initial={editing as Quiz | null} defaultOrderIndex={items.length + 1} saving={busy} disabled={!instrumentId || loading || listLoading} standalone={!editing} instrument={instrument?.name.toLowerCase().includes('sáo') ? 'sao_truc' : 'dan_tranh'} onCancel={reset} onSubmit={body => { void save(body); }} />
+        : <MinigameComposer key={formKey} initial={(editing as Minigame | null) ?? { ...emptyMinigame, orderIndex: items.length + 1 }} editing={!!editing} saving={busy} disabled={!instrumentId || loading || listLoading} onReset={reset} onSubmit={body => { void save(body); }} />}
+    </section>
+  </div>;
+}
