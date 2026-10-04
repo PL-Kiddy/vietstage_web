@@ -7,6 +7,7 @@ import type { PracticeSheetEvent } from './PracticeSheetComposer';
 
 interface Props {
   initial: MinigameInput;
+  editing?: boolean;
   saving: boolean;
   disabled: boolean;
   onReset: () => void;
@@ -21,15 +22,35 @@ const durations = {
 } as const;
 type NoteDuration = PracticeSheetEvent['duration'];
 type ComposerNote = { pitch: string; duration: NoteDuration };
+const durationFromBeats = (beats: number): NoteDuration => (Object.entries(durations).find(([, value]) => value.beats === beats)?.[0] ?? 'quarter') as NoteDuration;
+const readContent = (raw?: string): Record<string, unknown> => { try { return JSON.parse(raw ?? '{}') as Record<string, unknown>; } catch { return {}; } };
+const readNotes = (content: Record<string, unknown>): ComposerNote[] => {
+  const round = Array.isArray(content.rounds) ? content.rounds[0] as Record<string, unknown> | undefined : undefined;
+  const events = Array.isArray(round?.events) ? round.events as Array<Record<string, unknown>> : [];
+  if (events.length) return events.map(event => ({ pitch: String(event.note ?? ''), duration: durationFromBeats(Number(event.duration_beats ?? 1)) }));
+  const melody = Array.isArray(content.melody) ? content.melody : [];
+  const beats = Array.isArray(content.durations_beats) ? content.durations_beats : [];
+  if (melody.length) return melody.map((pitch, index) => ({ pitch: String(pitch), duration: durationFromBeats(Number(beats[index] ?? 1)) }));
+  return ['Sol1', 'La1', 'Đô2', 'Rê2'].map(pitch => ({ pitch, duration: 'quarter' }));
+};
 const validNote = (note: string) => /^(?:[A-G][#b]?[1-6]|(?:Đô|Rê|Mi|Fa|Sol|La|Si)[1-4])$/.test(note.trim());
 
-export default function MinigameComposer({ initial, saving, disabled, onReset, onSubmit }: Props) {
+export default function MinigameComposer({ initial, editing = false, saving, disabled, onReset, onSubmit }: Props) {
   const [form, setForm] = useState(initial);
-  const [notes, setNotes] = useState<ComposerNote[]>(['Sol1', 'La1', 'Đô2', 'Rê2'].map(pitch => ({ pitch, duration: 'quarter' })));
-  const [clef, setClef] = useState<StaffClef>('treble');
-  const [timeSignature, setTimeSignature] = useState<TimeSignature>([4, 4]);
-  const [tempo, setTempo] = useState(100);
-  const [missingIndex, setMissingIndex] = useState(2);
+  const [notes, setNotes] = useState<ComposerNote[]>(() => readNotes(readContent(initial.contentJson)));
+  const [clef, setClef] = useState<StaffClef>(() => readContent(initial.contentJson).clef === 'bass' ? 'bass' : 'treble');
+  const [timeSignature, setTimeSignature] = useState<TimeSignature>(() => {
+    const content = readContent(initial.contentJson);
+    const round = Array.isArray(content.rounds) ? content.rounds[0] as Record<string, unknown> | undefined : undefined;
+    const value = round?.time_signature ?? content.time_signature;
+    return Array.isArray(value) && value.length === 2 ? [Number(value[0]), Number(value[1])] : [4, 4];
+  });
+  const [tempo, setTempo] = useState(() => {
+    const content = readContent(initial.contentJson);
+    const round = Array.isArray(content.rounds) ? content.rounds[0] as Record<string, unknown> | undefined : undefined;
+    return Number(round?.tempo_bpm ?? content.bpm ?? 100);
+  });
+  const [missingIndex, setMissingIndex] = useState(() => Number(readContent(initial.contentJson).missing_index ?? 2));
   const [error, setError] = useState('');
   const previewEvents: PracticeSheetEvent[] = notes.map(note => ({ notes: validNote(note.pitch) ? [note.pitch.trim()] : [], duration: note.duration, fingering: [], technique: 'none' }));
   const annotations = notes.map((note, index) => !validNote(note.pitch) ? `Nốt ${index + 1}: chưa hợp lệ` : form.challengeType === 'MELODY_COMPLETE'
@@ -59,14 +80,17 @@ export default function MinigameComposer({ initial, saving, disabled, onReset, o
       return event;
     });
     const content = form.challengeType === 'RHYTHM_MATCH'
-      ? { beats: [], clef, rounds: [{ title: 'Vòng 1', tempo_bpm: tempo, clef, time_signature: timeSignature, beats: [], notes: [], events }] }
-      : { melody, missing_index: missingIndex, missing_positions: [missingIndex], note_options: {}, correct_answers: {}, bpm: tempo,
+      ? { beats: [], clef, rounds: [{ title: 'Vòng 1', tempo_bpm: tempo, clef, time_signature: timeSignature,
+          beats: events.map(event => Number((event.at_ms / beatMs).toFixed(3))), notes: melody, events }] }
+      : { melody, missing_index: missingIndex, missing_positions: [missingIndex],
+          note_options: { [missingIndex]: Array.from(new Set([melody[missingIndex], ...melody, 'Sol1', 'La1', 'Đô2', 'Rê2'])).slice(0, 4) },
+          correct_answers: { [missingIndex]: melody[missingIndex] }, bpm: tempo, time_limit_sec: 60,
           clef, time_signature: timeSignature, durations_beats: events.map(event => event.duration_beats) };
     onSubmit({ ...form, title: form.title.trim(), contentJson: JSON.stringify(content) });
   };
 
   return <form onSubmit={submit} className="overflow-hidden rounded-2xl border border-outline-variant/15 bg-[#fbf9f4]">
-    <div className="border-b border-[#e4e9e5] bg-white px-4 py-4 sm:px-6"><h3 className="font-bold text-[#1D4532]">Thử thách mới</h3><p className="mt-1 text-xs text-on-surface-variant">Đặt tên thử thách, chọn loại trò chơi và biên soạn chuỗi nốt.</p></div>
+    <div className="border-b border-[#e4e9e5] bg-white px-4 py-4 sm:px-6"><h3 className="font-bold text-[#1D4532]">{editing ? 'Sửa thử thách' : 'Thử thách mới'}</h3><p className="mt-1 text-xs text-on-surface-variant">Đặt tên thử thách, chọn loại trò chơi và biên soạn chuỗi nốt.</p></div>
     <fieldset disabled={saving || disabled} className="min-w-0 space-y-5 p-4 sm:p-6">
       {error && <p role="alert" className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700"><AlertCircle className="h-5 w-5 shrink-0" />{error}</p>}
       <section className={`${panel} space-y-4`}>
@@ -114,7 +138,7 @@ export default function MinigameComposer({ initial, saving, disabled, onReset, o
     </fieldset>
     <div className="grid grid-cols-2 gap-3 border-t border-[#e4e9e5] bg-white px-4 py-4 sm:px-6">
       <button type="button" disabled={saving || disabled} onClick={onReset} className="rounded-xl border border-outline-variant/40 px-4 py-3.5 font-bold text-on-surface-variant hover:bg-[#f0eee9] disabled:opacity-50">Làm mới</button>
-      <button type="submit" disabled={saving || disabled} className="flex items-center justify-center gap-2 rounded-xl bg-[#1D4532] px-4 py-3.5 font-bold text-white hover:bg-[#1D4532]/90 disabled:opacity-50">{saving && <Loader2 className="h-4 w-4 animate-spin" />}{saving ? 'Đang lưu…' : 'Tạo Minigame'}</button>
+      <button type="submit" disabled={saving || disabled} className="flex items-center justify-center gap-2 rounded-xl bg-[#1D4532] px-4 py-3.5 font-bold text-white hover:bg-[#1D4532]/90 disabled:opacity-50">{saving && <Loader2 className="h-4 w-4 animate-spin" />}{saving ? 'Đang lưu…' : editing ? 'Lưu thay đổi' : 'Tạo Minigame'}</button>
     </div>
   </form>;
 }
